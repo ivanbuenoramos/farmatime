@@ -1,0 +1,43 @@
+import 'package:farmatime/domain/usecases/employee_schedule/delete_recurring_rule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/upsert_recurring_rule_usecase.dart';
+import 'package:get/get.dart';
+
+import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
+import 'package:farmatime/data/repositories/employee_schedule_repository_impl.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_employee_year_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_year_schedule_usecase.dart';
+import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
+
+class EmployeeScheduleBinding extends Bindings {
+
+  @override
+  void dependencies() {
+    // Repo
+    Get.lazyPut<EmployeeScheduleRepository>(() => EmployeeScheduleRepositoryImpl());
+
+    // UseCases
+    Get.lazyPut<GetEmployeeYearScheduleUseCase>(
+      () => GetEmployeeYearScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+    Get.lazyPut<UpsertEmployeeYearScheduleUseCase>(
+      () => UpsertEmployeeYearScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+    Get.lazyPut<ListRecurringRulesUseCase>(
+      () => ListRecurringRulesUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+    Get.lazyPut<UpsertRecurringRuleUseCase>(
+      () => UpsertRecurringRuleUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+    Get.lazyPut<DeleteRecurringRuleUseCase>(
+      () => DeleteRecurringRuleUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+
+    // Controller
+    Get.lazyPut<EmployeeScheduleController>(() => EmployeeScheduleController(
+          getYearUC: Get.find<GetEmployeeYearScheduleUseCase>(),
+          upsertYearUC: Get.find<UpsertEmployeeYearScheduleUseCase>(),
+          listRulesUC: Get.find<ListRecurringRulesUseCase>(),
+        ));
+  }
+}

@@ -1,0 +1,207 @@
+import 'package:farmatime/data/models/schedule/day_entry.dart';
+import 'package:farmatime/presentation/widgets/schedule/schedule_calendar.dart';
+import 'package:flutter/material.dart';
+
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
+
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
+import 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_controller.dart';
+
+// ▼ import NUEVO: calendario reusable
+
+class EmployeeDetailPage extends GetView<EmployeeDetailController> {
+  const EmployeeDetailPage({super.key});
+
+  String formatHour(DateTime dt) => DateFormat.Hm().format(dt);
+  String formatDate(DateTime dt) => DateFormat('d/M/yy').format(dt);
+  String formatDiff(Duration diff) => '+${diff.inMinutes}m';
+
+  @override
+  Widget build(BuildContext context) {
+    String formatHour(DateTime dt) => DateFormat.Hm().format(dt);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Perfil de empleado'),
+        actions: [
+          IconButton(
+            onPressed: () => controller.redirectToEmployeeSchedule(),
+            icon: const Icon(Icons.edit_rounded),
+            tooltip: 'Editar',
+          ),
+        ],
+      ),
+      body: Obx(() {
+        final employee = controller.employee.value;
+        if (employee == null) return const SizedBox();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BaseCard(
+                title: 'Información',
+                children: [
+                  ListTile(
+                    leading: const CircleAvatar(
+                      radius: 30,
+                      backgroundImage: NetworkImage('https://randomuser.me/api/portraits/men/32.jpg'),
+                    ),
+                    title: Text(employee.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(employee.position ?? 'Empleado'),
+                        Text(
+                          employee.email ?? 'Jornada completa',
+                          style: const TextStyle(color: Colors.blue),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+              const SizedBox(height: 16),
+              // ───────────────────────────────────────────────────
+              // FICHAJES (tal cual)
+              // ───────────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Get.theme.colorScheme.surface,
+                  border: Border.all(color: Get.theme.colorScheme.outline),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Fichajes de ${DateFormat('MMMM yyyy').format(controller.selectedMonth.value)}',
+                          style: Get.textTheme.headlineSmall,
+                        ),
+                        Obx(() {
+                          final monthStr = DateFormat.MMMM('es_ES').format(controller.selectedMonth.value);
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              GestureDetector(
+                                onTap: controller.prevMonth,
+                                child: const Icon(Icons.chevron_left, color: Colors.blue),
+                              ),
+                              Text(monthStr, style: Get.textTheme.titleMedium),
+                              GestureDetector(
+                                onTap: controller.nextMonth,
+                                child: const Icon(Icons.chevron_right, color: Colors.blue),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Obx(() {
+                      final month = controller.selectedMonth.value;
+                      final filtered = controller.groupedClockIns
+                          .entries
+                          .where((e) => e.key.year == month.year && e.key.month == month.month)
+                          .toList()
+                        ..sort((a, b) => b.key.compareTo(a.key));
+
+                      if (filtered.isEmpty) {
+                        return const Center(child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Sin fichajes este mes'),
+                        ));
+                      }
+
+                      return DataTable(
+                        headingRowHeight: 32,
+                        dataRowMinHeight: 32,
+                        columnSpacing: 14,
+                        columns: const [
+                          DataColumn(label: Text('Día')),
+                          DataColumn(label: Text('Empl.')),
+                          DataColumn(label: Text('Fich.')),
+                          DataColumn(label: Text('Prev.')),
+                          DataColumn(label: Text('Trab.')),
+                          DataColumn(label: Text('Dif.')),
+                        ],
+                        rows: filtered.map((dayGroup) {
+                          final items = dayGroup.value.sorted((a, b) => a.time.compareTo(b.time));
+                          Duration worked = Duration.zero;
+                          for (var i = 0; i < items.length; i += 2) {
+                            if (i + 1 < items.length && items[i].type == ClockInOutType.entry) {
+                              final out = items[i + 1];
+                              if (out.type == ClockInOutType.exit) {
+                                worked += out.time.difference(items[i].time);
+                              }
+                            }
+                          }
+                          final workedText =
+                              '${worked.inHours}:${worked.inMinutes.remainder(60).toString().padLeft(2, '0')}';
+                          final diff = worked - const Duration(hours: 8);
+                          final diffText =
+                              '${diff.isNegative ? '' : '+'}${diff.inMinutes}m';
+
+                          return DataRow(cells: [
+                            DataCell(Text(DateFormat('d/M').format(dayGroup.key))),
+                            DataCell(Text(employee.name)),
+                            DataCell(Text('${items.length ~/ 2}')),
+                            const DataCell(Text('8h')),
+                            DataCell(Text(workedText)),
+                            DataCell(Text(diffText,
+                                style: TextStyle(
+                                    color: diff.isNegative ? Colors.red : Colors.blue))),
+                          ]);
+                        }).toList(),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // ───────────────────────────────────────────────────
+              // CALENDARIO DE HORARIO (NUEVO)
+              // ───────────────────────────────────────────────────
+              BaseCard(
+                title: 'Calendario',
+                children: [
+                  Obx(() {
+                    if (controller.isLoadingSchedule.value && controller.scheduleOverrides.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    return EmployeeScheduleCalendar(
+                      firstDay: DateTime.utc(DateTime.now().year - 1, 1, 1),
+                      lastDay:  DateTime.utc(DateTime.now().year + 2, 12, 31),
+                      focusedDay: controller.calendarFocusedDay.value,
+                      selectedDay: null,
+                      rangeStart: null,
+                      rangeEnd: null,
+                      overridesByDay: Map<DateTime, dynamic>.from(controller.scheduleOverrides)
+                          .cast<DateTime, DayEntry>(),
+                      rules: controller.scheduleRules,
+                      onPageChanged: controller.onCalendarPageChanged,
+                      locale: 'es_ES',
+                      showTimes: true,
+                      compact: true,
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}

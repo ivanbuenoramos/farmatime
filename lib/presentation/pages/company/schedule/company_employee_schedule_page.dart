@@ -1,0 +1,185 @@
+import 'package:farmatime/presentation/widgets/schedule/recurring_rules_card.dart';
+import 'package:flutter/material.dart';
+
+import 'package:get/get.dart';
+import 'package:table_calendar/table_calendar.dart';
+
+import 'package:farmatime/data/models/schedule/day_entry.dart';
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
+import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
+
+class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
+  const EmployeeSchedulePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Get.theme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Horario del empleado'),
+        actions: [
+          Obx(() => IconButton(
+                onPressed: controller.isSaving.value ? null : controller.save,
+                icon: controller.isSaving.value
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.save_rounded),
+                tooltip: 'Guardar',
+              )),
+        ],
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              BaseCard(
+                title: 'Leyenda',
+                description: 'Colores por tipo de día',
+                children: [
+                  _legendItem(theme.colorScheme.primary.withOpacity(0.25), 'Laboral'),
+                  const SizedBox(height: 8),
+                  _legendItem(theme.colorScheme.tertiaryContainer.withOpacity(0.35), 'Libre'),
+                  const SizedBox(height: 8),
+                  _legendItem(theme.colorScheme.errorContainer.withOpacity(0.45), 'Vacaciones'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              BaseCard(
+                title: 'Horario recurrente',
+                description: 'Define turnos semanales con fin opcional. Los overrides del calendario tienen prioridad.',
+                children: [
+                  RecurringRulesCard(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              BaseCard(
+                title: 'Calendario',
+                children: [
+                  _Calendar(theme: theme),
+                ],
+              ),
+              const SizedBox(height: 12),
+              BaseCard(
+                title: 'Acciones',
+                children: [
+                  _Actions(theme: theme),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _legendItem(Color c, String t) => Row(children: [
+        Container(width: 16, height: 16, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
+        const SizedBox(width: 8),
+        Text(t),
+      ]);
+}
+
+class _Calendar extends GetView<EmployeeScheduleController> {
+  const _Calendar({required this.theme});
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      return TableCalendar(
+        locale: 'es_ES',
+        firstDay: DateTime.utc(DateTime.now().year - 1, 1, 1),
+        lastDay: DateTime.utc(DateTime.now().year + 2, 12, 31),
+        focusedDay: controller.focusedDay.value,
+        selectedDayPredicate: (day) => isSameDay(controller.selectedDay.value, day),
+        rangeStartDay: controller.rangeStart.value,
+        rangeEndDay: controller.rangeEnd.value,
+        rangeSelectionMode: controller.rangeSelectionMode.value,
+        availableCalendarFormats: const {CalendarFormat.month: 'Mes'},
+        onDaySelected: controller.onDaySelected,
+        onRangeSelected: controller.onRangeSelected,
+        onPageChanged: (focused) async {
+          controller.focusedDay.value = focused;
+          await controller.loadYear(focused.year);
+        },
+        calendarBuilders: CalendarBuilders(
+          defaultBuilder: (context, day, focused) => _dayCell(day, theme),
+          outsideBuilder: (context, day, focused) => Opacity(opacity: 0.4, child: _dayCell(day, theme)),
+          todayBuilder: (context, day, focused) => _dayCell(day, theme, outline: theme.colorScheme.secondary),
+          selectedBuilder: (context, day, focused) => _dayCell(day, theme, outline: theme.colorScheme.primary, bold: true),
+        ),
+      );
+    });
+  }
+
+  Widget _dayCell(DateTime day, ThemeData theme, {Color? outline, bool bold = false}) {
+    final c = Get.find<EmployeeScheduleController>().colorFor(day, theme);
+    return Container(
+      margin: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: c,
+        borderRadius: BorderRadius.circular(10),
+        border: outline != null ? Border.all(color: outline, width: 1.5) : null,
+      ),
+      alignment: Alignment.center,
+      child: Text('${day.day}', style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+    );
+  }
+}
+
+class _Actions extends GetView<EmployeeScheduleController> {
+  const _Actions({required this.theme});
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilledButton.icon(
+          onPressed: () => _setType(context, DayType.work),
+          icon: const Icon(Icons.work_history_rounded),
+          label: const Text('Marcar laboral (con horario)'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _setType(context, DayType.off),
+          icon: const Icon(Icons.event_busy_rounded),
+          label: const Text('Marcar libre'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _setType(context, DayType.vacation),
+          icon: const Icon(Icons.beach_access_rounded),
+          label: const Text('Marcar vacaciones'),
+        ),
+        TextButton.icon(
+          onPressed: controller.clearSelection,
+          icon: const Icon(Icons.undo_rounded),
+          label: const Text('Quitar asignación'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _setType(BuildContext context, DayType type) async {
+    if (type == DayType.work) {
+      final res = await _pickShift(context);
+      if (res == null) return;
+      await controller.setForSelection(DayEntry(type: DayType.work, start: res.$1, end: res.$2));
+    } else {
+      await controller.setForSelection(DayEntry(type: type));
+    }
+  }
+
+  Future<(TimeOfDay, TimeOfDay)?> _pickShift(BuildContext context) async {
+    final from = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
+    if (from == null) return null;
+    final to = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
+    if (to == null) return null;
+    return (from, to);
+  }
+}
