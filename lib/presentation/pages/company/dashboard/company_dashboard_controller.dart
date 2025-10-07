@@ -10,14 +10,13 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_today_last_clocks_usecase.dart';
 
-
 enum TodayStatus { working, absent, off }
 
 class EmployeeRow {
   final EmployeeModel emp;
   final TodayStatus status;
-  final DateTime? lastClockIn;               // si está trabajando
-  final ExpectedShiftModel? expected;        // null si no trabaja hoy
+  final DateTime? lastClockIn;        // si está trabajando
+  final ExpectedShiftModel? expected; // null si no trabaja hoy
 
   EmployeeRow({
     required this.emp,
@@ -41,6 +40,9 @@ class IncoherentAlert {
   });
 }
 
+// Usamos nombres para evitar líos con $1/$2
+typedef ClockSnap = ({bool isActive, DateTime? lastClockIn});
+
 class CompanyDashboardController extends GetxController {
   CompanyDashboardController({
     required this.getEmployeesByCompany,
@@ -59,7 +61,7 @@ class CompanyDashboardController extends GetxController {
   final isLoading = false.obs;
   final errorText = RxnString();
 
-  // Secciones (para la UI)
+  // Secciones
   final working = <EmployeeRow>[].obs;
   final absent  = <EmployeeRow>[].obs;
   final off     = <EmployeeRow>[].obs;
@@ -92,9 +94,9 @@ class CompanyDashboardController extends GetxController {
     errorText.value = null;
 
     try {
-
-      // 1) Empleados activos de la empresa (EmployeeModel)
-      final Result<List<EmployeeModel>> employeesResult = await getEmployeesByCompany.call(brain.company.value!.id);
+      // 1) Empleados activos de la empresa
+      final Result<List<EmployeeModel>> employeesResult =
+          await getEmployeesByCompany.call(brain.company.value!.id);
 
       if (!employeesResult.success) {
         errorText.value = 'Error al cargar empleados: ${employeesResult.errorCode}';
@@ -111,63 +113,68 @@ class CompanyDashboardController extends GetxController {
             dayDate: _todayStart,
           );
 
-      // 3) Último fichaje de HOY + si está activo
-      final Map<String, (DateTime?, bool)> clocks =
+      // 3) Último fichaje de HOY + indicador de actividad
+      //    El use case devuelve (DateTime? lastClockIn, bool isActive)
+      //    isActive debe significar: "tiene entrada abierta (clockOut == null)".
+      final Map<String, (DateTime?, bool)> rawClocks =
           await getTodayLastClocks(brain.company.value!.id, _todayStart, _todayEnd);
 
-      // 4) Clasificación
+      // Normalizamos a record con nombres
+      final Map<String, ClockSnap> clocks = {
+        for (final e in rawClocks.entries)
+          e.key: (isActive: e.value.$2, lastClockIn: e.value.$1)
+      };
+
+      // 4) Clasificación según tus reglas
       working.clear();
       absent.clear();
       off.clear();
       incoherent.clear();
 
       for (final emp in employees) {
-        final ExpectedShiftModel? exp = expectedMap[emp.uid];
-        final lastForEmp = clocks[emp.uid];
+        final exp = expectedMap[emp.uid];
+        final snap = clocks[emp.uid];
+        final isActive = snap?.isActive == true;
+        final lastClockIn = snap?.lastClockIn;
 
-        if (exp == null) {
-          // No debe trabajar hoy
-          off.add(EmployeeRow(emp: emp, status: TodayStatus.off));
-          continue;
-        }
-
-        final bool isActive = lastForEmp?.$2 == true;
-        final DateTime? lastClockIn = lastForEmp?.$1;
-
+        // 👇 nuevo: si está con entrada abierta, es Working aunque exp sea null
         if (isActive && lastClockIn != null) {
-          // Trabajando (marcaje abierto)
           working.add(EmployeeRow(
             emp: emp,
             status: TodayStatus.working,
             lastClockIn: lastClockIn,
             expected: exp,
           ));
-        } else {
-          // No activo. ¿Debería estar?
-          final now = DateTime.now();
-          final bool dentroDeTurno = now.isAfter(exp.start) && now.isBefore(exp.end.add(const Duration(minutes: 1)));
-
-          if (dentroDeTurno) {
-            final delay = now.difference(exp.start);
-            if (delay >= incoherentThreshold) {
-              // Ausencia + incoherencia (>30 min sin fichar desde el inicio del turno)
-              absent.add(EmployeeRow(emp: emp, status: TodayStatus.absent, expected: exp));
-              incoherent.add(IncoherentAlert(
-                emp: emp,
-                reason: 'Ausencia',
-                deltaMinutes: delay.inMinutes,
-                date: now,
-              ));
-            } else {
-              // Aún dentro del margen de 30'
-              absent.add(EmployeeRow(emp: emp, status: TodayStatus.absent, expected: exp));
-            }
-          } else {
-            // Fuera del tramo horario de hoy
-            off.add(EmployeeRow(emp: emp, status: TodayStatus.off, expected: exp));
-          }
+          continue;
         }
-      }
+
+        if (exp == null) {
+          off.add(EmployeeRow(emp: emp, status: TodayStatus.off));
+          continue;
+        }
+
+        final now = DateTime.now();
+        final dentroDeTurno = _isNowWithinShift(exp.start, exp.end, now: now);
+
+        if (dentroDeTurno) {
+          absent.add(EmployeeRow(emp: emp, status: TodayStatus.absent, expected: exp));
+          final delay = now.difference(exp.start);
+          if (delay >= incoherentThreshold) {
+            incoherent.add(IncoherentAlert(
+              emp: emp,
+              reason: 'Ausencia',
+              deltaMinutes: delay.inMinutes,
+              date: now,
+            ));
+          }
+        } else {
+          off.add(EmployeeRow(emp: emp, status: TodayStatus.off, expected: exp));
+        }
+}
+      print(working.length);
+      print(absent.length);
+      print(off.length);
+      print(incoherent.length);
     } catch (e) {
       errorText.value = 'Error al cargar el dashboard: $e';
     } finally {
@@ -183,5 +190,22 @@ class CompanyDashboardController extends GetxController {
       return 'Hace ${h}h ${m}m';
     }
     return 'Hace ${diff.inMinutes}m';
+  }
+
+  bool _isNowWithinShift(DateTime start, DateTime end, {DateTime? now}) {
+    // Normaliza todo a UTC para evitar desfases TZ
+    final n = (now ?? DateTime.now()).toUtc();
+    final s = start.toUtc();
+    final e = end.toUtc();
+
+    if (!e.isBefore(s)) {
+      // Turno normal mismo día: [start, end] (incluimos 1 min de margen)
+      return (n.isAtSameMomentAs(s) || n.isAfter(s)) &&
+            (n.isBefore(e.add(const Duration(minutes: 1))));
+    } else {
+      // Turno nocturno: start -> 23:59... y 00:00 -> end (día siguiente)
+      // Dentro si: n >= start  (hoy)  OR  n <= end (mañana)
+      return n.isAtSameMomentAs(s) || n.isAfter(s) || n.isBefore(e.add(const Duration(minutes: 1)));
+    }
   }
 }

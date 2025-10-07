@@ -1,3 +1,4 @@
+import 'package:farmatime/presentation/pages/chat/inbox/inbiox_binding.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/pages/company/main/company_main_controller.dart';
@@ -14,6 +15,7 @@ class CompanyMainBinding extends Bindings {
     
     CompanyDashboardBinding().dependencies();
     CompanyEntriesBinding().dependencies();
+    InboxBinding().dependencies();
     CompanyEmployeesBinding().dependencies();
     CompanyProfileBinding().dependencies();
     

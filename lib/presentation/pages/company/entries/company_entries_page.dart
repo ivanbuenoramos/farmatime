@@ -15,7 +15,7 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
         return RefreshIndicator(
           onRefresh: controller.fetchRecords,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
               _FiltersCard(controller: controller),
               const SizedBox(height: 16),
@@ -46,15 +46,13 @@ class _FiltersCard extends StatelessWidget {
     final df = DateFormat('d/M/yy');
 
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Filtros', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
+            Text('Filtros', style: theme.textTheme.headlineSmall),
+            const Divider(height: 12),
             Row(
               children: [
                 Expanded(
@@ -150,7 +148,6 @@ class _EmployeeDropdown extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Empleados', style: theme.textTheme.labelMedium),
-        const SizedBox(height: 6),
         Obx(() {
           final items = <DropdownMenuItem<String?>>[
             const DropdownMenuItem<String?>(
@@ -166,7 +163,7 @@ class _EmployeeDropdown extends StatelessWidget {
           ];
 
           return DropdownButtonFormField<String?>(
-            value: controller.selectedEmployeeId.value,
+            initialValue: controller.selectedEmployeeId.value,
             items: items,
             onChanged: (val) => controller.setEmployee(val),
             decoration: InputDecoration(
@@ -195,10 +192,8 @@ class _RecordsCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.all(10),
         child: Obx(() {
           final loading = controller.isLoading.value;
           final rows = controller.rows;
@@ -206,8 +201,8 @@ class _RecordsCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Fichajes', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 12),
+              Text('Fichajes', style: theme.textTheme.headlineSmall),
+              const Divider(height: 12),
               if (loading) ...[
                 const SizedBox(height: 24),
                 const Center(child: CircularProgressIndicator()),

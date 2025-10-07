@@ -286,7 +286,7 @@ class EmployeeScheduleCalendar extends StatelessWidget {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     if (m == 0) return '${h}h';
-    return '${h}h ${m} min';
+    return '${h}h $m min';
   }
 
   static String _fmtTime(TimeOfDay t) =>

@@ -14,8 +14,7 @@ class FarmatimeTheme {
       onError: Color(0xffFFFFFF),
       surface: Color(0xffFFFFFF),
       onSurface: Color(0xff1971FF),
-      outline: Color(0xffE5E5E5),
-      background: Color(0xffF5F5F8)
+      outline: Color(0xffE5E5E5)
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xff1971FF),
@@ -35,6 +34,16 @@ class FarmatimeTheme {
     buttonTheme: const ButtonThemeData(
       splashColor: Colors.transparent,
     ),
+    cardTheme: CardThemeData(
+      color: Color(0xffFFFFFF),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xffE5E5E5), width: 1),
+      ),
+      elevation: 0,
+    ),
+    dividerColor: const Color(0xffE5E5E5),
     textButtonTheme: TextButtonThemeData(
       style: ButtonStyle(
         textStyle: WidgetStateProperty.resolveWith<TextStyle?>(

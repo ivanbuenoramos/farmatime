@@ -11,10 +11,15 @@ class CompanyModel {
   final Address? address;
   final PhoneNumber? phoneNumber;
 
+  /// Número de slots comprados localmente (deprecated, pero mantenemos compatibilidad)
   final int purchasedEmployeeSlots;
 
+  /// Stripe mirror
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
+  final int? contractedSeats; // 👈 asientos contratados en Stripe
+  final String? billingStatus; // 👈 estado de la suscripción
+  final DateTime? currentPeriodEnd; // 👈 fecha de renovación
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -30,6 +35,9 @@ class CompanyModel {
     required this.purchasedEmployeeSlots,
     this.stripeCustomerId,
     this.stripeSubscriptionId,
+    this.contractedSeats,
+    this.billingStatus,
+    this.currentPeriodEnd,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -42,9 +50,14 @@ class CompanyModel {
         vatNumber: json['vatNumber'],
         address: json['address'] != null ? Address.fromJson(json['address']) : null,
         phoneNumber: json['phoneNumber'] != null ? PhoneNumber.fromJson(json['phoneNumber']) : null,
-        purchasedEmployeeSlots: json['purchasedEmployeeSlots'],
+        purchasedEmployeeSlots: json['purchasedEmployeeSlots'] ?? 0,
         stripeCustomerId: json['stripeCustomerId'],
         stripeSubscriptionId: json['stripeSubscriptionId'],
+        contractedSeats: json['contractedSeats'],
+        billingStatus: json['billingStatus'],
+        currentPeriodEnd: json['currentPeriodEnd'] != null
+            ? DateTime.tryParse(json['currentPeriodEnd'].toString())
+            : null,
         createdAt: DateTime.parse(json['createdAt']),
         updatedAt: DateTime.parse(json['updatedAt']),
       );
@@ -60,6 +73,9 @@ class CompanyModel {
         'purchasedEmployeeSlots': purchasedEmployeeSlots,
         'stripeCustomerId': stripeCustomerId,
         'stripeSubscriptionId': stripeSubscriptionId,
+        'contractedSeats': contractedSeats,
+        'billingStatus': billingStatus,
+        'currentPeriodEnd': currentPeriodEnd?.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -75,6 +91,9 @@ class CompanyModel {
     int? purchasedEmployeeSlots,
     String? stripeCustomerId,
     String? stripeSubscriptionId,
+    int? contractedSeats,
+    String? billingStatus,
+    DateTime? currentPeriodEnd,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -89,6 +108,9 @@ class CompanyModel {
       purchasedEmployeeSlots: purchasedEmployeeSlots ?? this.purchasedEmployeeSlots,
       stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
       stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
+      contractedSeats: contractedSeats ?? this.contractedSeats,
+      billingStatus: billingStatus ?? this.billingStatus,
+      currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

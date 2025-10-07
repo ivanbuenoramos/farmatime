@@ -73,26 +73,36 @@ class ClockRepositoryImpl implements ClockRepository {
     DateTime to,
   ) async {
     try {
+      final fromWindow = from.subtract(const Duration(days: 1)); // 👈 ventana previa
       final snap = await firestore
           .collection('clockRecords')
           .where('companyId', isEqualTo: companyId)
-          .where('clockIn', isGreaterThanOrEqualTo: from.toIso8601String())
-          .where('clockIn', isLessThanOrEqualTo: to.toIso8601String())
+          .where('clockIn', isGreaterThanOrEqualTo: fromWindow)
+          .where('clockIn', isLessThanOrEqualTo: to)
           .orderBy('clockIn', descending: true)
           .get();
 
       final map = <String, ClockInOutModel>{};
+
       for (final doc in snap.docs) {
-        final data = doc.data();
-        final rec = ClockInOutModel.fromJson(data);
-        // si ya tenemos ese empleado, ignoramos (ya añadimos el más reciente)
-        if (!map.containsKey(rec.employeeId)) {
-          map[rec.employeeId] = rec;
+        final rec = ClockInOutModel.fromJson(doc.data());
+
+        final bool dentroDeHoy =
+            (rec.clockIn.isAtSameMomentAs(from) || rec.clockIn.isAfter(from)) &&
+            (rec.clockIn.isBefore(to) || rec.clockIn.isAtSameMomentAs(to));
+
+        final bool abiertoDeAyer =
+            rec.clockIn.isBefore(from) && rec.clockOut == null;
+
+        if ((dentroDeHoy || abiertoDeAyer) && !map.containsKey(rec.employeeId)) {
+          map[rec.employeeId] = rec; // al ir descendente es el último relevante
         }
       }
+
       return Result(success: true, data: map);
     } catch (e) {
       return Result(success: false, data: {}, errorCode: e.toString());
     }
   }
+
 }

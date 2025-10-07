@@ -1,5 +1,6 @@
 import 'dart:convert';
-
+import 'package:farmatime/domain/repositories/chat_repository.dart';
+import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -10,18 +11,24 @@ import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/company_model.dart';
+import 'package:farmatime/data/models/employee_model.dart';
+
+// Usecases
 import 'package:farmatime/domain/usecases/company/get_company_by_id_usecase.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_in_with_email_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 
-
+// Chat
 
 class CompanyAuthSignInController extends GetxController {
   final SignInWithEmailUseCase signInWithEmailUseCase;
   final GetCompanyByIdUseCase getCompanyByIdUseCase;
+  final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase; // ⬅️ NUEVO
 
   CompanyAuthSignInController({
     required this.signInWithEmailUseCase,
     required this.getCompanyByIdUseCase,
+    required this.getEmployeesByCompanyIdUseCase, // ⬅️ NUEVO
   });
 
   final emailController = TextEditingController();
@@ -47,8 +54,6 @@ class CompanyAuthSignInController extends GetxController {
     final Result<UserCredential?> signInResult =
         await signInWithEmailUseCase.call(email, password);
 
-    print('SignIn Result: ${signInResult.success}, Data: ${signInResult.data}');
-
     if (!signInResult.success || signInResult.data == null) {
       Get.snackbar('Error', 'Credenciales incorrectas o cuenta inexistente');
       return;
@@ -60,6 +65,7 @@ class CompanyAuthSignInController extends GetxController {
       return;
     }
 
+    // En tu modelo: companyId == uid de la farmacia
     final Result<CompanyModel?> companyResult =
         await getCompanyByIdUseCase.call(user.uid);
 
@@ -67,28 +73,79 @@ class CompanyAuthSignInController extends GetxController {
       Get.snackbar('Error', 'No se encontró una empresa asociada a esta cuenta');
       return;
     }
-    print(1);
 
-    brain.company.value = companyResult.data;
-    await GetStorage().write('company', json.encode(companyResult.data!.toJson()));
-    print(2);
+    final company = companyResult.data!;
+    brain.company.value = company;
+    await GetStorage().write('company', json.encode(company.toJson()));
 
-    Get.offAllNamed(Routes.companyMain); // Ajusta la ruta según tu app
+    // 🧩 Seed del chat (idempotente)
+    try {
+      await _seedChatForExistingCompany(
+        companyId: company.id,
+        pharmacyUserId: user.uid,
+        pharmacyDisplayName: company.legalName,
+      );
+    } catch (e, st) {
+      debugPrint('Seed chat error: $e\n$st');
+    }
+
+    Get.offAllNamed(Routes.companyMain);
   }
 
-  void recoverPassword() {
-    // Puedes implementar este método más adelante
-    print('Recuperar contraseña empresa');
-  }
+  void recoverPassword() => print('Recuperar contraseña empresa');
 
-  void redirectToSignUp() {
-    Get.toNamed(Routes.companyAuthSignUp);
-  }
+  void redirectToSignUp() => Get.toNamed(Routes.companyAuthSignUp);
 
   @override
   void onClose() {
     emailController.dispose();
     passwordController.dispose();
     super.onClose();
+  }
+
+  // ------------------------------------------------------------
+  // CHAT SEEDING (usa el usecase de empleados)
+  // ------------------------------------------------------------
+  Future<void> _seedChatForExistingCompany({
+    required String companyId,
+    required String pharmacyUserId,
+    required String pharmacyDisplayName,
+  }) async {
+    // Asegura el repo de chat
+    if (!Get.isRegistered<ChatRepository>()) {
+      ChatBinding().dependencies();
+    }
+    final repo = Get.find<ChatRepository>();
+
+    // 1) Cargar empleados de la empresa vía usecase
+    final employeesRes = await getEmployeesByCompanyIdUseCase.call(companyId);
+    final List<EmployeeModel> employees =
+        (employeesRes.success)
+            ? employeesRes.data
+            : const <EmployeeModel>[];
+
+    final employeeIds = employees.map((e) => e.uid).toList();
+    final employeeNamesById = {
+      for (final e in employees) e.uid: (e.name)
+    };
+
+    // 2) Grupo "Todos"
+    final allMemberIds = <String>{pharmacyUserId, ...employeeIds}.toList();
+    await repo.ensureDefaultGroup(
+      companyId: companyId,
+      pharmacyUserId: pharmacyUserId,
+      allMemberIds: allMemberIds,
+    );
+
+    // 3) 1:1 farmacia <-> empleado
+    for (final empId in employeeIds) {
+      final otherName = employeeNamesById[empId] ?? 'Empleado';
+      await repo.ensureDirectConversation(
+        companyId: companyId,
+        userA: pharmacyUserId,
+        userB: empId,
+        titleOverride: otherName,
+      );
+    }
   }
 }

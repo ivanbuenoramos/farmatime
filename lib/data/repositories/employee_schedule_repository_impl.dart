@@ -296,23 +296,25 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
 
   // ── Helpers privados (mismos que ya tenías, reutilizados) ──
 
-  ExpectedShiftModel? _shiftFromDayEntry(DayEntry? e, DateTime day) {
-    if (e == null) return null;
-    final map = e.toJson() as Map<String, dynamic>;
+  ExpectedShiftModel _shiftFromDayEntry(DayEntry entry, DateTime dayDate) {
+    final baseDay = DateTime(dayDate.year, dayDate.month, dayDate.day);
 
-    final type = (map['type'] ?? map['kind'] ?? 'work') as String;
-    if (type != 'work') return null;
+    final startTOD = entry.start;
+    final endTOD   = entry.end;
 
-    final shifts = (map['shifts'] as List?) ?? (map['periods'] as List?);
-    if (shifts == null || shifts.isEmpty) return null;
+    final start = DateTime(baseDay.year, baseDay.month, baseDay.day,
+        startTOD!.hour, startTOD.minute);
 
-    final first = Map<String, dynamic>.from(shifts.first as Map);
-    final s = (first['start'] ?? first['open']) as String?; // "HH:mm"
-    final eStr = (first['end'] ?? first['close']) as String?;
-    if (s == null || eStr == null) return null;
+    var end = DateTime(baseDay.year, baseDay.month, baseDay.day,
+        endTOD!.hour, endTOD.minute);
 
-    return ExpectedShiftModel(start: _combine(day, s), end: _combine(day, eStr));
+    if (end.isBefore(start)) {
+      end = end.add(const Duration(days: 1));
+    }
+
+    return ExpectedShiftModel(start: start, end: end);
   }
+
 
   RecurringShiftRule? _pickRuleForDate(List<RecurringShiftRule> rules, DateTime day) {
     final wd = day.weekday; // 1..7
@@ -333,14 +335,30 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     return null;
   }
 
-  ExpectedShiftModel? _shiftFromRule(RecurringShiftRule? r, DateTime day) {
-    if (r == null) return null;
-    final m = r.toJson();
-    final s = (m['startTime'] ?? m['start']) as String?;
-    final e = (m['endTime'] ?? m['end']) as String?;
-    if (s == null || e == null) return null;
-    return ExpectedShiftModel(start: _combine(day, s), end: _combine(day, e));
-  }
+  ExpectedShiftModel? _shiftFromRule(RecurringShiftRule? rule, DateTime dayDate) {
+    if (rule == null) return null;
+
+    // Día base (00:00 de ese día)
+    final baseDay = DateTime(dayDate.year, dayDate.month, dayDate.day);
+
+    // HH:mm -> TimeOfDay
+    final startTOD = rule.startTime;
+    final endTOD   = rule.endTime;
+
+    // Creamos DateTime reales
+    final start = DateTime(baseDay.year, baseDay.month, baseDay.day,
+        startTOD.hour, startTOD.minute);
+
+    var end = DateTime(baseDay.year, baseDay.month, baseDay.day,
+        endTOD.hour, endTOD.minute);
+
+    // 👇 Si end < start => turno cruza medianoche, ajustamos sumando un día
+    if (end.isBefore(start)) {
+      end = end.add(const Duration(days: 1));
+    }
+
+    return ExpectedShiftModel(start: start, end: end);
+}
 
   DateTime _combine(DateTime day, String hhmm) {
     final parts = hhmm.split(':');

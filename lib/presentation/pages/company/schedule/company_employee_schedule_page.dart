@@ -1,12 +1,15 @@
+import 'package:farmatime/presentation/pages/company/schedule/widgets/pick_shift_bottom_sheet.dart';
+import 'package:farmatime/presentation/pages/company/schedule/widgets/shift_templates_card.dart';
 import 'package:farmatime/presentation/widgets/schedule/recurring_rules_card.dart';
 import 'package:flutter/material.dart';
-
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
+
+
 
 class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
   const EmployeeSchedulePage({super.key});
@@ -22,7 +25,11 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
           Obx(() => IconButton(
                 onPressed: controller.isSaving.value ? null : controller.save,
                 icon: controller.isSaving.value
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.save_rounded),
                 tooltip: 'Guardar',
               )),
@@ -48,14 +55,21 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
                 ],
               ),
               const SizedBox(height: 12),
+
+              // CRUD de turnos preestablecidos
+              const ShiftTemplatesCard(),
+              const SizedBox(height: 12),
+
               BaseCard(
                 title: 'Horario recurrente',
-                description: 'Define turnos semanales con fin opcional. Los overrides del calendario tienen prioridad.',
+                description:
+                    'Define turnos semanales con fin opcional. Los overrides del calendario tienen prioridad.',
                 children: [
                   RecurringRulesCard(),
                 ],
               ),
               const SizedBox(height: 12),
+
               BaseCard(
                 title: 'Calendario',
                 children: [
@@ -63,6 +77,7 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
                 ],
               ),
               const SizedBox(height: 12),
+
               BaseCard(
                 title: 'Acciones',
                 children: [
@@ -77,7 +92,11 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
   }
 
   Widget _legendItem(Color c, String t) => Row(children: [
-        Container(width: 16, height: 16, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
+        Container(
+            width: 16,
+            height: 16,
+            decoration:
+                BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
         const SizedBox(width: 8),
         Text(t),
       ]);
@@ -108,9 +127,12 @@ class _Calendar extends GetView<EmployeeScheduleController> {
         },
         calendarBuilders: CalendarBuilders(
           defaultBuilder: (context, day, focused) => _dayCell(day, theme),
-          outsideBuilder: (context, day, focused) => Opacity(opacity: 0.4, child: _dayCell(day, theme)),
-          todayBuilder: (context, day, focused) => _dayCell(day, theme, outline: theme.colorScheme.secondary),
-          selectedBuilder: (context, day, focused) => _dayCell(day, theme, outline: theme.colorScheme.primary, bold: true),
+          outsideBuilder: (context, day, focused) =>
+              Opacity(opacity: 0.4, child: _dayCell(day, theme)),
+          todayBuilder: (context, day, focused) =>
+              _dayCell(day, theme, outline: theme.colorScheme.secondary),
+          selectedBuilder: (context, day, focused) =>
+              _dayCell(day, theme, outline: theme.colorScheme.primary, bold: true),
         ),
       );
     });
@@ -126,7 +148,9 @@ class _Calendar extends GetView<EmployeeScheduleController> {
         border: outline != null ? Border.all(color: outline, width: 1.5) : null,
       ),
       alignment: Alignment.center,
-      child: Text('${day.day}', style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+      child: Text('${day.day}',
+          style:
+              TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
     );
   }
 }
@@ -141,18 +165,19 @@ class _Actions extends GetView<EmployeeScheduleController> {
       spacing: 8,
       runSpacing: 8,
       children: [
+        // Al pulsar, abre BottomSheet de turnos (con edición rápida) y aplica
         FilledButton.icon(
-          onPressed: () => _setType(context, DayType.work),
+          onPressed: () => _applyWorkWithTemplate(context),
           icon: const Icon(Icons.work_history_rounded),
-          label: const Text('Marcar laboral (con horario)'),
+          label: const Text('Marcar laboral (con turno)'),
         ),
         OutlinedButton.icon(
-          onPressed: () => _setType(context, DayType.off),
+          onPressed: () => controller.setForSelection(DayEntry(type: DayType.off)),
           icon: const Icon(Icons.event_busy_rounded),
           label: const Text('Marcar libre'),
         ),
         OutlinedButton.icon(
-          onPressed: () => _setType(context, DayType.vacation),
+          onPressed: () => controller.setForSelection(DayEntry(type: DayType.vacation)),
           icon: const Icon(Icons.beach_access_rounded),
           label: const Text('Marcar vacaciones'),
         ),
@@ -165,21 +190,30 @@ class _Actions extends GetView<EmployeeScheduleController> {
     );
   }
 
-  Future<void> _setType(BuildContext context, DayType type) async {
-    if (type == DayType.work) {
-      final res = await _pickShift(context);
-      if (res == null) return;
-      await controller.setForSelection(DayEntry(type: DayType.work, start: res.$1, end: res.$2));
-    } else {
-      await controller.setForSelection(DayEntry(type: type));
+  Future<void> _applyWorkWithTemplate(BuildContext context) async {
+    // Si no hay turnos todavía, ofrece crear manual
+    if (controller.shiftTemplates.isEmpty) {
+      final from = await showTimePicker(
+          context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
+      if (from == null) return;
+      final to = await showTimePicker(
+          context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
+      if (to == null) return;
+      await controller
+          .setForSelection(DayEntry(type: DayType.work, start: from, end: to));
+      return;
     }
-  }
 
-  Future<(TimeOfDay, TimeOfDay)?> _pickShift(BuildContext context) async {
-    final from = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
-    if (from == null) return null;
-    final to = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
-    if (to == null) return null;
-    return (from, to);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PickShiftBottomSheet(
+        templates: controller.shiftTemplates,
+        onApply: (start, end) async {
+          await controller
+              .setForSelection(DayEntry(type: DayType.work, start: start, end: end));
+        },
+      ),
+    );
   }
 }

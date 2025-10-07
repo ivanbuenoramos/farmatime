@@ -1,3 +1,5 @@
+import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
+import 'package:farmatime/presentation/pages/chat/chat/chat_page.dart';
 import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_binding.dart';
 import 'package:get/get.dart';
 
@@ -49,6 +51,12 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.chat,
+        page: () => ChatPage(),
+        binding: ChatBinding(),
+      ),
+
+      GetPage(
         name: Routes.companyMain,
         page: () => CompanyMainPage(),
         binding: CompanyMainBinding(),
@@ -70,6 +78,12 @@ class AppRoutes {
         name: Routes.companyEmployeeSchedule,
         page: () => EmployeeSchedulePage(),
         binding: EmployeeScheduleBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companySubscription,
+        page: () => const SubscriptionPage(),
+        binding: SubscriptionBinding(),
       ),
 
     ];

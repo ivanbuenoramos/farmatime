@@ -126,8 +126,8 @@ class EmployeeDetailController extends GetxController {
     isLoadingSchedule.value = true;
     final res = await getYearScheduleUseCase.call(companyId: compId, employeeId: empId, year: year);
     scheduleOverrides.clear();
-    if (res.success && res.data != null) {
-      res.data!.forEach((k, v) {
+    if (res.success) {
+      res.data.forEach((k, v) {
         final d = DateTime.parse(k);
         final key = DateTime(d.year, d.month, d.day);
         scheduleOverrides[key] = v;
@@ -143,8 +143,8 @@ class EmployeeDetailController extends GetxController {
     if (compId == null || empId == null) return;
 
     final res = await listRecurringRulesUseCase.call(companyId: compId, employeeId: empId);
-    if (res.success && res.data != null) {
-      scheduleRules.assignAll(res.data!);
+    if (res.success) {
+      scheduleRules.assignAll(res.data);
     }
   }
 

@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"farmatime-app","appId":"1:1079606530132:android:9e1cc4dee5269d96f29dc1","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"farmatime-app","appId":"1:1079606530132:ios:ce6833501593141df29dc1","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"farmatime-app","configurations":{"android":"1:1079606530132:android:9e1cc4dee5269d96f29dc1","ios":"1:1079606530132:ios:ce6833501593141df29dc1"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "farmatime-app",
+          "appId": "1:1079606530132:android:9e1cc4dee5269d96f29dc1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "farmatime-app",
+          "appId": "1:1079606530132:ios:ce6833501593141df29dc1",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "farmatime-app",
+          "configurations": {
+            "android": "1:1079606530132:android:9e1cc4dee5269d96f29dc1",
+            "ios": "1:1079606530132:ios:ce6833501593141df29dc1"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}

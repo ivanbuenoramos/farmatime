@@ -77,7 +77,7 @@ class EmployeeCalendarController extends GetxController {
         } else {
           // 🔑 Convertimos claves yyyy-MM-dd a DateTime
           final mapped = <DateTime, DayEntry>{};
-          res.data!.forEach((key, entry) {
+          res.data.forEach((key, entry) {
             final dt = DateFormat('yyyy-MM-dd').parse(key);
             mapped[dt] = entry;
           });
@@ -91,7 +91,7 @@ class EmployeeCalendarController extends GetxController {
           employeeId: employeeId,
         );
         if (r.success) {
-          rules.assignAll(r.data!); 
+          rules.assignAll(r.data); 
         } else {
           errorText.value = 'No se pudieron cargar las reglas: ${r.errorCode}';
         }

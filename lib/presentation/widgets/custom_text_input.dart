@@ -53,7 +53,7 @@ class CustomTextInput extends StatefulWidget {
   final VoidCallback? onTap;
 
   const CustomTextInput({
-    Key? key,
+    super.key,
     this.controller,
     this.focusNode,
     this.keyboardType,
@@ -89,7 +89,7 @@ class CustomTextInput extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomTextInput> createState() => _CustomTextInputState();

@@ -1,3 +1,4 @@
+import 'package:farmatime/data/models/shift_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:farmatime/core/app/brain.dart';
@@ -8,6 +9,7 @@ import 'package:farmatime/domain/usecases/employee_schedule/get_employee_year_sc
 import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_year_schedule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:farmatime/domain/usecases/shift_template/list_shift_templates_usecase.dart';
 
 class EmployeeScheduleController extends GetxController {
   final Brain brain = Get.find<Brain>();
@@ -21,18 +23,26 @@ class EmployeeScheduleController extends GetxController {
     required this.listRulesUC,
   });
 
+  // Parámetro de navegación
   final String employeeId = Get.arguments['employeeId'] ?? '';
 
+  // Estado calendario (overrides)
   final Rx<DateTime> focusedDay = DateTime.now().obs;
   final Rx<DateTime?> selectedDay = Rx<DateTime?>(DateTime.now());
   final RxMap<DateTime, DayEntry> entries = <DateTime, DayEntry>{}.obs;
 
+  // Selección por rango
   final Rx<DateTime?> rangeStart = Rx<DateTime?>(null);
   final Rx<DateTime?> rangeEnd = Rx<DateTime?>(null);
   final Rx<RangeSelectionMode> rangeSelectionMode = RangeSelectionMode.toggledOff.obs;
 
+  // Reglas recurrentes
   final RxList<RecurringShiftRule> rules = <RecurringShiftRule>[].obs;
 
+  // Turnos preestablecidos
+  final RxList<ShiftTemplate> shiftTemplates = <ShiftTemplate>[].obs;
+
+  // UI state
   final RxBool isLoading = false.obs;
   final RxBool isSaving = false.obs;
   final RxnString error = RxnString();
@@ -48,10 +58,15 @@ class EmployeeScheduleController extends GetxController {
 
   Future<void> loadAll() async {
     isLoading.value = true;
-    await Future.wait([loadYear(_year), loadRules()]);
+    await Future.wait([
+      loadYear(_year),
+      loadRules(),
+      loadShiftTemplates(),
+    ]);
     isLoading.value = false;
   }
 
+  // ── Horario por año (overrides) ─────────────────────────────────────────────
   Future<void> loadYear(int year) async {
     error.value = null;
     final Result<Map<String, DayEntry>> res = await getYearUC.call(
@@ -67,11 +82,22 @@ class EmployeeScheduleController extends GetxController {
     }
   }
 
+  // ── Reglas recurrentes ─────────────────────────────────────────────────────
   Future<void> loadRules() async {
     final res = await listRulesUC.call(companyId: _companyId, employeeId: employeeId);
     if (res.success) rules.assignAll(res.data);
   }
 
+  // ── Turnos (templates) ─────────────────────────────────────────────────────
+  Future<void> loadShiftTemplates() async {
+    final uc = Get.find<ListShiftTemplatesUseCase>();
+    final res = await uc.call(_companyId);
+    if (res.success && res.data != null) {
+      shiftTemplates.assignAll(res.data!);
+    }
+  }
+
+  // ── Interacción calendario ─────────────────────────────────────────────────
   void onDaySelected(DateTime selected, DateTime focused) {
     selectedDay.value = dateOnly(selected);
     focusedDay.value = focused;
@@ -99,12 +125,13 @@ class EmployeeScheduleController extends GetxController {
         DayType.vacation => theme.colorScheme.errorContainer.withOpacity(0.45),
       };
     }
-    // Color por regla por defecto
+    // Color por regla cuando no hay override
     final hasRule = rules.any((r) => r.matchesDate(day));
     if (hasRule) return theme.colorScheme.primary.withOpacity(0.18);
     return theme.colorScheme.surfaceContainerHighest;
   }
 
+  // ── Mutaciones de selección ────────────────────────────────────────────────
   Future<void> setForSelection(DayEntry entry) async {
     final Map<DateTime, DayEntry> newMap = Map.of(entries);
     if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
@@ -155,10 +182,13 @@ class EmployeeScheduleController extends GetxController {
 
     if (!res.success) {
       error.value = 'No se pudo guardar';
-      Get.snackbar('Error', error.value!, snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.red.withOpacity(0.1));
+      Get.snackbar('Error', error.value!,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.withOpacity(0.1));
       return;
     }
-    Get.snackbar('Guardado', 'Horario actualizado', snackPosition: SnackPosition.BOTTOM);
+    Get.snackbar('Guardado', 'Horario actualizado',
+        snackPosition: SnackPosition.BOTTOM);
   }
 
   // Entrada calculada (override > regla)
@@ -171,6 +201,7 @@ class EmployeeScheduleController extends GetxController {
   }
 }
 
+// Helpers locales
 extension _SafeFirstWhere<E> on Iterable<E> {
   E? firstWhereOrNull(bool Function(E) test) {
     for (final e in this) {

@@ -1,6 +1,3 @@
-import 'package:farmatime/data/repositories/clock_repository_impl.dart';
-import 'package:farmatime/domain/repositories/clock_repository.dart';
-import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
 import 'package:get/get.dart';
 
 import 'company_employees_controller.dart';
@@ -22,6 +19,7 @@ class CompanyEmployeesBinding extends Bindings {
     
     Get.lazyPut<CompanyEmployeesController>(() => CompanyEmployeesController(
       getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>(),
+      
     ));
 
   }

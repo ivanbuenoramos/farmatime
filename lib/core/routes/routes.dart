@@ -22,6 +22,9 @@ class Routes {
   // COMPANY MAIN
   static const String companyMain = '/company/main';
 
+  // COMPANY MAIN
+  static const String chat = '/chat';
+
   // COMPANY CREATE EMPLOYEE
   static const String companyCreateEmployee = '/company/create-employee';
 
@@ -29,5 +32,8 @@ class Routes {
   static const String companyEmployeeDetail = '/company/employee-detail';
 
   static const String companyEmployeeSchedule = '/company/employee-schedule';
+
+  // COMPANY SUBSCRIPTION
+  static const String companySubscription = '/company/subscription';
 
 }

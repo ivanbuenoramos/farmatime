@@ -1,3 +1,4 @@
+import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/company/dashboard/company_dashboard_page.dart';
 import 'package:farmatime/presentation/pages/company/employees/company_employees_page.dart';
 import 'package:farmatime/presentation/pages/company/entries/company_entries_page.dart';
@@ -31,6 +32,7 @@ class CompanyMainPage extends StatelessWidget {
             children: [
               CompanyDashboardPage(),
               CompanyEntriesPage(),
+              InboxPage(),
               CompanyEmployeesPage(),
               CompanyProfilePage(),
             ],
@@ -52,6 +54,12 @@ class CompanyMainPage extends StatelessWidget {
       icon: SvgPicture.asset('assets/icons/documents.svg', height: 26),
       activeIcon: SvgPicture.asset('assets/icons/documents_bold.svg', height: 26),
       label: 'Fichajes',
+    ),
+
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset('assets/icons/chat.svg', height: 26),
+      activeIcon: SvgPicture.asset('assets/icons/chat_bold.svg', height: 26),
+      label: 'Chat interno',
     ),
 
     BottomNavigationBarItem(

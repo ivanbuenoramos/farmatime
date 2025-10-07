@@ -33,7 +33,6 @@ class CompanyRepositoryImpl implements CompanyRepository {
   Future<Result<CompanyModel?>> updateCompany(CompanyModel company) async {
     try {
       await firestore.collection('companies').doc(company.id).update(company.toJson());
-      print(company.legalName);
       return Result(
         success: true,
         data: company,

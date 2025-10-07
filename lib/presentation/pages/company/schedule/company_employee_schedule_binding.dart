@@ -1,5 +1,9 @@
+import 'package:farmatime/data/repositories/shift_template_repository_impl.dart';
+import 'package:farmatime/domain/repositories/shift_template_repository.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/delete_recurring_rule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/upsert_recurring_rule_usecase.dart';
+import 'package:farmatime/domain/usecases/shift_template/list_shift_templates_usecase.dart';
+import 'package:farmatime/domain/usecases/shift_template/upsert_shift_template_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
@@ -16,6 +20,8 @@ class EmployeeScheduleBinding extends Bindings {
     // Repo
     Get.lazyPut<EmployeeScheduleRepository>(() => EmployeeScheduleRepositoryImpl());
 
+    Get.lazyPut<ShiftTemplateRepository>(() => ShiftTemplateRepositoryImpl());
+
     // UseCases
     Get.lazyPut<GetEmployeeYearScheduleUseCase>(
       () => GetEmployeeYearScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
@@ -31,6 +37,13 @@ class EmployeeScheduleBinding extends Bindings {
     );
     Get.lazyPut<DeleteRecurringRuleUseCase>(
       () => DeleteRecurringRuleUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
+    Get.lazyPut<ListShiftTemplatesUseCase>(
+      () => ListShiftTemplatesUseCase(Get.find<ShiftTemplateRepository>()),
+    );
+
+    Get.lazyPut<UpsertShiftTemplateUseCase>(
+      () => UpsertShiftTemplateUseCase(Get.find<ShiftTemplateRepository>()),
     );
 
     // Controller

@@ -42,3 +42,8 @@ export 'package:farmatime/presentation/pages/company/create_employee/create_empl
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail.page.dart';
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_binding.dart';
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_controller.dart';
+
+// COMPANY SUBSCRIPTION
+export 'package:farmatime/presentation/pages/company/subscription/subscription_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/subscription_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';

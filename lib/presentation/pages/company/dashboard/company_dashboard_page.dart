@@ -1,3 +1,4 @@
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +11,15 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('farmatime', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          'farmatime', 
+          style: Get.theme.textTheme.headlineLarge?.copyWith(
+            color: Colors.white, 
+            fontSize: 24, 
+            letterSpacing: -0.5,
+            fontStyle: FontStyle.italic
+          )
+        ),
         centerTitle: true,
       ),
       body: Obx(() {
@@ -18,7 +27,7 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
         return RefreshIndicator(
           onRefresh: controller.refreshAll,
           child: ListView(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
               _EmployeesCard(controller: controller),
               const SizedBox(height: 12),
@@ -27,7 +36,6 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
               const _SubscriptionCard(),
               const SizedBox(height: 12),
               _CompanyInfoCard(controller: controller),
-              const SizedBox(height: 24),
             ],
           ),
         );
@@ -44,10 +52,15 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
+    return Column(
       children: [
-        Expanded(child: Text(title, style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.w700))),
-        if (trailing != null) trailing!,
+        Row(
+          children: [
+            Expanded(child: Text(title, style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700))),
+            if (trailing != null) trailing!,
+          ],
+        ),
+        Divider(),
       ],
     );
   }
@@ -61,30 +74,29 @@ class _EmployeesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionHeader('Empleados', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
             const SizedBox(height: 8),
+            Text('Trabajando', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+            Divider(height: 16),
             if (controller.working.isNotEmpty) ...[
-              Text('Trabajando', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 6),
               ...controller.working.map((e) => _EmployeeTile(row: e, warn: false)),
               const SizedBox(height: 8),
+              Divider(height: 16),
             ],
-            Divider(height: 16, color: theme.colorScheme.outlineVariant),
+
+            Text('Ausentes', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+            Divider(height: 16),
             if (controller.absent.isNotEmpty) ...[
-              Text('Ausentes', style: theme.textTheme.labelLarge),
-              const SizedBox(height: 6),
               ...controller.absent.map((e) => _EmployeeTile(row: e, warn: true)),
               const SizedBox(height: 8),
             ],
-            Divider(height: 16, color: theme.colorScheme.outlineVariant),
-            Text('Sin trabajar', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 6),
+            Text('Sin trabajar', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+            Divider(height: 16),
             if (controller.off.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -122,7 +134,7 @@ class _EmployeeTile extends StatelessWidget {
               ? controller.relTimeFrom(row.lastClockIn!) // not used; Hack avoided by manual text:
               : (row.expected != null && DateTime.now().isAfter(row.expected!.start)
                   ? 'Hace ${DateTime.now().difference(row.expected!.start).inMinutes}m'
-                  : ''),
+                  : 'Sin fichar'),
           style: (warn
               ? theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error)
               : theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.primary)),
@@ -144,8 +156,8 @@ class _EmployeeTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(row.emp.name, style: muted ? theme.textTheme.bodyLarge!.copyWith(color: subtle) : theme.textTheme.bodyLarge),
-                Text(row.emp.position ?? 'Empleado', style: theme.textTheme.bodySmall!.copyWith(color: subtle)),
+                Text(row.emp.name, style: muted ? theme.textTheme.headlineSmall?.copyWith(fontSize: 14) : theme.textTheme.bodyLarge),
+                Text(row.emp.position ?? 'Empleado', style: theme.textTheme.bodySmall),
               ],
             ),
           ),
@@ -166,9 +178,8 @@ class _IncoherentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -219,27 +230,29 @@ class _SubscriptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionHeader('Suscripción', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.group, color: accent),
-                const SizedBox(width: 8),
-                Text('9/9', style: theme.textTheme.titleLarge!.copyWith(color: accent)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text('Próxima renovación', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 6),
-            Text('12/06/2025', style: theme.textTheme.headlineSmall!.copyWith(color: accent, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-          ],
+    return GestureDetector(
+      onTap: () => Get.toNamed(Routes.companySubscription),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionHeader('Suscripción', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.group, color: accent),
+                  const SizedBox(width: 8),
+                  Text('9/9', style: theme.textTheme.titleLarge!.copyWith(color: accent)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text('Próxima renovación', style: theme.textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              Text('12/06/2025', style: theme.textTheme.headlineSmall!.copyWith(color: accent, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+            ],
+          ),
         ),
       ),
     );
@@ -256,9 +269,8 @@ class _CompanyInfoCard extends StatelessWidget {
     final subtle = theme.colorScheme.onSurfaceVariant;
 
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -267,7 +279,7 @@ class _CompanyInfoCard extends StatelessWidget {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 18,
+                  radius: 22,
                   backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
                   child: controller.brain.company.value?.logoUrl == null
                       ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
@@ -280,11 +292,11 @@ class _CompanyInfoCard extends StatelessWidget {
                     children: [
                       Text(
                         controller.brain.company.value?.legalName ?? '—',
-                        style: theme.textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w700),
+                        style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700),
                       ),
                       Text(
                         controller.brain.company.value?.email ?? '—',
-                        style: theme.textTheme.bodyMedium!.copyWith(color: subtle),
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ],
                   ),
@@ -293,9 +305,9 @@ class _CompanyInfoCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _kv(theme, 'CIF', controller.brain.company.value?.vatNumber ?? '—'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             _kv(theme, 'Dirección', controller.brain.company.value?.address?.address != null ? controller.brain.company.value!.address!.address : '—'),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             _kv(theme, 'Ciudad', controller.brain.company.value?.address?.city != null ? controller.brain.company.value!.address!.city : '—'),
           ],
         ),
@@ -304,9 +316,19 @@ class _CompanyInfoCard extends StatelessWidget {
   }
 
   Widget _kv(ThemeData theme, String k, String v) => Row(
+    crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          SizedBox(width: 90, child: Text(k, style: theme.textTheme.bodySmall)),
-          Expanded(child: Text(v, style: theme.textTheme.bodyMedium)),
+          Text(k, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600, color: theme.colorScheme.secondary)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 2),
+              height: 1,
+              color: theme.dividerColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(v, style: theme.textTheme.bodyMedium),
         ],
       );
 }

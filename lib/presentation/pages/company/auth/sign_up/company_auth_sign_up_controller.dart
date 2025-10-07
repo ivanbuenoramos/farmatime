@@ -12,13 +12,20 @@ import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/company_model.dart';
 import 'package:farmatime/domain/usecases/company/create_company_usecase.dart';
 
+// ⬇️ NUEVO: usecase para Stripe
+import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_and_subscription_usecase.dart';
+
 class CompanyAuthSignUpController extends GetxController {
   final SignUpWithEmailUseCase signUpWithEmailUseCase;
   final CreateCompanyUseCase createCompanyUseCase;
 
+  // ⬇️ NUEVO: inyecta este usecase
+  final CreateStripeCustomerAndSubscriptionUseCase createStripeCustomerAndSubscriptionUseCase;
+
   CompanyAuthSignUpController({
     required this.signUpWithEmailUseCase,
     required this.createCompanyUseCase,
+    required this.createStripeCustomerAndSubscriptionUseCase, // ⬅️ nuevo
   });
 
   final nameController = TextEditingController();
@@ -31,6 +38,8 @@ class CompanyAuthSignUpController extends GetxController {
 
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
   final Brain brain = Get.find<Brain>();
+
+  final isLoading = false.obs; // ⬅️ opcional para deshabilitar el botón
 
   bool validateForm() {
     bool isValid = true;
@@ -71,45 +80,84 @@ class CompanyAuthSignUpController extends GetxController {
   Future<void> register() async {
     if (!validateForm()) return;
 
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-    final name = nameController.text.trim();
+    isLoading.value = true;
 
-    final Result<UserCredential?> signUpResult =
-        await signUpWithEmailUseCase.call(email, password);
+    try {
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+      final name = nameController.text.trim();
 
-    if (!signUpResult.success || signUpResult.data == null) {
-      Get.snackbar('Error', 'No se pudo crear la cuenta');
-      return;
+      final Result<UserCredential?> signUpResult =
+          await signUpWithEmailUseCase.call(email, password);
+
+      if (!signUpResult.success || signUpResult.data == null) {
+        Get.snackbar('Error', 'No se pudo crear la cuenta');
+        return;
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        Get.snackbar('Error', 'Sesión no encontrada tras el registro');
+        return;
+      }
+
+      // 1) Crear documento de empresa en Firestore
+      final company = CompanyModel(
+        id: user.uid,
+        email: email,
+        purchasedEmployeeSlots: 0, // puedes mantenerlo por compatibilidad,
+                                   // pero la fuente de verdad será Stripe (contractedSeats)
+        legalName: name,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final Result<CompanyModel?> createResult =
+          await createCompanyUseCase.call(company);
+
+      if (!createResult.success || createResult.data == null) {
+        Get.snackbar('Error', 'No se pudo crear la empresa');
+        return;
+      }
+
+      // Guarda en memoria local
+      brain.company.value = createResult.data;
+      await GetStorage().write('company', json.encode(createResult.data!.toJson()));
+
+      // 2) NUEVO: Crear en Stripe (Customer + Subscription) vía Cloud Function
+
+      await FirebaseAuth.instance.currentUser?.reload();
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+
+      //    initialQuantity: 1 para que encaje con tu precio por niveles (1º gratis).
+      final stripeRes = await createStripeCustomerAndSubscriptionUseCase.call(
+        company.id,
+        initialQuantity: 1,
+      );
+
+      print(stripeRes.toJson());
+
+      if (!stripeRes.success) {
+        // No bloqueamos el flujo de onboarding, pero informamos.
+        // El webhook o un botón de "Reintentar" en la pantalla de suscripción podría solventarlo.
+        Get.snackbar(
+          'Atención',
+          'La configuración de facturación no se completó. Puedes reintentarlo desde Suscripción.',
+        );
+      }
+
+      // 3) Actualizar perfil del usuario de Firebase (cosmético)
+      await user.updateDisplayName(name);
+      await user.reload();
+
+      // 4) Navegar a la app de empresa
+      Get.offAllNamed(Routes.companyMain);
+    } catch (e) {
+      print(e);
+      Get.snackbar('Error', 'Ocurrió un problema durante el registro');
+    } finally {
+      isLoading.value = false;
     }
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final company = CompanyModel(
-      id: user.uid,
-      email: email,
-      purchasedEmployeeSlots: 0,
-      legalName: name,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(), 
-    );
-
-    final Result<CompanyModel?> createResult =
-        await createCompanyUseCase.call(company);
-
-    if (!createResult.success || createResult.data == null) {
-      Get.snackbar('Error', 'No se pudo crear la empresa');
-      return;
-    }
-
-    brain.company.value = createResult.data;
-    await GetStorage().write('company', json.encode(company.toJson()));
-
-    await user.updateDisplayName(name);
-    await user.reload();
-
-    Get.offAllNamed(Routes.companyMain);
   }
 
   @override
