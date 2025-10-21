@@ -7,6 +7,9 @@ class Routes {
   // INDEX
   static const String index = '/index';
 
+  // CHANGE PASSWORD
+  static const String changePassword = '/change-password';
+
   // EMPLOYEE AUTH SIGN IN
   static const String employeeAuthSignIn = '/employee/auth/sign-in';
 
@@ -31,9 +34,22 @@ class Routes {
   // COMPANY EMPLOYEE DETAIL
   static const String companyEmployeeDetail = '/company/employee-detail';
 
+  // COMPANY EMPLOYEE SCHEDULE
   static const String companyEmployeeSchedule = '/company/employee-schedule';
 
   // COMPANY SUBSCRIPTION
   static const String companySubscription = '/company/subscription';
+
+  // COMPANY ACCOUNT PROFILE
+  static const String companyAccountProfile = '/company/account/profile';
+
+  // COMPANY PROFILE
+  static const String companyProfile = '/company/profile';
+
+  // COMPANY SUBSCRIPTION SEAT CHECKOUT
+  static const String companySubscriptionSeatCheckout = '/company/subscription/seat-checkout';
+
+  // COMPANY PAYMENT METHODS
+  static const String companyPaymentMethods = '/company/payment-methods';
 
 }

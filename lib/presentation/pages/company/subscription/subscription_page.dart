@@ -1,10 +1,10 @@
-// 📄 lib/presentation/pages/company/subscription/subscription_page.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
 
 class SubscriptionPage extends StatelessWidget {
   const SubscriptionPage({super.key});
@@ -17,8 +17,7 @@ class SubscriptionPage extends StatelessWidget {
   String _formatMoneyCents(int cents) {
     final euros = cents / 100.0;
     final n = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-    // Queremos "9,00€" sin símbolo delante
-    return n.format(euros).replaceAll(' ', ''); // evita nbsp
+    return n.format(euros).replaceAll(' ', '');
   }
 
   @override
@@ -26,68 +25,94 @@ class SubscriptionPage extends StatelessWidget {
     final c = Get.find<SubscriptionController>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configurar suscripción'),
-      ),
+      appBar: AppBar(title: const Text('Configurar suscripción')),
       body: Obx(() {
-        final int seats = c.contractedSeats.value;
-        final DateTime? renewAt = c.currentPeriodEnd.value;
-        final int monthlyCents = (seats > 0 ? (seats - 1) : 0) * 100; // 1€ por plaza, primera gratis
+        final seats = c.contractedSeats.value;
+        final renewAt = c.currentPeriodEnd.value;
+        final monthlyCents = (seats > 1 ? seats - 1 : 0) * 100;
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          physics: const BouncingScrollPhysics(),
           children: [
-            // ================= Próxima renovación =================
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SectionTitle('Próxima renovación'),
-                    const Divider(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _InfoTile(
-                            label: 'Tipo de suscripción',
-                            value: 'Mensual',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _InfoTile(
-                            label: 'Fecha',
-                            value: _formatDate(renewAt),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _BigAmount(
-                      label: 'Importe',
-                      value: _formatMoneyCents(monthlyCents),
-                    ),
-                  ],
-                ),
-              ),
+            _BillingStatusBanner(
+              status: c.billingStatus.value,
+              onManage: c.redirectToSeatCheckout,
             ),
 
             const SizedBox(height: 12),
 
-            // ================= Historial de facturas =================
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // ===== Próxima renovación =====
+            BaseCard(
+              title: 'Próxima renovación',
+              children: [
+                Row(
                   children: [
-                    _SectionTitle('Historial de facturas'),
-                    const Divider(),
-                    InvoicesList(),
+                    _Chip('Facturación', 'Mensual'),
+                    const SizedBox(width: 10),
+                    _Chip('Fecha', _formatDate(renewAt)),
                   ],
                 ),
-              ),
+                const SizedBox(height: 10),
+                _AmountRow(label: 'Importe', value: _formatMoneyCents(monthlyCents)),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // ===== Selector de plazas + prorrateo =====
+            // BaseCard(
+            //   title: 'Plazas contratadas',
+            //   children: [
+            //     Row(
+            //       children: [
+            //         const Text('Prorratear cambios'),
+            //         const Spacer(),
+            //         Switch(
+            //           value: c.prorationBehavior.value == 'create_prorations',
+            //           onChanged: (v) => c.prorationBehavior.value =
+            //               v ? 'create_prorations' : 'none',
+            //         ),
+            //       ],
+            //     ),
+            //     const SizedBox(height: 8),
+            //     Row(
+            //       children: [
+            //         IconButton(
+            //           onPressed: c.decrement,
+            //           icon: const Icon(Icons.remove_circle_outline),
+            //         ),
+            //         Text(
+            //           '${c.contractedSeats.value}',
+            //           style: Theme.of(context).textTheme.headlineSmall,
+            //         ),
+            //         IconButton(
+            //           onPressed: c.increment,
+            //           icon: const Icon(Icons.add_circle_outline),
+            //         ),
+            //         const Spacer(),
+            //         Text(
+            //           'Total: ${_formatMoneyCents(monthlyCents)} / mes',
+            //           style: Theme.of(context).textTheme.titleMedium,
+            //         ),
+            //       ],
+            //     ),
+            //   ],
+            // ),
+
+            // const SizedBox(height: 12),
+
+            // ===== Botón Billing Portal =====
+            // _ManagePaymentButton(onTap: c.openBillingPortal),
+
+            // const SizedBox(height: 16),
+
+            // ===== Historial de facturas (desde controller.invoices) =====
+            BaseCard(
+              title: 'Historial de facturas',
+              children: [
+                InvoicesList(),
+              ] 
             ),
           ],
         );
@@ -96,47 +121,36 @@ class SubscriptionPage extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
+class _Chip extends StatelessWidget {
+  final String label, value;
+  const _Chip(this.label, this.value);
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final String label;
-  final String value;
-  const _InfoTile({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          border: Border.all(color: cs.outline),
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.secondary
-              )
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
               value,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: theme.colorScheme.primary,
-                fontSize: 22,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: cs.primary,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -145,53 +159,114 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-class _BigAmount extends StatelessWidget {
-  final String label;
-  final String value;
-  const _BigAmount({required this.label, required this.value});
-
+class _AmountRow extends StatelessWidget {
+  final String label, value;
+  const _AmountRow({required this.label, required this.value});
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
+    final cs = Theme.of(context).colorScheme;
+    return Container(
       width: double.infinity,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Column(
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.secondary
-                )
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontSize: 26,
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border.all(color: cs.outline),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: cs.primary
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/* ---------- Lista de facturas ---------- */
+class _BillingStatusBanner extends StatelessWidget {
+  final String status; // active | incomplete | past_due | canceled...
+  final VoidCallback onManage;
+  const _BillingStatusBanner({required this.status, required this.onManage});
+
+  @override
+  Widget build(BuildContext context) {
+    // if (status.isEmpty || status == 'active') return const SizedBox.shrink();
+
+    late Color bg;
+    late String text;
+    late String cta;
+
+    switch (status) {
+      case 'incomplete':
+        bg = Colors.red.shade100;
+        text = 'Configura un método de pago para activar la suscripción.';
+        cta = 'Configurar pago';
+        break;
+      case 'past_due':
+        bg = Colors.orange.shade100;
+        text = 'Hay pagos pendientes. Revisa tu método de pago.';
+        cta = 'Gestionar pago';
+        break;
+      case 'canceled':
+        bg = Colors.grey.shade100;
+        text = 'Suscripción cancelada. Puedes reactivarla.';
+        cta = 'Gestionar';
+        break;
+      case 'active':
+        bg = Colors.blue.shade100;
+        text = 'Suscripción activa.';
+        cta = 'Gestionar';
+        break;
+      default:
+        bg = Colors.blue.shade100;
+        text = 'Estado: $status';
+        cta = 'Gestionar';
+    }
+
+    return Container(
+      decoration:BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text)),
+          TextButton(onPressed: onManage, child: Text(cta)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManagePaymentButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ManagePaymentButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.open_in_new),
+        label: const Text('Gestionar pago y facturación'),
+      ),
+    );
+  }
+}
+
+/* ---------- Lista de facturas (usa controller.invoices) ---------- */
 
 class InvoicesList extends StatelessWidget {
   const InvoicesList({super.key});
 
-  String _fmtDate(int? timestamp) {
-    if (timestamp == null) return '-';
-    final dt = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-    return DateFormat('dd/MM/yyyy').format(dt);
-  }
+  String _fmtDate(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
   String _fmtCents(num? cents) {
     final n = NumberFormat.currency(locale: 'es_ES', symbol: '€');
@@ -203,15 +278,14 @@ class InvoicesList extends StatelessWidget {
     final controller = Get.find<SubscriptionController>();
 
     return Obx(() {
-      final invoices = controller.invoices; // 👈 RxList en el controller
-
-      if (controller.isLoading.value) {
+      if (controller.invoicesLoading.value) {
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator()),
         );
       }
 
+      final invoices = controller.invoices;
       if (invoices.isEmpty) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -226,17 +300,17 @@ class InvoicesList extends StatelessWidget {
       }
 
       return ListView.separated(
+        padding: EdgeInsets.zero,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 0),
         physics: const NeverScrollableScrollPhysics(),
         itemCount: invoices.length,
         itemBuilder: (context, i) {
           final inv = invoices[i];
-          final number = inv.number.toString();
-          final created = inv.createdAt is int ? inv.createdAt as int : null;
-          final amountCents = (inv.amountCents ) as num?;
-          final pdfUrl = (inv.pdfUrl ?? '').toString();
+          final number = inv.number;
+          final date = inv.createdAt; // DateTime en tu InvoiceModel
+          final amountCents = inv.amountCents;
+          final pdfUrl = inv.pdfUrl ?? '';
 
           return Material(
             color: Colors.transparent,
@@ -249,37 +323,47 @@ class InvoicesList extends StatelessWidget {
                       }
                     }
                   : null,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               child: Ink(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outline
+                        .withOpacity(.25),
+                  ),
+                ),
                 child: Row(
                   children: [
                     const _PdfBadge(),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '#$number',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.secondary,
-                            )
-                          ),
-                          Text(
-                            _fmtDate(created),
-                            style: Theme.of(context).textTheme.bodyMedium
-                          ),
+                          Text('#$number',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          Text(_fmtDate(date),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.grey[600])),
                         ],
                       ),
                     ),
                     Text(
                       _fmtCents(amountCents),
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
+                    const SizedBox(width: 6),
                     const Icon(Icons.chevron_right, color: Colors.grey),
                   ],
                 ),

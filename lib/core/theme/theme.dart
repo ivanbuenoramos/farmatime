@@ -36,12 +36,13 @@ class FarmatimeTheme {
     ),
     cardTheme: CardThemeData(
       color: Color(0xffFFFFFF),
+      elevation: 2,
+      shadowColor: Colors.black12,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: Color(0xffE5E5E5), width: 1),
       ),
-      elevation: 0,
     ),
     dividerColor: const Color(0xffE5E5E5),
     textButtonTheme: TextButtonThemeData(
@@ -62,6 +63,172 @@ class FarmatimeTheme {
             return null;
           },
         ),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith<Color?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.disabled)) {
+              return const Color(0xffA5A5A5);
+            }
+            return const Color(0xff1971FF);
+          },
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith<Color?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.disabled)) {
+              return const Color(0xffFFFFFF).withAlpha(100);
+            }
+            return const Color(0xffFFFFFF);
+          },
+        ),
+        textStyle: WidgetStateProperty.resolveWith<TextStyle?>(
+          (Set<WidgetState> states) {
+            return const TextStyle(
+              fontFamily: 'Circular Std',
+              fontSize: 16.0,
+              color: Color(0xffFFFFFF),
+              fontWeight: FontWeight.w600,
+            );
+          },
+        ),
+        overlayColor: WidgetStateProperty.resolveWith<Color?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.pressed)) {
+              return const Color(0xffFFFFFF).withAlpha(30);
+            }
+            return null;
+          },
+        ),
+        shape: WidgetStateProperty.resolveWith<OutlinedBorder?>(
+          (Set<WidgetState> states) {
+            return RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            );
+          },
+        ),
+        padding: WidgetStateProperty.resolveWith<EdgeInsetsGeometry?>(
+          (Set<WidgetState> states) {
+            return const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+          },
+        ),
+      ),
+    ),
+    listTileTheme: ListTileThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      tileColor: const Color(0xffFFFFFF),
+      textColor: const Color(0xff373737),
+      subtitleTextStyle: const TextStyle(
+        fontSize: 14,
+        color: Color(0xffA5A5A5),
+      ),
+      titleTextStyle: const TextStyle(
+        fontSize: 16,
+        color: Color(0xff373737),
+        fontWeight: FontWeight.w600,
+      ),
+      iconColor: const Color(0xff1971FF),
+      horizontalTitleGap: 16,
+      minLeadingWidth: 0,
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: Color(0xff1971FF),
+      foregroundColor: Color(0xffFFFFFF),
+      shape: CircleBorder(),
+      elevation: 0,
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        side: WidgetStateProperty.resolveWith<BorderSide?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.disabled)) {
+              return const BorderSide(color: Color(0xffE5E5E5), width: 1);
+            }
+            return const BorderSide(color: Color(0xff1971FF), width: 1);
+          },
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith<Color?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.disabled)) {
+              return const Color(0xffA5A5A5);
+            }
+            return const Color(0xff1971FF);
+          },
+        ),
+        textStyle: WidgetStateProperty.resolveWith<TextStyle?>(
+          (Set<WidgetState> states) {
+            return const TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 16.0,
+              fontWeight: FontWeight.w600,
+            );
+          },
+        ),
+        shape: WidgetStateProperty.resolveWith<OutlinedBorder?>(
+          (Set<WidgetState> states) {
+            return RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            );
+          },
+        ),
+        overlayColor: WidgetStateProperty.resolveWith<Color?>(
+          (Set<WidgetState> states) {
+            if (states.contains(WidgetState.pressed)) {
+              return Colors.black12;
+            }
+            return null;
+          },
+        ),
+        padding: WidgetStateProperty.resolveWith<EdgeInsetsGeometry?>(
+          (Set<WidgetState> states) {
+            return const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+          },
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xffFFFFFF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xffE5E5E5), width: 1),
+      ),
+      floatingLabelStyle: const TextStyle(
+        fontSize: 12,
+        color: Color(0xff1971FF),
+        fontWeight: FontWeight.w500,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xffE5E5E5), width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xff1971FF), width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xffFF0004), width: 1),
+      ),
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        color: Color(0xffA5A5A5),
+        fontWeight: FontWeight.w500,
+      ),
+      helperStyle: const TextStyle(
+        fontSize: 1124,
+        color: Color(0xffA5A5A5),
+        fontWeight: FontWeight.w500,
+      ),
+      hintStyle: const TextStyle(
+        fontSize: 14,
+        color: Color(0xffA5A5A5),
+        fontWeight: FontWeight.w500,
       ),
     ),
     dividerTheme: const DividerThemeData(

@@ -36,6 +36,12 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+		<string>Usamos la cámara para que puedas adjuntar imagenes de incidencias.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Necesitamos guardar imágenes procesadas o capturadas desde la app en tu biblioteca de fotos.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Necesitamos acceder a tu biblioteca para que puedas seleccionar imagenes.</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationLandscapeLeft</string>

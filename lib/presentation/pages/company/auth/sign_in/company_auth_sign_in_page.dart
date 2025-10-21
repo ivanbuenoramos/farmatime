@@ -1,4 +1,6 @@
 // 📄 lib/presentation/pages/company_auth/company_auth_signin_page.dart
+import 'package:farmatime/presentation/widgets/buttons/block_button.dart';
+import 'package:farmatime/presentation/widgets/custom_text_input.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -19,75 +21,106 @@ class CompanyAuthSignInPage extends GetView<CompanyAuthSignInController> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded, size: 30, color: Colors.black),
           onPressed: () => Get.back(),
         ),
       ),
       backgroundColor: Colors.grey[50],
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('farmatime', style: theme.textTheme.titleLarge?.copyWith(color: Colors.blue, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 24),
-            Text('¡Bienvenido!', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Inicia sesión con tu cuenta de farmacia.', style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 32),
-
-            TextField(
-              controller: controller.emailController,
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller.passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Contraseña',
-              ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Checkbox(
-                  value: controller.rememberMe.value,
-                  onChanged: controller.setRememberMe,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 48,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'farmatime',
+                style: Get.theme.textTheme.headlineLarge?.copyWith(
+                  color: Get.theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 26,
+                  fontStyle:  FontStyle.italic,
                 ),
-                const Text('Mantener sesión iniciada')
-              ],
-            ),
-
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: controller.login,
-                child: const Text('Iniciar sesión'),
               ),
-            ),
-
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: controller.recoverPassword,
-                child: const Text('¿Contraseña olvidada? Recuperarla aquí'),
+              
+              const SizedBox(height: 20),
+              
+              Text('Acceso para farmacias', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+              
+              const SizedBox(height: 10),
+              
+              Text('Nos alegramos de verte de nuevo.', style: theme.textTheme.bodyMedium),
+              
+              const SizedBox(height: 32),
+          
+              CustomTextInput(
+                controller: controller.emailController,
+                hintText: 'Correo electrónico',
+                keyboardType: TextInputType.emailAddress,
               ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: controller.redirectToSignUp,
-                child: const Text('Crear cuenta'),
+              
+              const SizedBox(height: 16),
+              
+              CustomTextInput(
+                controller: controller.passwordController,
+                hintText: 'Contraseña',
+                obscureText: true,
               ),
-            ),
-          ],
+              
+              const SizedBox(height: 25),
+              
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: BlockButton(
+                  onPressed: controller.login,
+                  label: 'INICIAR SESIÓN',
+                ),
+              ),
+          
+              const SizedBox(height: 16),
+          
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '¿Contraseña olvidada?',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Get.theme.colorScheme.secondary,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: controller.recoverPassword,
+                    child: const Text(
+                      'Recuperarla aquí',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Spacer(),
+              Column(
+                children: [
+                  Text(
+                    'No tienes cuenta?',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Get.theme.colorScheme.secondary,
+                    ),
+                  ),
+                  Center(
+                    child: TextButton(
+                      onPressed: controller.redirectToSignUp,
+                      child: const Text('Crear cuenta de farmacia'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

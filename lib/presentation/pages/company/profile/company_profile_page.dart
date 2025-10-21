@@ -83,7 +83,9 @@ class CompanyProfilePage extends StatelessWidget {
               title: 'Dirección de la empresa',
               description: 'Asegúrate de que la dirección es correcta para que los empleados puedan encontrar tu farmacia.',
               children: [
+                const SizedBox(height: 8),
                 buildInput(label: 'Dirección', controller: controller.addressController),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(child: buildInput(label: 'Ciudad', controller: controller.cityController)),
@@ -91,6 +93,7 @@ class CompanyProfilePage extends StatelessWidget {
                     Expanded(child: buildInput(label: 'Código Postal', controller: controller.postalCodeController)),
                   ],
                 ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(child: buildInput(label: 'Provincia', controller: controller.provinceController)),
@@ -108,14 +111,17 @@ class CompanyProfilePage extends StatelessWidget {
             ),
             
             const SizedBox(height: 15),
-
             /// Datos empresa
             BaseCard(
               title: 'Datos de la empresa',
               children: [
+                const SizedBox(height: 8),
                 buildInput(label: 'Nombre de la empresa', controller: controller.nameController),
+                const SizedBox(height: 12),
                 buildInput(label: 'CIF', controller: controller.cifController),
+                const SizedBox(height: 12),
                 buildInput(label: 'Email', controller: controller.emailController),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -126,7 +132,7 @@ class CompanyProfilePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: controller.saveChanges,
                       child: const Text('Cambiar'),
                     ),

@@ -1,5 +1,5 @@
 import 'package:farmatime/data/models/result.dart';
-import 'package:farmatime/data/repositories/billing_repository.dart';
+import 'package:farmatime/domain/repositories/billing_repository.dart';
 
 class UpdateOccupiedSeatsUseCase {
   final BillingRepository repository;

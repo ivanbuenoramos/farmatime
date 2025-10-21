@@ -12,4 +12,8 @@ abstract class FirebaseAuthRepository {
   Future<Result> deleteAccount();
   Future<Result> reauthenticate(String email, String password);
   Future<Result<String?>> checkUserExistsByEmail(String email);
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }

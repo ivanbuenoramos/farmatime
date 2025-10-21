@@ -187,4 +187,38 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
       return Result(success: false, data: null, errorCode: 'unknown-error');
     }
   }
+
+  @override
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        return Result(success: false, data: null, errorCode: 'user-not-found');
+      }
+      if (newPassword.length < 6) {
+        return Result(success: false, data: null, errorCode: 'weak-password');
+      }
+      final email = user.email;
+      if (email == null) {
+        return Result(success: false, data: null, errorCode: 'email-not-found');
+      }
+      final cred = EmailAuthProvider.credential(email: email, password: currentPassword);
+      await user.reauthenticateWithCredential(cred).timeout(const Duration(seconds: 10));
+      await user.updatePassword(newPassword).timeout(const Duration(seconds: 10));
+      return Result(success: true, data: null);
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: null, errorCode: 'time-exceeded');
+    } on FirebaseAuthException catch (e) {
+      // Reutiliza tu parser para mostrar toasts amigables
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: null, errorCode: e.code);
+    } catch (e) {
+      toastService.showParsedErrorCode('auth-error');
+      return Result(success: false, data: null, errorCode: 'auth-error');
+    }
+  }
 }

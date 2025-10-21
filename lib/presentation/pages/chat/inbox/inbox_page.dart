@@ -1,9 +1,12 @@
 import 'package:farmatime/core/routes/routes.dart';
-import 'package:farmatime/data/models/chat/chat_models.dart';
 import 'package:flutter/material.dart';
+
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+
 import 'inbox_controller.dart';
+import 'package:farmatime/data/models/chat/chat_models.dart';
+
 
 
 class InboxPage extends GetView<InboxController> {
@@ -22,33 +25,12 @@ class InboxPage extends GetView<InboxController> {
 
         return ListView.separated(
           itemCount: list.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (_, i) {
             final c = list[i];
-            return ListTile(
-              leading: const CircleAvatar(
-                radius: 22,
-                backgroundImage: NetworkImage(
-                  'https://randomuser.me/api/portraits/men/32.jpg',
-                ),
-              ),
-              title: Text(
-                c.title.isEmpty ? _titleFromMembers(c, controller.currentUserId.value!) : c.title,
-                style: Get.theme.textTheme.bodyMedium?.copyWith(
-                  color: Get.theme.colorScheme.secondary,
-                  fontWeight: FontWeight.w600
-                )
-              ),
-              subtitle: Text(
-                c.lastMessageText ?? '—',
-                style: Get.theme.textTheme.bodyMedium,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Text(
-                formatLastMessageTime(c.updatedAt),
-                style: Get.theme.textTheme.bodySmall,
-              ), 
+            return InkWell(
               onTap: () {
                 Get.toNamed(
                   Routes.chat,
@@ -57,7 +39,51 @@ class InboxPage extends GetView<InboxController> {
                     'currentUserId': controller.currentUserId.value,
                   }
                 );
-              }
+              },
+              child: Ink(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const CircleAvatar(
+                          radius: 22,
+                          backgroundImage: NetworkImage(
+                            'https://randomuser.me/api/portraits/men/32.jpg',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                c.title.isEmpty ? _titleFromMembers(c, controller.currentUserId.value!) : c.title,
+                                style: Get.theme.textTheme.bodyMedium?.copyWith(
+                                  color: Get.theme.colorScheme.secondary,
+                                  fontWeight: FontWeight.w600
+                                )
+                              ),
+                              Text(
+                                c.lastMessageText ?? '—',
+                                style: Get.theme.textTheme.bodyMedium,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          formatLastMessageTime(c.updatedAt),
+                          style: Get.theme.textTheme.bodySmall,
+                        ), 
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             );
           },
         );

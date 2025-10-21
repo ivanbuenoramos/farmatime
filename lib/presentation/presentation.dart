@@ -8,6 +8,11 @@ export 'package:farmatime/presentation/pages/index/index_page.dart';
 export 'package:farmatime/presentation/pages/index/index_binding.dart';
 export 'package:farmatime/presentation/pages/index/index_controller.dart';
 
+// AUTH CHANGE PASSWORD
+export 'package:farmatime/presentation/pages/aurh/change_password/change_password_page.dart';
+export 'package:farmatime/presentation/pages/aurh/change_password/change_password_binding.dart';
+export 'package:farmatime/presentation/pages/aurh/change_password/change_password_controller.dart';
+
 // EMPLOYEE AUTH SIGN IN
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_page.dart';
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_binding.dart';
@@ -47,3 +52,18 @@ export 'package:farmatime/presentation/pages/company/employee_detail/company_emp
 export 'package:farmatime/presentation/pages/company/subscription/subscription_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
+
+// COMPANY SUBSCRIPTION SEAT CHECKOUT
+export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_controller.dart';
+
+// COMPANY PAYMENT METHODS
+export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_page.dart';
+export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_binding.dart';
+export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_controller.dart';
+
+// COMPANY ACCOUNT
+export 'package:farmatime/presentation/pages/company/account/company_account_page.dart';
+export 'package:farmatime/presentation/pages/company/account/company_account_binding.dart';
+export 'package:farmatime/presentation/pages/company/account/company_account_controller.dart';

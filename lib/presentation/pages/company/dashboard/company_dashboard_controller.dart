@@ -1,14 +1,14 @@
-// lib/presentation/pages/company/dashboard/company_dashboard_controller.dart
-import 'package:farmatime/data/models/employee_model.dart';
-import 'package:farmatime/data/models/employee_shift_model.dart';
-import 'package:farmatime/data/models/result.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 import 'package:farmatime/core/app/brain.dart';
-import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:farmatime/data/models/result.dart';
+import 'package:farmatime/data/models/employee_model.dart';
+import 'package:farmatime/data/models/employee_shift_model.dart';
 import 'package:farmatime/domain/usecases/clock/get_today_last_clocks_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
+
+
 
 enum TodayStatus { working, absent, off }
 
@@ -78,8 +78,6 @@ class CompanyDashboardController extends GetxController {
 
   DateTime get _todayEnd =>
       _todayStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
-
-  String get _todayKey => DateFormat('yyyy-MM-dd').format(_todayStart);
 
   @override
   void onInit() {

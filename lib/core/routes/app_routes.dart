@@ -1,5 +1,7 @@
 import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
 import 'package:farmatime/presentation/pages/chat/chat/chat_page.dart';
+import 'package:farmatime/presentation/pages/company/profile/company_profile_binding.dart';
+import 'package:farmatime/presentation/pages/company/profile/company_profile_page.dart';
 import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_binding.dart';
 import 'package:get/get.dart';
 
@@ -24,6 +26,12 @@ class AppRoutes {
         name: Routes.index,
         page: () => const IndexPage(),
         binding: IndexBinding(),
+      ),
+
+      GetPage(
+        name: Routes.changePassword,
+        page: () => const ChangePasswordPage(),
+        binding: ChangePasswordBinding(),
       ),
 
       GetPage(
@@ -84,6 +92,24 @@ class AppRoutes {
         name: Routes.companySubscription,
         page: () => const SubscriptionPage(),
         binding: SubscriptionBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyProfile,
+        page: () => const CompanyProfilePage(),
+        binding: CompanyProfileBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companySubscriptionSeatCheckout,
+        page: () => const SeatCheckoutPage(),
+        binding: SeatCheckoutBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyPaymentMethods,
+        page: () => const PaymentMethodsPage(),
+        binding: PaymentMethodsBinding(),
       ),
 
     ];

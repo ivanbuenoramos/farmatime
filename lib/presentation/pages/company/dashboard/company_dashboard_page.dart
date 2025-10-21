@@ -1,4 +1,5 @@
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -73,40 +74,34 @@ class _EmployeesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionHeader('Empleados', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-            const SizedBox(height: 8),
-            Text('Trabajando', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-            Divider(height: 16),
-            if (controller.working.isNotEmpty) ...[
-              ...controller.working.map((e) => _EmployeeTile(row: e, warn: false)),
-              const SizedBox(height: 8),
-              Divider(height: 16),
-            ],
-
-            Text('Ausentes', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-            Divider(height: 16),
-            if (controller.absent.isNotEmpty) ...[
-              ...controller.absent.map((e) => _EmployeeTile(row: e, warn: true)),
-              const SizedBox(height: 8),
-            ],
-            Text('Sin trabajar', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-            Divider(height: 16),
-            if (controller.off.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text('—', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              )
-            else
-              ...controller.off.map((e) => _EmployeeTile(row: e, muted: true)),
-          ],
-        ),
-      ),
+    return BaseCard(
+      children: [
+        _SectionHeader('Empleados', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+        const SizedBox(height: 8),
+        Text('Trabajando', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+        Divider(height: 16),
+        if (controller.working.isNotEmpty) ...[
+          ...controller.working.map((e) => _EmployeeTile(row: e, warn: false)),
+          const SizedBox(height: 8),
+          Divider(height: 16),
+        ],
+    
+        Text('Ausentes', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+        Divider(height: 16),
+        if (controller.absent.isNotEmpty) ...[
+          ...controller.absent.map((e) => _EmployeeTile(row: e, warn: true)),
+          const SizedBox(height: 8),
+        ],
+        Text('Sin trabajar', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+        Divider(height: 16),
+        if (controller.off.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('—', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          )
+        else
+          ...controller.off.map((e) => _EmployeeTile(row: e, muted: true)),
+      ],
     );
   }
 }
@@ -120,7 +115,6 @@ class _EmployeeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurfaceVariant;
 
     final controller = Get.find<CompanyDashboardController>();
 
@@ -177,48 +171,42 @@ class _IncoherentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionHeader('Marcajes incoherentes', trailing: Icon(Icons.group, size: 18, color: theme.colorScheme.outline)),
-            const SizedBox(height: 8),
-            if (controller.incoherent.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('Sin alertas por ahora', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              )
-            else
-              ...controller.incoherent.map((a) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      children: [
-                        CircleAvatar(radius: 18, child: Text(a.emp.name.isNotEmpty ? a.emp.name[0] : '?')),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(a.emp.name, style: theme.textTheme.bodyLarge),
-                              Text(_fmtDate(a.date), style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('Ausencia', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error, fontWeight: FontWeight.w600)),
-                            Text('-${a.deltaMinutes}m', style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )),
-          ],
-        ),
-      ),
+    return BaseCard(
+      children: [
+        _SectionHeader('Marcajes incoherentes', trailing: Icon(Icons.group, size: 18, color: theme.colorScheme.outline)),
+        const SizedBox(height: 8),
+        if (controller.incoherent.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text('Sin alertas por ahora', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          )
+        else
+          ...controller.incoherent.map((a) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                CircleAvatar(radius: 18, child: Text(a.emp.name.isNotEmpty ? a.emp.name[0] : '?')),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.emp.name, style: theme.textTheme.bodyLarge),
+                      Text(_fmtDate(a.date), style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('Ausencia', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error, fontWeight: FontWeight.w600)),
+                    Text('-${a.deltaMinutes}m', style: theme.textTheme.bodySmall!.copyWith(color: theme.colorScheme.error)),
+                  ],
+                ),
+              ],
+            ),
+          )),
+        ],
     );
   }
 }
@@ -232,28 +220,22 @@ class _SubscriptionCard extends StatelessWidget {
     final accent = theme.colorScheme.primary;
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.companySubscription),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: BaseCard(
+        children: [
+          _SectionHeader('Suscripción', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              _SectionHeader('Suscripción', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.group, color: accent),
-                  const SizedBox(width: 8),
-                  Text('9/9', style: theme.textTheme.titleLarge!.copyWith(color: accent)),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text('Próxima renovación', style: theme.textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              Text('12/06/2025', style: theme.textTheme.headlineSmall!.copyWith(color: accent, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+              Icon(Icons.group, color: accent),
+              const SizedBox(width: 8),
+              Text('9/9', style: theme.textTheme.titleLarge!.copyWith(color: accent)),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Text('Próxima renovación', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 6),
+          Text('12/06/2025', style: theme.textTheme.headlineSmall!.copyWith(color: accent, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+        ],
       ),
     );
   }
@@ -266,52 +248,45 @@ class _CompanyInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurfaceVariant;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return BaseCard(
+      children: [
+        _SectionHeader('Datos de la empresa', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+        const SizedBox(height: 10),
+        Row(
           children: [
-            _SectionHeader('Datos de la empresa', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
-                  child: controller.brain.company.value?.logoUrl == null
-                      ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
-                      : null,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        controller.brain.company.value?.legalName ?? '—',
-                        style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        controller.brain.company.value?.email ?? '—',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            CircleAvatar(
+              radius: 22,
+              backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
+              child: controller.brain.company.value?.logoUrl == null
+                  ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
+                  : null,
             ),
-            const SizedBox(height: 12),
-            _kv(theme, 'CIF', controller.brain.company.value?.vatNumber ?? '—'),
-            const SizedBox(height: 4),
-            _kv(theme, 'Dirección', controller.brain.company.value?.address?.address != null ? controller.brain.company.value!.address!.address : '—'),
-            const SizedBox(height: 4),
-            _kv(theme, 'Ciudad', controller.brain.company.value?.address?.city != null ? controller.brain.company.value!.address!.city : '—'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    controller.brain.company.value?.legalName ?? '—',
+                    style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    controller.brain.company.value?.email ?? '—',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        _kv(theme, 'CIF', controller.brain.company.value?.vatNumber ?? '—'),
+        const SizedBox(height: 4),
+        _kv(theme, 'Dirección', controller.brain.company.value?.address?.address != null ? controller.brain.company.value!.address!.address : '—'),
+        const SizedBox(height: 4),
+        _kv(theme, 'Ciudad', controller.brain.company.value?.address?.city != null ? controller.brain.company.value!.address!.city : '—'),
+      ],
     );
   }
 

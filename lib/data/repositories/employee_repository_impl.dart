@@ -1,18 +1,50 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart' hide Result;
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class EmployeeRepositoryImpl implements EmployeeRepository {
   
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
+            app: Firebase.app(),
+            region: 'europe-west1',
+          );
 
   @override
   Future<Result<EmployeeModel?>> createEmployee(EmployeeModel employee) async {
     try {
-      await firestore.collection('employees').doc(employee.uid).set(employee.toJson());
-      return Result(success: true, data: employee);
+      final callable = functions.httpsCallable('createEmployeeAccount');
+
+      final payload = {
+        'companyId': employee.companyId,
+        'name': employee.name,
+        'email': employee.email,
+        'hourlyRate': employee.hourlyRate,
+        'role': employee.role.name,
+        'roleOther': employee.roleOther,
+        'workdayType': employee.workdayType?.name,
+        'vacationDaysPer30': employee.vacationDaysPer30,
+        'personalDaysPerYear': employee.personalDaysPerYear,
+      };
+
+      final resp = await callable.call(payload);
+      final data = (resp.data as Map?) ?? {};
+      final uid = data['uid']?.toString();
+
+      if (uid == null || uid.isEmpty) {
+        return Result(success: false, data: null, errorCode: 'uid-null');
+      }
+
+      final created = employee.copyWith(
+        uid: uid,
+      );
+
+      return Result(success: true, data: created);
     } catch (e) {
+      print(e);
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }

@@ -69,7 +69,10 @@ class CompanyAuthSignInController extends GetxController {
     final Result<CompanyModel?> companyResult =
         await getCompanyByIdUseCase.call(user.uid);
 
+        print(user.uid);
+
     if (!companyResult.success || companyResult.data == null) {
+      print(companyResult.data);
       Get.snackbar('Error', 'No se encontró una empresa asociada a esta cuenta');
       return;
     }

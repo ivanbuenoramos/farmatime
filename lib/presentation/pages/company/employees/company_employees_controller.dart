@@ -5,6 +5,7 @@ import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 
@@ -84,23 +85,103 @@ class CompanyEmployeesController extends GetxController {
     if (canCreateEmployee) {
       reditectToCreateEmployee();
     } else {
-      _showNoSlotsModal();
+      _showNoSlotsModal(
+        contractedSeats.value,
+      );
     }
   }
 
-  void _showNoSlotsModal() {
-    Get.defaultDialog(
-      title: 'Sin huecos contratados',
-      middleText:
-          'Para crear un nuevo empleado necesitas contratar un espacio más.',
-      textConfirm: 'Ir a suscripción',
-      textCancel: 'Cancelar',
-      onConfirm: () {
-        Get.back();
-        // Get.toNamed(Routes.subscription); // ajusta si tu ruta difiere
-      },
-      confirmTextColor: Colors.white,
+  void _showNoSlotsModal(int employeesCount) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Get.theme.colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/icons/user_add.svg',
+                      height: 120,
+                      colorFilter: ColorFilter.mode(
+                        Get.theme.colorScheme.primary,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Get.theme.colorScheme.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Get.theme.colorScheme.outline,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 26,
+                          color: Get.theme.colorScheme.tertiary,
+                        ),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+              Text(
+                '¡Ups!',
+                style: Get.textTheme.headlineMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              if (employeesCount == 1)
+                Text(
+                  'Has alcanzado el límite de 1 empleado gratuito. Para añadir más empleados, por favor actualiza tu suscripción.',
+                  style: Get.textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                )
+              else
+              Text(
+                'Has alcanzado el límite de $employeesCount empleados para tu suscripción actual. Para añadir más empleados, por favor actualiza tu suscripción.',
+                style: Get.textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    Get.back();
+                    reditectToSubscription();
+                  },
+                  child: const Text('Ir a suscripción'),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+      isScrollControlled: true
     );
+  }
+
+  void reditectToSubscription() {
+    Get.toNamed(Routes.companySubscription);
   }
 
   void reditectToCreateEmployee() {

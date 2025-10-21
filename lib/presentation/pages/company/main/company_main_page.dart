@@ -2,13 +2,11 @@ import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/company/dashboard/company_dashboard_page.dart';
 import 'package:farmatime/presentation/pages/company/employees/company_employees_page.dart';
 import 'package:farmatime/presentation/pages/company/entries/company_entries_page.dart';
-import 'package:farmatime/presentation/pages/company/profile/company_profile_page.dart';
+import 'package:farmatime/presentation/presentation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import 'package:get/get.dart';
-
-import 'package:farmatime/presentation/pages/company/main/company_main_controller.dart';
 
 
 
@@ -34,7 +32,7 @@ class CompanyMainPage extends StatelessWidget {
               CompanyEntriesPage(),
               InboxPage(),
               CompanyEmployeesPage(),
-              CompanyProfilePage(),
+              CompanyAccountPage(),
             ],
           ),
         )
@@ -45,32 +43,102 @@ class CompanyMainPage extends StatelessWidget {
   final List<BottomNavigationBarItem> items = [
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/home.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/home_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/home.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/home_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Inicio',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/documents.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/documents_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/documents.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/documents_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Fichajes',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/chat.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/chat_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/chat.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/chat_bold.svg',
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+        height: 26,
+      ),
       label: 'Chat interno',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/users.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/users_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/users.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/users_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Empleados',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/pharmacy.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/pharmacy_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/pharmacy.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/pharmacy_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Perfil',
     ),
   ];
@@ -78,15 +146,21 @@ class CompanyMainPage extends StatelessWidget {
   Widget _bottomNavBar(context, controller) {
     return Obx(() => Container(
       decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+          ),
+        ],
         border: Border(
           top: BorderSide(
             color: Get.theme.colorScheme.outline,
-            width: 0.5,
+            width: 1,
           ),
         ),
       ),
       child: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Get.theme.colorScheme.surface,
         showSelectedLabels: false,
         showUnselectedLabels: false,
         onTap: (index) {

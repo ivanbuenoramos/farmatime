@@ -1,8 +1,9 @@
-import 'package:farmatime/domain/usecases/stripe/list_invoices_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:farmatime/data/repositories/stripe_repository_impl.dart';
+import 'package:farmatime/domain/usecases/stripe/list_invoices_usecase.dart';
+import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/update_subscription_quantity_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_billing_portal_session_usecase.dart';
 import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
@@ -32,11 +33,16 @@ class SubscriptionBinding extends Bindings {
       () => ListInvoicesUseCase(Get.find<StripeRepository>()),
     );
 
+    Get.lazyPut<PrepareSeatChangePaymentUseCase>(
+      () => PrepareSeatChangePaymentUseCase(Get.find<StripeRepository>()),
+    );
+
     Get.lazyPut<SubscriptionController>(() => SubscriptionController(
       updateSubscriptionQuantityUseCase: Get.find<UpdateSubscriptionQuantityUseCase>(),
       createBillingPortalSessionUseCase: Get.find<CreateBillingPortalSessionUseCase>(),
       createStripeCustomerAndSubscriptionUseCase: Get.find<CreateStripeCustomerAndSubscriptionUseCase>(),
       listInvoicesUseCase: Get.find<ListInvoicesUseCase>(),
+      prepareSeatChangePaymentUseCase: Get.find<PrepareSeatChangePaymentUseCase>(),
     ));
   }
 }

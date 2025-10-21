@@ -1,5 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'address.dart';
 import 'phone_number.dart';
+
+enum AuthMethod {
+  emailPassword,
+  google,
+  apple,
+}
 
 class CompanyModel {
   final String id;
@@ -10,6 +18,7 @@ class CompanyModel {
   final String? vatNumber; // CIF
   final Address? address;
   final PhoneNumber? phoneNumber;
+  final AuthMethod? authMethod;
 
   /// Número de slots comprados localmente (deprecated, pero mantenemos compatibilidad)
   final int purchasedEmployeeSlots;
@@ -32,6 +41,7 @@ class CompanyModel {
     this.vatNumber,
     this.address,
     this.phoneNumber,
+    this.authMethod = AuthMethod.emailPassword,
     required this.purchasedEmployeeSlots,
     this.stripeCustomerId,
     this.stripeSubscriptionId,
@@ -50,16 +60,38 @@ class CompanyModel {
         vatNumber: json['vatNumber'],
         address: json['address'] != null ? Address.fromJson(json['address']) : null,
         phoneNumber: json['phoneNumber'] != null ? PhoneNumber.fromJson(json['phoneNumber']) : null,
+        authMethod: json['authMethod'] != null
+            ? AuthMethod.values.firstWhere(
+                (e) => e.toString() == 'AuthMethod.${json['authMethod']}',
+                orElse: () => AuthMethod.emailPassword,
+              )
+            : AuthMethod.emailPassword,
         purchasedEmployeeSlots: json['purchasedEmployeeSlots'] ?? 0,
         stripeCustomerId: json['stripeCustomerId'],
         stripeSubscriptionId: json['stripeSubscriptionId'],
         contractedSeats: json['contractedSeats'],
         billingStatus: json['billingStatus'],
-        currentPeriodEnd: json['currentPeriodEnd'] != null
-            ? DateTime.tryParse(json['currentPeriodEnd'].toString())
-            : null,
-        createdAt: DateTime.parse(json['createdAt']),
-        updatedAt: DateTime.parse(json['updatedAt']),
+        currentPeriodEnd: json['currentPeriodEnd'] is DateTime
+            ? json['currentPeriodEnd']
+            : json['currentPeriodEnd'] is Timestamp
+                ? (json['currentPeriodEnd'] as Timestamp).toDate()
+                : json['currentPeriodEnd'] is String
+                    ? DateTime.parse(json['currentPeriodEnd'])
+                    : null,
+        createdAt: json['createdAt'] is DateTime
+            ? json['createdAt']
+            : json['createdAt'] is Timestamp
+                ? (json['createdAt'] as Timestamp).toDate()
+                : json['createdAt'] is String
+                    ? DateTime.parse(json['createdAt'])
+                    : DateTime.now(),
+        updatedAt: json['updatedAt'] is DateTime
+            ? json['updatedAt']
+            : json['updatedAt'] is Timestamp
+                ? (json['updatedAt'] as Timestamp).toDate()
+                : json['updatedAt'] is String
+                    ? DateTime.parse(json['updatedAt'])
+                    : DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -70,6 +102,7 @@ class CompanyModel {
         'vatNumber': vatNumber,
         'address': address?.toJson(),
         'phoneNumber': phoneNumber?.toJson(),
+        'authMethod': authMethod?.toString().split('.').last,
         'purchasedEmployeeSlots': purchasedEmployeeSlots,
         'stripeCustomerId': stripeCustomerId,
         'stripeSubscriptionId': stripeSubscriptionId,
@@ -80,6 +113,25 @@ class CompanyModel {
         'updatedAt': updatedAt.toIso8601String(),
       };
 
+  Map<String, dynamic> toFirestore() => {
+        'id': id,
+        'email': email,
+        'logoUrl': logoUrl,
+        'legalName': legalName,
+        'vatNumber': vatNumber,
+        'address': address?.toJson(),
+        'phoneNumber': phoneNumber?.toJson(),
+        'authMethod': authMethod?.toString().split('.').last,
+        'purchasedEmployeeSlots': purchasedEmployeeSlots,
+        'stripeCustomerId': stripeCustomerId,
+        'stripeSubscriptionId': stripeSubscriptionId,
+        'contractedSeats': contractedSeats,
+        'billingStatus': billingStatus,
+        'currentPeriodEnd': currentPeriodEnd,
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+      };
+
   CompanyModel copyWith({
     String? id,
     String? email,
@@ -88,6 +140,7 @@ class CompanyModel {
     String? vatNumber,
     Address? address,
     PhoneNumber? phoneNumber,
+    AuthMethod? authMethod,
     int? purchasedEmployeeSlots,
     String? stripeCustomerId,
     String? stripeSubscriptionId,
@@ -105,6 +158,7 @@ class CompanyModel {
       vatNumber: vatNumber ?? this.vatNumber,
       address: address ?? this.address,
       phoneNumber: phoneNumber ?? this.phoneNumber,
+      authMethod: authMethod ?? this.authMethod,
       purchasedEmployeeSlots: purchasedEmployeeSlots ?? this.purchasedEmployeeSlots,
       stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
       stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,

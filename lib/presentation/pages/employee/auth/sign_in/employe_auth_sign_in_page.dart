@@ -37,7 +37,7 @@ class EmployeeAuthSignInPage extends GetView<EmployeeAuthSignInController> {
               style: Get.theme.textTheme.headlineLarge?.copyWith(
                 color: Get.theme.colorScheme.primary,
                 fontWeight: FontWeight.w700,
-                fontSize: 20,
+                fontSize: 26,
                 fontStyle:  FontStyle.italic,
               ),
             ),

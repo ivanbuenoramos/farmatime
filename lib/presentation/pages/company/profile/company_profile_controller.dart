@@ -129,4 +129,8 @@ class CompanyProfileController extends GetxController {
     postalCodeController.dispose();
     super.onClose();
   }
+
+  void redirectToPaymentMethods() {
+    Get.toNamed(Routes.companyPaymentMethods);
+  }
 }

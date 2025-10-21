@@ -15,7 +15,7 @@ class CompanyRepositoryImpl implements CompanyRepository {
     try {
       final docRef = firestore.collection('companies').doc(company.id);
       final newCompany = company.copyWith(id: docRef.id);
-      await docRef.set(newCompany.toJson());
+      await docRef.set(newCompany.toFirestore());
       return Result(
         success: true,
         data: newCompany,
@@ -32,7 +32,7 @@ class CompanyRepositoryImpl implements CompanyRepository {
   @override
   Future<Result<CompanyModel?>> updateCompany(CompanyModel company) async {
     try {
-      await firestore.collection('companies').doc(company.id).update(company.toJson());
+      await firestore.collection('companies').doc(company.id).update(company.toFirestore());
       return Result(
         success: true,
         data: company,
@@ -50,6 +50,8 @@ class CompanyRepositoryImpl implements CompanyRepository {
   Future<Result<CompanyModel?>> getCompanyById(String companyId) async {
     try {
       final doc = await firestore.collection('companies').doc(companyId).get();
+
+      print(doc.data());
       if (!doc.exists) {
         return Result(
           success: false,
@@ -62,6 +64,7 @@ class CompanyRepositoryImpl implements CompanyRepository {
         data: CompanyModel.fromJson(doc.data()!),
       );
     } catch (e) {
+      print(e);
       return Result(
         success: false,
         data: null,

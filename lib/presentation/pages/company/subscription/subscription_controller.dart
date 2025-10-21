@@ -1,28 +1,37 @@
 import 'dart:async';
+
+import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:farmatime/domain/usecases/stripe/list_invoices_usecase.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/domain/usecases/stripe/update_subscription_quantity_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_billing_portal_session_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_and_subscription_usecase.dart';
-import 'package:farmatime/data/models/result.dart';
-import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+
 
 class SubscriptionController extends GetxController {
   final UpdateSubscriptionQuantityUseCase updateSubscriptionQuantityUseCase;
   final CreateBillingPortalSessionUseCase createBillingPortalSessionUseCase;
   final CreateStripeCustomerAndSubscriptionUseCase createStripeCustomerAndSubscriptionUseCase;
   final ListInvoicesUseCase listInvoicesUseCase;
+  final PrepareSeatChangePaymentUseCase prepareSeatChangePaymentUseCase;
 
   SubscriptionController({
     required this.updateSubscriptionQuantityUseCase,
     required this.createBillingPortalSessionUseCase,
     required this.createStripeCustomerAndSubscriptionUseCase,
     required this.listInvoicesUseCase,
+    required this.prepareSeatChangePaymentUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -37,6 +46,7 @@ class SubscriptionController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
   final RxString prorationBehavior = 'create_prorations'.obs; // o 'none'
+
 
   final RxList<InvoiceModel> invoices = <InvoiceModel>[].obs;
   final RxBool invoicesLoading = false.obs;
@@ -109,48 +119,81 @@ class SubscriptionController extends GetxController {
   // -------------------------------------------------------
   // 🔹 Actualizar número de plazas (empleados contratados)
   // -------------------------------------------------------
-  Future<void> increment() => _setQuantity(contractedSeats.value + 1);
+  // Future<void> increment() => _setQuantity(contractedSeats.value + 1);
 
-  Future<void> decrement() {
-    final q = contractedSeats.value - 1;
-    final next = q <= 0 ? 1 : q; // mínimo 1 para encajar con tu precio escalonado
-    return _setQuantity(next);
-  }
+  // Future<void> decrement() {
+  //   final q = contractedSeats.value - 1;
+  //   final next = q <= 0 ? 1 : q; // mínimo 1 para encajar con tu precio escalonado
+  //   return _setQuantity(next);
+  // }
 
-  Future<void> _setQuantity(int newQty) async {
-    if (companyId.isEmpty) return;
-    _debugAuthVsCompany();
+  // Future<void> _setQuantity(int newQty) async {
+  //   if (companyId.isEmpty) return;
+  //   if (!isCompanyAccount) {
+  //     Get.snackbar('Permisos', 'Solo la cuenta de empresa puede gestionar la suscripción');
+  //     return;
+  //   }
 
-    if (!isCompanyAccount) {
-      Get.snackbar('Permisos insuficientes',
-          'Solo la cuenta de empresa puede cambiar las plazas.');
-      return;
-    }
+  //   isLoading.value = true;
+  //   try {
+  //     final res = await prepareSeatChangePaymentUseCase.call(
+  //       companyId: companyId,
+  //       quantity: newQty,
+  //       prorationBehavior: _parseProrationBehavior(prorationBehavior.value),
+  //     );
 
-    isLoading.value = true;
-    error.value = '';
+  //     if (!res.success || res.data == null) {
+  //       final code = res.errorCode ?? 'Error preparando el pago';
+  //       // Si backend devuelve no-payment-method, puedes abrir portal en su lugar
+  //       if (code.contains('no-payment-method')) {
+  //         Get.defaultDialog(
+  //           title: 'Método de pago requerido',
+  //           middleText: 'Añade una tarjeta para completar la compra.',
+  //           textConfirm: 'Abrir portal',
+  //           onConfirm: () { Get.back(); openBillingPortal(); },
+  //           textCancel: 'Cancelar',
+  //         );
+  //       } else {
+  //         Get.snackbar('Error', code);
+  //       }
+  //       return;
+  //     }
 
-    try {
-      final Result<void> res = await updateSubscriptionQuantityUseCase.call(
-        companyId,
-        newQty,
-        prorationBehavior: _parseProrationBehavior(prorationBehavior.value),
-      );
+  //     final p = res.data!;
+  //     // 1) Inicializa PaymentSheet
+  //     await Stripe.instance.initPaymentSheet(
+  //       paymentSheetParameters: SetupPaymentSheetParameters(
+  //         merchantDisplayName: 'FarmaTime',
+  //         customerId: p.customerId,
+  //         customerEphemeralKeySecret: p.ephemeralKeySecret,
+  //         paymentIntentClientSecret: p.paymentIntentClientSecret,
+  //         style: ThemeMode.system,
+  //         allowsDelayedPaymentMethods: true,
+  //       ),
+  //     );
 
-      if (!res.success) {
-        error.value = res.errorCode ?? 'Error al actualizar la suscripción';
-        Get.snackbar('Error', error.value);
-        return;
-      }
+  //     // 2) Presenta PaymentSheet
+  //     await Stripe.instance.presentPaymentSheet();
 
-      // Firestore se actualizará automáticamente por el webhook
-    } catch (e) {
-      error.value = e.toString();
-      Get.snackbar('Error', error.value);
-    } finally {
-      isLoading.value = false;
-    }
-  }
+  //     // Si llega aquí, el pago se confirmó.
+  //     // El webhook actualizará contractedSeats; aquí puedes dar feedback y volver atrás:
+  //     Get.snackbar('Pago confirmado', 'Tus plazas se aplicarán en segundos.');
+  //     // Opcional: espera un poco a que llegue el webhook
+  //     await Future.delayed(const Duration(seconds: 2));
+  //     Get.back(); // volver a la pantalla anterior
+  //   } on StripeException catch (e) {
+  //     // Cancelado o error de Stripe
+  //     if (e.error.code == FailureCode.Canceled) {
+  //       Get.snackbar('Pago cancelado', 'No se aplicaron cambios.');
+  //     } else {
+  //       Get.snackbar('Error de pago', e.error.localizedMessage ?? e.toString());
+  //     }
+  //   } catch (e) {
+  //     Get.snackbar('Error', e.toString());
+  //   } finally {
+  //     isLoading.value = false;
+  //   }
+  // }
 
   // -------------------------------------------------------
   // 🔹 Portal de facturación de Stripe
@@ -238,12 +281,21 @@ class SubscriptionController extends GetxController {
     final res = await listInvoicesUseCase.call(companyId, limit: 50);
     print(res.success);
     if (res.success) {
-      invoices.assignAll(res.data ?? []);
+      invoices.assignAll(res.data);
       print(invoices.length);
     } else {
       // opcional: Get.snackbar('Error', res.errorCode ?? 'Error al cargar facturas');
     }
     invoicesLoading.value = false;
+  }
+
+  void redirectToSeatCheckout() {
+    if (!isCompanyAccount) {
+      Get.snackbar('Permisos insuficientes',
+          'Solo la cuenta de empresa puede gestionar la suscripción.');
+      return;
+    }
+    Get.toNamed('/company/subscription/seat-checkout');
   }
 
   @override
