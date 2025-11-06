@@ -33,7 +33,7 @@ class ClockInOutModel {
       };
 
   factory ClockInOutModel.fromJson(Map<String, dynamic> json) {
-    DateTime _parse(dynamic v) {
+    DateTime parse(dynamic v) {
       if (v == null) return DateTime.now();
       if (v is Timestamp) return v.toDate();    // 👈 Firestore Timestamp
       if (v is DateTime) return v;
@@ -44,11 +44,11 @@ class ClockInOutModel {
       id: json['id'],
       employeeId: json['employeeId'],
       companyId: json['companyId'],
-      clockIn: _parse(json['clockIn']),
-      clockOut: json['clockOut'] != null ? _parse(json['clockOut']) : null,
+      clockIn: parse(json['clockIn']),
+      clockOut: json['clockOut'] != null ? parse(json['clockOut']) : null,
       notes: json['notes'],
-      createdAt: _parse(json['createdAt']),
-      updatedAt: _parse(json['updatedAt']),
+      createdAt: parse(json['createdAt']),
+      updatedAt: parse(json['updatedAt']),
     );
   }
 

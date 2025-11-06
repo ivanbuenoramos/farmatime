@@ -126,4 +126,15 @@ class ShiftTemplate {
       (breakMinutes ?? 0).hashCode ^
       (color ?? 0).hashCode ^
       active.hashCode;
+
+   static ShiftTemplate empty({String companyId = ''}) => ShiftTemplate(
+        id: '',
+        companyId: companyId,
+        name: '',
+        start: '0800',
+        end: '1600',
+        breakMinutes: null,
+        color: null,
+        active: true,
+      );
 }

@@ -92,8 +92,8 @@ class EmployeeScheduleController extends GetxController {
   Future<void> loadShiftTemplates() async {
     final uc = Get.find<ListShiftTemplatesUseCase>();
     final res = await uc.call(_companyId);
-    if (res.success && res.data != null) {
-      shiftTemplates.assignAll(res.data!);
+    if (res.success) {
+      shiftTemplates.assignAll(res.data);
     }
   }
 
@@ -146,6 +146,7 @@ class EmployeeScheduleController extends GetxController {
       newMap[dateOnly(selectedDay.value!)] = entry;
     }
     entries.assignAll(newMap);
+    update();
   }
 
   Future<void> clearSelection() async {
@@ -160,6 +161,7 @@ class EmployeeScheduleController extends GetxController {
     } else if (selectedDay.value != null) {
       entries.remove(dateOnly(selectedDay.value!));
     }
+    update();
   }
 
   Future<void> save() async {

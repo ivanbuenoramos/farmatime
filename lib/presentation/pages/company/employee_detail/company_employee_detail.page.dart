@@ -171,6 +171,12 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
               // ───────────────────────────────────────────────────
               BaseCard(
                 title: 'Calendario',
+                actions: [
+                  GestureDetector(
+                    onTap: () => controller.redirectToEmployeeSchedule(),
+                    child: Icon(Icons.edit_rounded, color: Get.theme.colorScheme.primary, size: 18),
+                  ),
+                ],
                 children: [
                   Obx(() {
                     if (controller.isLoadingSchedule.value && controller.scheduleOverrides.isEmpty) {

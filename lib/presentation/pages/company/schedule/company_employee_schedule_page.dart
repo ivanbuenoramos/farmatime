@@ -40,25 +40,13 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
           return const Center(child: CircularProgressIndicator());
         }
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             children: [
-              BaseCard(
-                title: 'Leyenda',
-                description: 'Colores por tipo de día',
-                children: [
-                  _legendItem(theme.colorScheme.primary.withOpacity(0.25), 'Laboral'),
-                  const SizedBox(height: 8),
-                  _legendItem(theme.colorScheme.tertiaryContainer.withOpacity(0.35), 'Libre'),
-                  const SizedBox(height: 8),
-                  _legendItem(theme.colorScheme.errorContainer.withOpacity(0.45), 'Vacaciones'),
-                ],
-              ),
-              const SizedBox(height: 12),
 
               // CRUD de turnos preestablecidos
-              const ShiftTemplatesCard(),
-              const SizedBox(height: 12),
+              // const ShiftTemplatesCard(),
+              // const SizedBox(height: 12),
 
               BaseCard(
                 title: 'Horario recurrente',
@@ -70,20 +58,31 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
               ),
               const SizedBox(height: 12),
 
-              BaseCard(
-                title: 'Calendario',
-                children: [
-                  _Calendar(theme: theme),
-                ],
+              GetBuilder<EmployeeScheduleController>(
+                builder: (c) => BaseCard(
+                  title: 'Calendario',
+                  children: [
+                    _Calendar(theme: theme),
+                    Wrap(
+                      spacing: 15,
+                      runSpacing: 0,
+                      children: [
+                        _legendItem(theme.colorScheme.primary.withOpacity(0.25), 'Laboral'),
+                        _legendItem(theme.colorScheme.tertiaryContainer.withOpacity(0.35), 'Libre'),
+                        _legendItem(theme.colorScheme.errorContainer.withOpacity(0.45), 'Vacaciones'),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Acciones',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const Divider(height: 12),
+                    _Actions(theme: theme),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
-
-              BaseCard(
-                title: 'Acciones',
-                children: [
-                  _Actions(theme: theme),
-                ],
-              ),
             ],
           ),
         );
@@ -91,15 +90,19 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
     );
   }
 
-  Widget _legendItem(Color c, String t) => Row(children: [
-        Container(
-            width: 16,
-            height: 16,
-            decoration:
-                BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
-        const SizedBox(width: 8),
-        Text(t),
-      ]);
+  Widget _legendItem(Color c, String t) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 16,
+        height: 16,
+        decoration:BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))
+      ),
+      const SizedBox(width: 4),
+      Text(t),
+    ]
+  );
+
 }
 
 class _Calendar extends GetView<EmployeeScheduleController> {
@@ -163,21 +166,28 @@ class _Actions extends GetView<EmployeeScheduleController> {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
-      runSpacing: 8,
+      runSpacing: 4,
       children: [
         // Al pulsar, abre BottomSheet de turnos (con edición rápida) y aplica
         FilledButton.icon(
           onPressed: () => _applyWorkWithTemplate(context),
           icon: const Icon(Icons.work_history_rounded),
-          label: const Text('Marcar laboral (con turno)'),
+          label: const Text('Asignar turno'),
         ),
-        OutlinedButton.icon(
+        FilledButton.icon(
           onPressed: () => controller.setForSelection(DayEntry(type: DayType.off)),
+          style: FilledButton.styleFrom(
+            backgroundColor: theme.colorScheme.tertiaryContainer,
+            foregroundColor: theme.colorScheme.onTertiaryContainer,
+          ),
           icon: const Icon(Icons.event_busy_rounded),
           label: const Text('Marcar libre'),
         ),
-        OutlinedButton.icon(
+        FilledButton.icon(
           onPressed: () => controller.setForSelection(DayEntry(type: DayType.vacation)),
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.redAccent,
+          ),
           icon: const Icon(Icons.beach_access_rounded),
           label: const Text('Marcar vacaciones'),
         ),
@@ -196,11 +206,9 @@ class _Actions extends GetView<EmployeeScheduleController> {
       final from = await showTimePicker(
           context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
       if (from == null) return;
-      final to = await showTimePicker(
-          context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
+      final to = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
       if (to == null) return;
-      await controller
-          .setForSelection(DayEntry(type: DayType.work, start: from, end: to));
+      await controller.setForSelection(DayEntry(type: DayType.work, start: from, end: to));
       return;
     }
 

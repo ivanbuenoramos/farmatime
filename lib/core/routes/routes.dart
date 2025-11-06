@@ -37,6 +37,9 @@ class Routes {
   // COMPANY EMPLOYEE SCHEDULE
   static const String companyEmployeeSchedule = '/company/employee-schedule';
 
+  // COMPANY SHIFT TEMPLATES
+  static const String companyShiftTemplates = '/company/shift-templates';
+
   // COMPANY SUBSCRIPTION
   static const String companySubscription = '/company/subscription';
 

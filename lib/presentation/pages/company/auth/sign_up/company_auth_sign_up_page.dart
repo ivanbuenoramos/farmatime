@@ -42,15 +42,15 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                   fontStyle:  FontStyle.italic,
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               Text('Crear cuenta', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-              
+
               const SizedBox(height: 10),
-          
+
               Text('Registra tu farmacia para empezar a gestionar empleados.', style: theme.textTheme.bodyMedium),
-          
+
               const SizedBox(height: 32),
           
               TextField(
@@ -60,7 +60,6 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                 ),
               ),
               const SizedBox(height: 16),
-          
               TextField(
                 controller: controller.emailController,
                 decoration: const InputDecoration(
@@ -69,7 +68,6 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
-          
               TextField(
                 controller: controller.passwordController,
                 decoration: const InputDecoration(
@@ -78,7 +76,6 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                 obscureText: true,
               ),
               const SizedBox(height: 24),
-          
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: BlockButton(
@@ -86,24 +83,23 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                   label: 'Crear cuenta',
                 ),
               ),
-          
               Spacer(),
               Column(
-                  children: [
-                    Text(
-                      'Ya tienes cuenta?',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Get.theme.colorScheme.secondary,
-                      ),
+                children: [
+                  Text(
+                    'Ya tienes cuenta?',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Get.theme.colorScheme.secondary,
                     ),
-                    Center(
-                      child: TextButton(
-                        onPressed: Get.back,
-                        child: const Text('Iniciar sesión'),
-                      ),
+                  ),
+                  Center(
+                    child: TextButton(
+                      onPressed: Get.back,
+                      child: const Text('Iniciar sesión'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

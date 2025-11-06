@@ -13,6 +13,11 @@ export 'package:farmatime/presentation/pages/aurh/change_password/change_passwor
 export 'package:farmatime/presentation/pages/aurh/change_password/change_password_binding.dart';
 export 'package:farmatime/presentation/pages/aurh/change_password/change_password_controller.dart';
 
+// CHAT
+export 'package:farmatime/presentation/pages/chat/chat/chat_page.dart';
+export 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
+export 'package:farmatime/presentation/pages/chat/chat/chat_controller.dart';
+
 // EMPLOYEE AUTH SIGN IN
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_page.dart';
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_binding.dart';
@@ -48,6 +53,16 @@ export 'package:farmatime/presentation/pages/company/employee_detail/company_emp
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_binding.dart';
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_controller.dart';
 
+// COMPANY EMPLOYEE SCHEDULE
+export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_page.dart';
+export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_binding.dart';
+export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
+
+// COMPANY SHIFT TEMPLATES
+export 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_page.dart';
+export 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_binding.dart';
+export 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_controller.dart';
+
 // COMPANY SUBSCRIPTION
 export 'package:farmatime/presentation/pages/company/subscription/subscription_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_binding.dart';
@@ -67,3 +82,8 @@ export 'package:farmatime/presentation/pages/company/payment_metods/list/payment
 export 'package:farmatime/presentation/pages/company/account/company_account_page.dart';
 export 'package:farmatime/presentation/pages/company/account/company_account_binding.dart';
 export 'package:farmatime/presentation/pages/company/account/company_account_controller.dart';
+
+// COMPANY PROFILE
+export 'package:farmatime/presentation/pages/company/profile/company_profile_page.dart';
+export 'package:farmatime/presentation/pages/company/profile/company_profile_binding.dart';
+export 'package:farmatime/presentation/pages/company/profile/company_profile_controller.dart';

@@ -46,7 +46,7 @@ class EmployeeModel {
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
     // helpers para enums seguros
-    EmployeeRole _roleFrom(String? v) {
+    EmployeeRole roleFrom(String? v) {
       switch (v) {
         case 'tecnico': return EmployeeRole.tecnico;
         case 'auxiliar': return EmployeeRole.auxiliar;
@@ -55,7 +55,7 @@ class EmployeeModel {
         default: return EmployeeRole.tecnico; // default migración
       }
     }
-    WorkdayType? _workdayFrom(String? v) {
+    WorkdayType? workdayFrom(String? v) {
       switch (v) {
         case 'completa': return WorkdayType.completa;
         case 'media': return WorkdayType.media;
@@ -63,13 +63,13 @@ class EmployeeModel {
       }
     }
 
-    DateTime _toDate(dynamic v) {
+    DateTime toDate(dynamic v) {
       if (v is Timestamp) return v.toDate();
       if (v is String) return DateTime.tryParse(v) ?? DateTime.now();
       return DateTime.now();
     }
 
-    double _toDouble(dynamic v, [double d = 0]) {
+    double toDouble(dynamic v, [double d = 0]) {
       if (v == null) return d;
       if (v is num) return v.toDouble();
       if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? d;
@@ -85,15 +85,15 @@ class EmployeeModel {
       companyId: json['companyId'],
       position: json['position'],
       isActive: json['isActive'] ?? true,
-      createdAt: _toDate(json['createdAt']),
-      updatedAt: _toDate(json['updatedAt']),
+      createdAt: toDate(json['createdAt']),
+      updatedAt: toDate(json['updatedAt']),
       // nuevos: si no existen en docs antiguos, asignamos defaults
-      hourlyRate: _toDouble(json['hourlyRate'], 0),
-      role: _roleFrom(json['role'] as String?),
+      hourlyRate: toDouble(json['hourlyRate'], 0),
+      role: roleFrom(json['role'] as String?),
       roleOther: json['roleOther'],
-      workdayType: _workdayFrom(json['workdayType'] as String?),
-      vacationDaysPer30: _toDouble(json['vacationDaysPer30'], 2.5), // ~30 días/año ≈ 2.5/30 días
-      personalDaysPerYear: _toDouble(json['personalDaysPerYear'], 0),
+      workdayType: workdayFrom(json['workdayType'] as String?),
+      vacationDaysPer30: toDouble(json['vacationDaysPer30'], 2.5), // ~30 días/año ≈ 2.5/30 días
+      personalDaysPerYear: toDouble(json['personalDaysPerYear'], 0),
     );
   }
 

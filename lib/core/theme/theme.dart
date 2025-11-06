@@ -67,6 +67,7 @@ class FarmatimeTheme {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(const Size.fromHeight(44)),
         backgroundColor: WidgetStateProperty.resolveWith<Color?>(
           (Set<WidgetState> states) {
             if (states.contains(WidgetState.disabled)) {
@@ -143,6 +144,7 @@ class FarmatimeTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
+        minimumSize: WidgetStateProperty.all(const Size.fromHeight(44)),
         side: WidgetStateProperty.resolveWith<BorderSide?>(
           (Set<WidgetState> states) {
             if (states.contains(WidgetState.disabled)) {

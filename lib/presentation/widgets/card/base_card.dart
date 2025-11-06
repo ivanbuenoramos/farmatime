@@ -5,12 +5,14 @@ class BaseCard extends StatelessWidget {
   final String? title;
   final String? description;
   final List<Widget>? children;
+  final List<Widget>? actions;
 
   const BaseCard({
     super.key,
     this.title,
     this.description,
     this.children,
+    this.actions,
   });
 
   @override
@@ -22,9 +24,16 @@ class BaseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (title != null)...[
-              Text(
-                title!,
-                style: Theme.of(context).textTheme.headlineSmall,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title!,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  if (actions != null) ...actions!,
+                ],
               ),
               const Divider(height: 12),
             ],

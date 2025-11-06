@@ -51,8 +51,7 @@ class CompanyAuthSignInController extends GetxController {
       return;
     }
 
-    final Result<UserCredential?> signInResult =
-        await signInWithEmailUseCase.call(email, password);
+    final Result<UserCredential?> signInResult = await signInWithEmailUseCase.call(email, password);
 
     if (!signInResult.success || signInResult.data == null) {
       Get.snackbar('Error', 'Credenciales incorrectas o cuenta inexistente');
@@ -66,13 +65,9 @@ class CompanyAuthSignInController extends GetxController {
     }
 
     // En tu modelo: companyId == uid de la farmacia
-    final Result<CompanyModel?> companyResult =
-        await getCompanyByIdUseCase.call(user.uid);
-
-        print(user.uid);
+    final Result<CompanyModel?> companyResult = await getCompanyByIdUseCase.call(user.uid);
 
     if (!companyResult.success || companyResult.data == null) {
-      print(companyResult.data);
       Get.snackbar('Error', 'No se encontró una empresa asociada a esta cuenta');
       return;
     }
