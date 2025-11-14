@@ -18,6 +18,7 @@ class FarmatimeTheme {
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xff1971FF),
+      titleSpacing: 0,
       centerTitle: false,
       iconTheme: IconThemeData(
         color: Color(0xffFFFFFF),
@@ -213,6 +214,10 @@ class FarmatimeTheme {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xff1971FF), width: 2),
       ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xffFF0004), width: 2),
+      ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xffFF0004), width: 1),
@@ -223,7 +228,7 @@ class FarmatimeTheme {
         fontWeight: FontWeight.w500,
       ),
       helperStyle: const TextStyle(
-        fontSize: 1124,
+        fontSize: 14,
         color: Color(0xffA5A5A5),
         fontWeight: FontWeight.w500,
       ),

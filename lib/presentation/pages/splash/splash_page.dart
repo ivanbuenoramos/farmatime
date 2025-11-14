@@ -18,7 +18,7 @@ class SplashPage extends StatelessWidget {
       backgroundColor: Get.theme.colorScheme.primary,
       body: Center(
         child: Text(
-          'FarmaTime',
+          'farmatime',
           style: Get.theme.textTheme.headlineLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,

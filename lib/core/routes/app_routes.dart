@@ -28,15 +28,51 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.recoverPassword,
+        page: () => const ForgotPasswordPage(),
+        binding: ForgotPasswordBinding(),
+      ),
+
+      GetPage(
         name: Routes.employeeAuthSignIn,
         page: () => const EmployeeAuthSignInPage(),
         binding: EmployeeAuthSignInBinding(),
       ),
 
       GetPage(
+        name: Routes.employeeSetPassword,
+        page: () => const EmployeeSetPasswordPage(),
+        binding: EmployeeSetPasswordBinding(),
+      ),
+
+      GetPage(
         name: Routes.employeeMain,
         page: () => EmployeeMainPage(),
         binding: EmployeeMainBinding(),
+      ),
+
+      GetPage(
+        name: Routes.employeeCalendar,
+        page: () => EmployeeCalendarPage(),
+        binding: EmployeeCalendarBinding(),
+      ),
+
+      GetPage(
+        name: Routes.employeeRequestLeave,
+        page: () => RequestLeavePage(),
+        binding: RequestLeaveBinding(),
+      ),
+
+      GetPage(
+        name: Routes.employeeAccount,
+        page: () => EmployeeAccountPage(),
+        binding: EmployeeAccountBinding(),
+      ),
+
+      GetPage(
+        name: Routes.employeeProfile,
+        page: () => const EmployeeProfilePage(),
+        binding: EmployeeProfileBinding(),
       ),
 
       GetPage(
@@ -49,6 +85,12 @@ class AppRoutes {
         name: Routes.companyAuthSignUp,
         page: () => const CompanyAuthSignUpPage(),
         binding: CompanyAuthSignUpBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyAuthVerifyEmail,
+        page: () => const VerifyEmailPage(),
+        binding: VerifyEmailBinding(),
       ),
 
       GetPage(
@@ -109,6 +151,12 @@ class AppRoutes {
         name: Routes.companyPaymentMethods,
         page: () => const PaymentMethodsPage(),
         binding: PaymentMethodsBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companySettings,
+        page: () => const SettingsPage(),
+        binding: SettingsBinding(),
       ),
 
     ];

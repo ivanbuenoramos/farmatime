@@ -26,7 +26,7 @@ class InboxController extends GetxController {
         ? brain.employee.value!.uid
         : brain.company.value!.id;
 
-    companyId.value = brain.company.value?.id;
+    companyId.value = brain.company.value?.id ?? brain.employee.value!.companyId;
     
     _listen();
   }

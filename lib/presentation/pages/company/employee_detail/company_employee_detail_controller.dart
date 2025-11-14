@@ -1,3 +1,4 @@
+import 'package:farmatime/core/utils/leave_simple_utils.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
@@ -28,6 +29,8 @@ class EmployeeDetailController extends GetxController {
 
   final Brain brain = Get.find<Brain>();
 
+  final balances = Rx<SimpleLeaveBalances?>(null);
+
   final Rx<EmployeeModel?> employee = Rx<EmployeeModel?>(null);
   final groupedClockIns = <DateTime, List<_ClockInOutDisplay>>{}.obs;
 
@@ -56,9 +59,15 @@ class EmployeeDetailController extends GetxController {
     super.onInit();
     if (Get.arguments is EmployeeModel) {
       initWithEmployee(Get.arguments as EmployeeModel);
+      _load();
     } else {
       Get.snackbar('Error', 'No employee data provided');
     }
+  }
+
+  Future<void> _load() async {
+    final b = computeSimpleBalances(employee: employee.value!, hireDateOverride: employee.value!.createdAt);
+    balances.value = b;
   }
 
   void initWithEmployee(EmployeeModel e) {

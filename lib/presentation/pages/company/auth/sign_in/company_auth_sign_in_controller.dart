@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:farmatime/domain/repositories/chat_repository.dart';
 import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart' hide Result;
 
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/app/brain.dart';
@@ -36,6 +38,11 @@ class CompanyAuthSignInController extends GetxController {
   final rememberMe = false.obs;
 
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
+  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
+    app: Firebase.app(),
+    region: 'europe-west1',
+  );
+
   final Brain brain = Get.find<Brain>();
 
   void setRememberMe(bool? value) {
@@ -88,11 +95,19 @@ class CompanyAuthSignInController extends GetxController {
     }
 
     Get.offAllNamed(Routes.companyMain);
+
+    notifyLogin(company.email, company.legalName);
   }
 
-  void recoverPassword() => print('Recuperar contraseña empresa');
+  void recoverPassword() => Get.toNamed(Routes.recoverPassword);
 
   void redirectToSignUp() => Get.toNamed(Routes.companyAuthSignUp);
+
+  Future<void> notifyLogin(String email, String name) async {
+    print('📩 Enviando notificación de inicio de sesión para $email / $name');
+    final callable = functions.httpsCallable('sendLoginNotification');
+    await callable.call({'email': email, 'name': name});
+  }
 
   @override
   void onClose() {

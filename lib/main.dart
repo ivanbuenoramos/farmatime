@@ -10,6 +10,8 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/dependencies.dart';
 import 'package:farmatime/core/app/firebase_options.dart';
 
+
+
 Future<void> main() async {
   // 1) ¡Siempre lo primero!
   WidgetsFlutterBinding.ensureInitialized();

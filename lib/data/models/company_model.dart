@@ -15,20 +15,21 @@ class CompanyModel {
   final String? logoUrl;
 
   final String legalName;
-  final String? vatNumber; // CIF
+  final String? vatNumber;
   final Address? address;
   final PhoneNumber? phoneNumber;
   final AuthMethod? authMethod;
 
-  /// Número de slots comprados localmente (deprecated, pero mantenemos compatibilidad)
   final int purchasedEmployeeSlots;
 
-  /// Stripe mirror
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
-  final int? contractedSeats; // 👈 asientos contratados en Stripe
-  final String? billingStatus; // 👈 estado de la suscripción
-  final DateTime? currentPeriodEnd; // 👈 fecha de renovación
+  final int? contractedSeats;
+  final String? billingStatus;
+  final DateTime? currentPeriodEnd;
+
+  final bool verifiedEmail;
+  final bool verifiedPhone;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -48,6 +49,8 @@ class CompanyModel {
     this.contractedSeats,
     this.billingStatus,
     this.currentPeriodEnd,
+    this.verifiedEmail = false,
+    this.verifiedPhone = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -78,6 +81,8 @@ class CompanyModel {
                 : json['currentPeriodEnd'] is String
                     ? DateTime.parse(json['currentPeriodEnd'])
                     : null,
+        verifiedEmail: json['verifiedEmail'] ?? false,
+        verifiedPhone: json['verifiedPhone'] ?? false,
         createdAt: json['createdAt'] is DateTime
             ? json['createdAt']
             : json['createdAt'] is Timestamp
@@ -109,6 +114,8 @@ class CompanyModel {
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd?.toIso8601String(),
+        'verifiedEmail': verifiedEmail,
+        'verifiedPhone': verifiedPhone,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -128,6 +135,8 @@ class CompanyModel {
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd,
+        'verifiedEmail': verifiedEmail,
+        'verifiedPhone': verifiedPhone,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };
@@ -147,6 +156,8 @@ class CompanyModel {
     int? contractedSeats,
     String? billingStatus,
     DateTime? currentPeriodEnd,
+    bool? verifiedEmail,
+    bool? verifiedPhone,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -165,6 +176,8 @@ class CompanyModel {
       contractedSeats: contractedSeats ?? this.contractedSeats,
       billingStatus: billingStatus ?? this.billingStatus,
       currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
+      verifiedEmail: verifiedEmail ?? this.verifiedEmail,
+      verifiedPhone: verifiedPhone ?? this.verifiedPhone,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -45,8 +45,8 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
             children: [
 
               // CRUD de turnos preestablecidos
-              // const ShiftTemplatesCard(),
-              // const SizedBox(height: 12),
+              const ShiftTemplatesCard(),
+              const SizedBox(height: 12),
 
               BaseCard(
                 title: 'Horario recurrente',

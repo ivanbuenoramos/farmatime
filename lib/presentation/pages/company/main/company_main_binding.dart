@@ -11,10 +11,10 @@ class CompanyMainBinding extends Bindings {
   @override
   void dependencies() {
     
+    CompanyEmployeesBinding().dependencies();
     CompanyDashboardBinding().dependencies();
     CompanyEntriesBinding().dependencies();
     InboxBinding().dependencies();
-    CompanyEmployeesBinding().dependencies();
     CompanyAccountBinding().dependencies();
     
     Get.lazyPut<CompanyMainController>(() => CompanyMainController());

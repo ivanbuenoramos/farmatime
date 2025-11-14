@@ -15,7 +15,10 @@ class InboxPage extends GetView<InboxController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chat interno')),
+      appBar: AppBar(
+        title: const Text('Chat interno'),
+        titleSpacing: 16,
+      ),
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());

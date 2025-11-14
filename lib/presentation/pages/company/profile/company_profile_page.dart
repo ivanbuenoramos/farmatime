@@ -1,3 +1,4 @@
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/presentation/pages/company/profile/company_profile_controller.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:flutter/material.dart';
@@ -11,11 +12,32 @@ class CompanyProfilePage extends StatelessWidget {
         child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       );
 
-  Widget buildInput({required String label, required TextEditingController controller, TextInputType? keyboardType}) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(labelText: label),
+  Widget buildInput({
+    required String label, 
+    required TextEditingController controller, 
+    bool? verified,
+    bool enabled = true,
+    TextInputType? keyboardType
+  }) {
+    return GestureDetector(
+      onTap: () {
+        if (verified == false) {
+          Get.toNamed(Routes.companyAuthVerifyEmail);
+        }
+      },
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          enabled: enabled,
+          suffixIcon: verified == true
+          ? Icon(Icons.check_circle_rounded, color: Colors.greenAccent.shade700)
+          : verified == false
+            ? Icon(Icons.error_rounded, color: Colors.orange)
+            : null,
+        ),
+      ),
     );
   }
 
@@ -40,12 +62,16 @@ class CompanyProfilePage extends StatelessWidget {
                 value: 'logout',
                 child: Text('Cerrar sesión'),
               ),
+              PopupMenuItem<String>(
+                onTap: controller.saveChanges,
+                child: Text('Guardar cambios'),
+              ),
             ]
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
           children: [
             Obx(() {
@@ -111,7 +137,7 @@ class CompanyProfilePage extends StatelessWidget {
             ),
             
             const SizedBox(height: 15),
-            /// Datos empresa
+            // /// Datos empresa
             BaseCard(
               title: 'Datos de la empresa',
               children: [
@@ -120,26 +146,22 @@ class CompanyProfilePage extends StatelessWidget {
                 const SizedBox(height: 12),
                 buildInput(label: 'CIF', controller: controller.cifController),
                 const SizedBox(height: 12),
-                buildInput(label: 'Email', controller: controller.emailController),
+                buildInput(
+                  label: 'Email', 
+                  controller: controller.emailController,
+                  enabled: false,
+                  verified: controller.brain.company.value!.verifiedEmail
+                ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: buildInput(
-                        label: 'Teléfono',
-                        controller: controller.phoneController,
-                        keyboardType: TextInputType.phone,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: controller.saveChanges,
-                      child: const Text('Cambiar'),
-                    ),
-                  ],
+                buildInput(
+                  label: 'Teléfono',
+                  controller: controller.phoneController,
+                  keyboardType: TextInputType.phone,
                 ),
               ],
             ),
+
+            const SizedBox(height: 20),
 
           ],
         ),

@@ -1,5 +1,6 @@
 // lib/presentation/pages/employee/calendar/employee_calendar_controller.dart
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
@@ -135,5 +136,9 @@ class EmployeeCalendarController extends GetxController {
       if (start != null && end != null) out.add('• De $start a $end');
     }
     return out;
+  }
+
+  void redirectToRequestLeave() {
+    Get.toNamed(Routes.employeeRequestLeave);
   }
 }

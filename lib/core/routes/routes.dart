@@ -10,17 +10,37 @@ class Routes {
   // CHANGE PASSWORD
   static const String changePassword = '/change-password';
 
+  static const String recoverPassword = '/recover-password';
+
   // EMPLOYEE AUTH SIGN IN
   static const String employeeAuthSignIn = '/employee/auth/sign-in';
 
   // EMPLOYEE MAIN
   static const String employeeMain = '/employee/main';
 
+  // EMPLOYEE CALENDAR
+  static const String employeeCalendar = '/employee/calendar';
+
+  // EMPLOYEE REQUEST LEAVE
+  static const String employeeRequestLeave = '/employee/request-leave';
+
+  // EMPLOYEE ACCOUNT
+  static const String employeeAccount = '/employee/account';
+
+  // EMPLOYEE PROFILE
+  static const String employeeProfile = '/employee/profile';
+
+  // EMPLOYEE SET PASSWORD
+  static const String employeeSetPassword = '/employee/auth/set-password';
+
   // COMPANY AUTH SIGN UP
   static const String companyAuthSignIn = '/company/auth/sign-in';
 
   // COMPANY AUTH SIGN UP
   static const String companyAuthSignUp = '/company/auth/sign-up';
+
+  // COMPANY AUTH VERIFY EMAIL
+  static const String companyAuthVerifyEmail = '/company/verify-email';
 
   // COMPANY MAIN
   static const String companyMain = '/company/main';
@@ -54,5 +74,8 @@ class Routes {
 
   // COMPANY PAYMENT METHODS
   static const String companyPaymentMethods = '/company/payment-methods';
+
+  // COMPANY SETTINGS
+  static const String companySettings = '/company/settings';
 
 }

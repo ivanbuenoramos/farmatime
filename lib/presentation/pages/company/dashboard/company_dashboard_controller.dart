@@ -1,3 +1,6 @@
+import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/presentation/pages/company/employees/company_employees_controller.dart';
+import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
@@ -54,6 +57,8 @@ class CompanyDashboardController extends GetxController {
   final GetEmployeesByCompanyIdUseCase getEmployeesByCompany;
   final GetTodayLastClocksUseCase getTodayLastClocks;
   final GetExpectedShiftUseCase getExpectedShiftsToday;
+
+  final CompanyEmployeesController companyEmployeesController = Get.find<CompanyEmployeesController>();
 
   final Brain brain = Get.find<Brain>();
 
@@ -205,5 +210,9 @@ class CompanyDashboardController extends GetxController {
       // Dentro si: n >= start  (hoy)  OR  n <= end (mañana)
       return n.isAtSameMomentAs(s) || n.isAfter(s) || n.isBefore(e.add(const Duration(minutes: 1)));
     }
+  }
+
+  void redirectToComapnyProfile() {
+    Get.toNamed(Routes.companyProfile);
   }
 }

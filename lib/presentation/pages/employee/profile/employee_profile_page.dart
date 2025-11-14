@@ -26,7 +26,7 @@ class EmployeeProfilePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Perfil de farmacia'),
+        title: const Text('Perfil'),
         actions: [
           //pupUp menu
           PopupMenuButton<String>(

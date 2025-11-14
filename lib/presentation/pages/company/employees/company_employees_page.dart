@@ -14,6 +14,7 @@ class CompanyEmployeesPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lista de empleados'),
+        titleSpacing: 16,
       ),
       floatingActionButton:FloatingActionButton(
         elevation: 0,

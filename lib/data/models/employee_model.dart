@@ -13,6 +13,7 @@ class EmployeeModel {
   final String companyId;
   final String? position; // (lo mantenemos por compatibilidad si lo usabas)
   final bool isActive;
+  final DateTime hireDate;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,6 +34,7 @@ class EmployeeModel {
     required this.companyId,
     this.position,
     required this.isActive,
+    required this.hireDate,
     required this.createdAt,
     required this.updatedAt,
     // nuevos (con defaults razonables)
@@ -85,9 +87,9 @@ class EmployeeModel {
       companyId: json['companyId'],
       position: json['position'],
       isActive: json['isActive'] ?? true,
+      hireDate: toDate(json['hireDate'] ?? json['createdAt']),
       createdAt: toDate(json['createdAt']),
       updatedAt: toDate(json['updatedAt']),
-      // nuevos: si no existen en docs antiguos, asignamos defaults
       hourlyRate: toDouble(json['hourlyRate'], 0),
       role: roleFrom(json['role'] as String?),
       roleOther: json['roleOther'],
@@ -106,6 +108,7 @@ class EmployeeModel {
         'companyId': companyId,
         'position': position,
         'isActive': isActive,
+        'hireDate': hireDate.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
         // nuevos
@@ -135,6 +138,7 @@ class EmployeeModel {
     String? companyId,
     String? position,
     bool? isActive,
+    DateTime? hireDate,
     DateTime? createdAt,
     DateTime? updatedAt,
     double? hourlyRate,
@@ -153,6 +157,7 @@ class EmployeeModel {
       companyId: companyId ?? this.companyId,
       position: position ?? this.position,
       isActive: isActive ?? this.isActive,
+      hireDate: hireDate ?? this.hireDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       hourlyRate: hourlyRate ?? this.hourlyRate,

@@ -10,7 +10,10 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Control de fichajes')),
+      appBar: AppBar(
+        title: const Text('Control de fichajes'),
+        titleSpacing: 16,
+      ),
       body: Obx(() {
         return RefreshIndicator(
           onRefresh: controller.fetchRecords,

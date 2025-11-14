@@ -1,3 +1,4 @@
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -13,6 +14,9 @@ class CreateEmployeeController extends GetxController {
 
   CreateEmployeeController({required this.createEmployeeUseCase});
 
+  final Brain brain = Get.find<Brain>();
+  final ToastService toastService = ToastService();
+
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final hourlyRateController = TextEditingController(text: '0');
@@ -24,7 +28,6 @@ class CreateEmployeeController extends GetxController {
   final workdayType = Rx<WorkdayType?>(null);
 
   final isLoading = false.obs;
-  final Brain brain = Get.find<Brain>();
 
   double _parseDouble(TextEditingController c, {double def = 0}) {
     final s = c.text.trim().replaceAll(',', '.');
@@ -36,7 +39,11 @@ class CreateEmployeeController extends GetxController {
     final email = emailController.text.trim();
 
     if (name.isEmpty || email.isEmpty || !GetUtils.isEmail(email)) {
-      Get.snackbar('Error', 'Por favor, introduce un nombre y correo válidos.');
+      toastService.show(
+        title: 'Error',
+        description: 'Por favor, introduce un nombre y correo válidos.',
+        type: ToastType.error
+      );
       return;
     }
 
@@ -46,19 +53,35 @@ class CreateEmployeeController extends GetxController {
     final personal = _parseDouble(personalPerYearController);
 
     if (rate < 0) {
-      Get.snackbar('Error', 'El precio por hora no puede ser negativo.');
+      toastService.show(
+        title: 'Error',
+        description: 'El precio por hora no puede ser negativo.',
+        type: ToastType.error
+      );
       return;
     }
     if (vac30 < 0) {
-      Get.snackbar('Error', 'Los días de vacaciones/30 días no pueden ser negativos.');
+      toastService.show(
+        title: 'Error',
+        description: 'Los días de vacaciones/30 días no pueden ser negativos.',
+        type: ToastType.error
+      );
       return;
     }
     if (personal < 0) {
-      Get.snackbar('Error', 'Los días de asuntos propios/año no pueden ser negativos.');
+      toastService.show(
+        title: 'Error',
+        description: 'Los días de asuntos propios/año no pueden ser negativos.',
+        type: ToastType.error
+      );
       return;
     }
     if (role.value == EmployeeRole.otro && roleOtherController.text.trim().isEmpty) {
-      Get.snackbar('Error', 'Indica el cargo en "Otro (especificar)".');
+      toastService.show(
+        title: 'Error',
+        description: 'Indica el cargo en "Otro (especificar)".',
+        type: ToastType.error
+      );
       return;
     }
 
@@ -73,6 +96,7 @@ class CreateEmployeeController extends GetxController {
         name: name,
         email: email,
         tempPassword: null,
+        hireDate: DateTime.now(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         isActive: true,
@@ -87,18 +111,22 @@ class CreateEmployeeController extends GetxController {
       final result = await createEmployeeUseCase.call(newEmployee);
       if (!result.success || result.data == null) {
         final err = result.errorCode ?? 'No se pudo crear el empleado.';
-        Get.snackbar('Error', err);
+        toastService.show(
+          title: 'Error',
+          description: err,
+          type: ToastType.error
+        );
         return;
       }
 
-      // UX final
-      Get.snackbar(
-        'Empleado creado',
-        'Se ha creado la cuenta para $email. Recibirá un email para establecer su contraseña.',
-        duration: const Duration(seconds: 6),
+      toastService.show(
+        title: 'Empleado creado',
+        description: 'El empleado ha sido creado correctamente.',
+        type: ToastType.success
       );
 
-      // Limpiar formularios
+      Get.back();
+
       nameController.clear();
       emailController.clear();
       hourlyRateController.text = '0';
@@ -107,8 +135,12 @@ class CreateEmployeeController extends GetxController {
       role.value = EmployeeRole.tecnico;
       roleOtherController.clear();
       workdayType.value = null;
-    } on Exception catch (e) {
-      Get.snackbar('Error', e.toString());
+    } on Exception {
+      toastService.show(
+        title: 'Error',
+        description: 'No se pudo crear el empleado.',
+        type: ToastType.error
+      );
     } finally {
       isLoading.value = false;
     }

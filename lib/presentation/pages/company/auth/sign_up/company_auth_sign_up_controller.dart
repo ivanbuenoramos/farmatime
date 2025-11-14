@@ -105,9 +105,10 @@ class CompanyAuthSignUpController extends GetxController {
       final company = CompanyModel(
         id: user.uid,
         email: email,
-        purchasedEmployeeSlots: 0, // puedes mantenerlo por compatibilidad,
-                                   // pero la fuente de verdad será Stripe (contractedSeats)
+        purchasedEmployeeSlots: 0,
         legalName: name,
+        verifiedEmail: false,
+        verifiedPhone: false,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

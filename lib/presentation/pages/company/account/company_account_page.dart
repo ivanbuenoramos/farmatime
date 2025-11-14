@@ -1,10 +1,8 @@
-import 'package:farmatime/data/models/company_model.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/presentation.dart';
-import 'package:farmatime/presentation/widgets/card/base_card.dart';
 
 
 
@@ -78,9 +76,20 @@ class CompanyAccountPage extends StatelessWidget {
                             'Editar la información de la farmacia',
                             style: Get.theme.textTheme.bodySmall,
                           ),
-                          trailing: Icon(
-                            Icons.chevron_right_rounded,
-                            color: Get.theme.colorScheme.outline,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!controller.brain.company.value!.verifiedEmail)...[
+                                Icon(
+                                  Icons.error_rounded,
+                                  color: Colors.orange,
+                                ),
+                              ], 
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: Get.theme.colorScheme.outline,
+                              ),
+                            ],
                           ),
                           onTap: controller.redirectToProfile,
                         ),
@@ -115,23 +124,38 @@ class CompanyAccountPage extends StatelessWidget {
                           onTap: controller.redirectToSubscription,
                         ),
                         Divider(height: 0),
-                        if (controller.brain.company.value?.authMethod == AuthMethod.emailPassword)...[
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                            leading: const Icon(Icons.lock),
-                            title: const Text('Cambiar contraseña'),
-                            subtitle: Text(
-                              'Actualizar la contraseña de la cuenta',
-                              style: Get.theme.textTheme.bodySmall,
-                            ),
-                            trailing: Icon(
-                              Icons.chevron_right_rounded,
-                              color: Get.theme.colorScheme.outline,
-                            ),
-                            onTap: controller.redirectToChangePassword,
+                        // if (controller.brain.company.value?.authMethod == AuthMethod.emailPassword)...[
+                        //   ListTile(
+                        //     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        //     leading: const Icon(Icons.lock),
+                        //     title: const Text('Cambiar contraseña'),
+                        //     subtitle: Text(
+                        //       'Actualizar la contraseña de la cuenta',
+                        //       style: Get.theme.textTheme.bodySmall,
+                        //     ),
+                        //     trailing: Icon(
+                        //       Icons.chevron_right_rounded,
+                        //       color: Get.theme.colorScheme.outline,
+                        //     ),
+                        //     onTap: controller.redirectToChangePassword,
+                        //   ),
+                        //   Divider(height: 0),
+                        // ],
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          leading: const Icon(Icons.settings_rounded),
+                          title: const Text('Configuración'),
+                          subtitle: Text(
+                            'Ajustes de la aplicación',
+                            style: Get.theme.textTheme.bodySmall,
                           ),
-                          Divider(height: 0),
-                        ],
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            color: Get.theme.colorScheme.outline,
+                          ),
+                          onTap: controller.redirectToSettings,
+                        ),
+                        Divider(height: 0),
                         ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                           leading: const Icon(Icons.logout, color: Colors.red),

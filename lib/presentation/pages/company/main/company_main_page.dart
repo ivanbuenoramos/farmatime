@@ -99,7 +99,7 @@ class CompanyMainPage extends StatelessWidget {
         ),
         height: 26,
       ),
-      label: 'Chat interno',
+      label: 'Chat',
     ),
 
     BottomNavigationBarItem(
@@ -161,8 +161,8 @@ class CompanyMainPage extends StatelessWidget {
       ),
       child: BottomNavigationBar(
         backgroundColor: Get.theme.colorScheme.surface,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
         onTap: (index) {
           controller.indexTab.value = index;
         },

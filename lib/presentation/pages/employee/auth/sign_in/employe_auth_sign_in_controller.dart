@@ -74,10 +74,7 @@ class EmployeeAuthSignInController extends GetxController {
     Get.offAllNamed(Routes.employeeMain);
   }
 
-  void recoverPassword() {
-    // TODO: Implementar con sendPasswordResetEmailUseCase si lo necesitas
-    print('Recuperar contraseña');
-  }
+  void recoverPassword() => Get.toNamed(Routes.recoverPassword);
 
   @override
   void onClose() {

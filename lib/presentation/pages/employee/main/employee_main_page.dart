@@ -1,14 +1,12 @@
-
-import 'package:farmatime/presentation/pages/employee/calendar/employee_calendar_page.dart';
-import 'package:farmatime/presentation/pages/employee/entries/employee_entries_page.dart';
-import 'package:farmatime/presentation/pages/employee/my_day/employee_may_day_page.dart';
-import 'package:farmatime/presentation/pages/employee/profile/employee_profile_page.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 
 import 'package:get/get.dart';
+import 'package:flutter_svg/svg.dart';
 
-import 'package:farmatime/presentation/pages/company/main/company_main_controller.dart';
+import 'package:farmatime/presentation/presentation.dart';
+import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
+import 'package:farmatime/presentation/pages/employee/my_day/employee_may_day_page.dart';
+import 'package:farmatime/presentation/pages/employee/entries/employee_entries_page.dart';
 
 
 
@@ -18,7 +16,7 @@ class EmployeeMainPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final CompanyMainController controller = Get.find<CompanyMainController>();
+    final EmployeeMainController controller = Get.find<EmployeeMainController>();
 
     return WillPopScope(
       onWillPop: () async {
@@ -32,8 +30,9 @@ class EmployeeMainPage extends StatelessWidget {
             children: [
               EmployeeMyDayPage(),
               EmployeeEntriesPage(),
+              InboxPage(),
               EmployeeCalendarPage(),
-              EmployeeProfilePage(),
+              EmployeeAccountPage(),
             ],
           ),
         )
@@ -44,26 +43,102 @@ class EmployeeMainPage extends StatelessWidget {
   final List<BottomNavigationBarItem> items = [
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/clock.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/clock_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/clock.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/clock_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Mi día',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/documents.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/documents_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/documents.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/documents_bold.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Fichajes',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/calendar.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/calendar_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/chat.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/chat_bold.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
+      label: 'Chat',
+    ),
+
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        'assets/icons/calendar.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/calendar_bold.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Calendario',
     ),
 
     BottomNavigationBarItem(
-      icon: SvgPicture.asset('assets/icons/profile.svg', height: 26),
-      activeIcon: SvgPicture.asset('assets/icons/profile_bold.svg', height: 26),
+      icon: SvgPicture.asset(
+        'assets/icons/profile.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/profile_bold.svg', 
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
       label: 'Perfil',
     ),
   ];

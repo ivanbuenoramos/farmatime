@@ -42,5 +42,9 @@
         "npm --prefix \"$RESOURCE_DIR\" run lint"
       ]
     }
-  ]
+  ],
+  "extensions": {
+    "firestore-send-email": "firebase/firestore-send-email@0.2.4",
+    "sendgrid-mailer": "firebase/firestore-send-email@0.2.4"
+  }
 }

@@ -80,7 +80,6 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
   Future<Result<void>> logOut() async {
     try {
       await _auth.signOut();
-      brain.clearSession();
       return Result(success: true, data: null);
     } catch (e) {
       return Result(success: false, data: null);

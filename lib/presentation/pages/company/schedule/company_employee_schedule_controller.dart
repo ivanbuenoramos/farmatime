@@ -202,13 +202,3 @@ class EmployeeScheduleController extends GetxController {
     return DayEntry(type: DayType.work, start: r.startTime, end: r.endTime);
   }
 }
-
-// Helpers locales
-extension _SafeFirstWhere<E> on Iterable<E> {
-  E? firstWhereOrNull(bool Function(E) test) {
-    for (final e in this) {
-      if (test(e)) return e;
-    }
-    return null;
-  }
-}

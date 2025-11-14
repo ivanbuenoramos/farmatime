@@ -21,6 +21,7 @@ class EmployeeEntriesPage extends GetView<EmployeeEntriesController> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis fichajes'),
+        titleSpacing: 16,
       ),
       body: Obx(() {
         final grouped = controller.groupedClockIns;

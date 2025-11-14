@@ -1,4 +1,5 @@
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/utils/date_time_utils.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -34,7 +35,7 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
               const SizedBox(height: 12),
               _IncoherentCard(controller: controller),
               const SizedBox(height: 12),
-              const _SubscriptionCard(),
+              _SubscriptionCard(controller: controller),
               const SizedBox(height: 12),
               _CompanyInfoCard(controller: controller),
             ],
@@ -212,12 +213,19 @@ class _IncoherentCard extends StatelessWidget {
 }
 
 class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard();
+
+  final CompanyDashboardController controller;
+
+  const _SubscriptionCard({
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = theme.colorScheme.primary;
+
+    final DateTimeUtils dateTimeUtils = DateTimeUtils();
+
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.companySubscription),
       child: BaseCard(
@@ -226,15 +234,29 @@ class _SubscriptionCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.group, color: accent),
+              Icon(
+                Icons.group, 
+                color: Get.theme.colorScheme.primary,
+              ),
               const SizedBox(width: 8),
-              Text('9/9', style: theme.textTheme.titleLarge!.copyWith(color: accent)),
+              Text(
+                '${controller.companyEmployeesController.employees.length}/${controller.brain.company.value?.contractedSeats}', 
+                style: theme.textTheme.titleLarge!.copyWith(
+                  color: Get.theme.colorScheme.primary,
+                )
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Text('Próxima renovación', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 6),
-          Text('12/06/2025', style: theme.textTheme.headlineSmall!.copyWith(color: accent, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          Text(
+            dateTimeUtils.formatDateToString(controller.brain.company.value!.currentPeriodEnd!), 
+            style: theme.textTheme.headlineSmall!.copyWith(
+              color: Get.theme.colorScheme.primary, 
+              fontWeight: FontWeight.w700, 
+              letterSpacing: -0.5)
+            ),
         ],
       ),
     );
@@ -249,44 +271,47 @@ class _CompanyInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return BaseCard(
-      children: [
-        _SectionHeader('Datos de la empresa', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
-              child: controller.brain.company.value?.logoUrl == null
-                  ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    controller.brain.company.value?.legalName ?? '—',
-                    style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  Text(
-                    controller.brain.company.value?.email ?? '—',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
+    return GestureDetector(
+      onTap: controller.redirectToComapnyProfile,
+      child: BaseCard(
+        children: [
+          _SectionHeader('Datos de la empresa', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
+                child: controller.brain.company.value?.logoUrl == null
+                    ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
+                    : null,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _kv(theme, 'CIF', controller.brain.company.value?.vatNumber ?? '—'),
-        const SizedBox(height: 4),
-        _kv(theme, 'Dirección', controller.brain.company.value?.address?.address != null ? controller.brain.company.value!.address!.address : '—'),
-        const SizedBox(height: 4),
-        _kv(theme, 'Ciudad', controller.brain.company.value?.address?.city != null ? controller.brain.company.value!.address!.city : '—'),
-      ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      controller.brain.company.value?.legalName ?? '—',
+                      style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      controller.brain.company.value?.email ?? '—',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _kv(theme, 'CIF', controller.brain.company.value?.vatNumber ?? '—'),
+          const SizedBox(height: 4),
+          _kv(theme, 'Dirección', controller.brain.company.value?.address?.address != null ? controller.brain.company.value!.address!.address : '—'),
+          const SizedBox(height: 4),
+          _kv(theme, 'Ciudad', controller.brain.company.value?.address?.city != null ? controller.brain.company.value!.address!.city : '—'),
+        ],
+      ),
     );
   }
 

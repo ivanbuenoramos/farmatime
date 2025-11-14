@@ -113,8 +113,9 @@ class CompanyAccountController extends GetxController {
   }
 
   void logOut() async {
+    Get.offNamed(Routes.index);
     await logOutUseCase.call();
-    Get.offAllNamed(Routes.index);
+    brain.clearSession();
   }
 
   @override
@@ -144,5 +145,9 @@ class CompanyAccountController extends GetxController {
 
   void redirectToChangePassword() {
     Get.toNamed(Routes.changePassword);
+  }
+
+  void redirectToSettings() {
+    Get.toNamed(Routes.companySettings);
   }
 }

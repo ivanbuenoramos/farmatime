@@ -20,7 +20,6 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
 
   @override
   Widget build(BuildContext context) {
-    String formatHour(DateTime dt) => DateFormat.Hm().format(dt);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil de empleado'),
@@ -55,7 +54,7 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
                       children: [
                         Text(employee.position ?? 'Empleado'),
                         Text(
-                          employee.email ?? 'Jornada completa',
+                          employee.email,
                           style: const TextStyle(color: Colors.blue),
                         ),
                       ],
@@ -63,6 +62,75 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
                   )
                 ],
               ),
+              const SizedBox(height: 16),
+
+              BaseCard(
+                title: 'Vacaciones y asuntos propios',
+                children: [
+                  Text(
+                    'Estos son los días disponibles para el empleado:', 
+                    style: Get.textTheme.bodyMedium
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Get.theme.colorScheme.error.withAlpha(10),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Get.theme.colorScheme.error),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Vacaciones',
+                                style: TextStyle(color: Get.theme.colorScheme.error),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                '${controller.balances.value?.vacationAvailable.round()}',
+                                style: Get.textTheme.headlineMedium?.copyWith(
+                                  color: Get.theme.colorScheme.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Get.theme.colorScheme.tertiary.withAlpha(10),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Get.theme.colorScheme.tertiary),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Asuntos propios',
+                                style: TextStyle(color: Get.theme.colorScheme.tertiary),
+                                textAlign: TextAlign.center,
+                              ),
+                              Text(
+                                '${controller.balances.value?.personalAvailable.round()}',
+                                style: Get.textTheme.headlineMedium?.copyWith(
+                                  color: Get.theme.colorScheme.tertiary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      ),
+
+                    ],
+                  ),
+                ],
+              ),
+
               const SizedBox(height: 16),
               // ───────────────────────────────────────────────────
               // FICHAJES (tal cual)
@@ -80,7 +148,7 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Fichajes de ${DateFormat('MMMM yyyy').format(controller.selectedMonth.value)}',
+                          'Fichajes',
                           style: Get.textTheme.headlineSmall,
                         ),
                         Obx(() {
@@ -193,8 +261,7 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
                       selectedDay: null,
                       rangeStart: null,
                       rangeEnd: null,
-                      overridesByDay: Map<DateTime, dynamic>.from(controller.scheduleOverrides)
-                          .cast<DateTime, DayEntry>(),
+                      overridesByDay: Map<DateTime, dynamic>.from(controller.scheduleOverrides).cast<DateTime, DayEntry>(),
                       rules: controller.scheduleRules,
                       onPageChanged: controller.onCalendarPageChanged,
                       locale: 'es_ES',
@@ -204,6 +271,8 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
                   }),
                 ],
               ),
+
+              const SizedBox(height: 20),
             ],
           ),
         );
