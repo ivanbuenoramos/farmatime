@@ -1,6 +1,9 @@
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/utils/date_time_utils.dart';
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
+import 'package:farmatime/presentation/widgets/card/payment_issue_alert_card.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -31,6 +34,12 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
+              if (controller.brain.company.value!.billingStatus != 'active') ... [
+                PaymentIssueAlertCard(
+                  billingStatus: controller.brain.company.value!.billingStatus,
+                ),
+                const SizedBox(height: 12),
+              ],
               _EmployeesCard(controller: controller),
               const SizedBox(height: 12),
               _IncoherentCard(controller: controller),
@@ -137,14 +146,27 @@ class _EmployeeTile extends StatelessWidget {
       ],
     );
 
+    String parseEmplRole(EmployeeRole role) {
+      switch (role) {
+        case EmployeeRole.auxiliar:
+          return 'Auxiliar de farmacia';
+        case EmployeeRole.farmaceutico:
+          return 'Farmacéutico';
+        case EmployeeRole.tecnico:
+          return 'Técnico de farmacia';
+        default:
+          return 'Sin puesto definido';
+      }
+    };
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundImage: row.emp.photoUrl != null ? NetworkImage(row.emp.photoUrl!) : null,
-            child: row.emp.photoUrl == null ? Text(row.emp.name.isNotEmpty ? row.emp.name[0] : '?') : null,
+          ProfileAvatar(
+            imageUrl: row.emp.photoUrl,
+            name: row.emp.name,
+            size: 40,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -152,7 +174,9 @@ class _EmployeeTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(row.emp.name, style: muted ? theme.textTheme.headlineSmall?.copyWith(fontSize: 14) : theme.textTheme.bodyLarge),
-                Text(row.emp.position ?? 'Empleado', style: theme.textTheme.bodySmall),
+                Text(
+                  parseEmplRole(row.emp.role),
+                  style: theme.textTheme.bodySmall),
               ],
             ),
           ),
@@ -186,7 +210,10 @@ class _IncoherentCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
-                CircleAvatar(radius: 18, child: Text(a.emp.name.isNotEmpty ? a.emp.name[0] : '?')),
+                ProfileAvatar(
+                  imageUrl: a.emp.photoUrl,
+                  name: a.emp.name,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -279,12 +306,9 @@ class _CompanyInfoCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundImage: controller.brain.company.value?.logoUrl != null ? NetworkImage(controller.brain.company.value!.logoUrl!) : null,
-                child: controller.brain.company.value?.logoUrl == null
-                    ? Text(controller.brain.company.value?.legalName.isNotEmpty == true ? controller.brain.company.value!.legalName[0] : '?')
-                    : null,
+              ProfileAvatar(
+                name: controller.brain.company.value?.legalName ?? '—',
+                imageUrl: controller.brain.company.value?.logoUrl,
               ),
               const SizedBox(width: 10),
               Expanded(

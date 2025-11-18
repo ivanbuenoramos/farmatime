@@ -193,6 +193,40 @@ class FarmatimeTheme {
         ),
       ),
     ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: const Color(0xffFFFFFF),
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(
+          color: const Color(0xffE5E5E5),
+          width: 1,
+        ),
+      ),
+      textStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 16,
+        color: Color(0xff373737),
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+    dropdownMenuTheme: DropdownMenuThemeData(
+      menuStyle: MenuStyle(
+        elevation: WidgetStateProperty.all(0),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      textStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 16,
+        color: Color(0xff373737),
+        fontWeight: FontWeight.w500,
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: const Color(0xffFFFFFF),

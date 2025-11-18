@@ -108,6 +108,16 @@ export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/
 export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_controller.dart';
 
+// COMPANY SUBSCRIPTION PAYMENT ISSUE
+export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_controller.dart';
+
+// COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
+export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_controller.dart';
+
 // COMPANY PAYMENT METHODS
 export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_page.dart';
 export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_binding.dart';

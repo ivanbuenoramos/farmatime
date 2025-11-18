@@ -10,7 +10,10 @@ class VerifyEmailPage extends GetView<VerifyEmailController> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Verificar email')),
+      appBar: AppBar(
+        title: const Text('Verificar email'),
+        titleSpacing: 16,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

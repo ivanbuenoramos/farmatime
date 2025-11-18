@@ -1,4 +1,5 @@
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -50,11 +51,10 @@ class InboxPage extends GetView<InboxController> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const CircleAvatar(
-                          radius: 22,
-                          backgroundImage: NetworkImage(
-                            'https://randomuser.me/api/portraits/men/32.jpg',
-                          ),
+                        ProfileAvatar(
+                          imageUrl: c.imageUrl,
+                          name: c.title,
+                          size: 45,
                         ),
                         const SizedBox(width: 12),
                         Expanded(

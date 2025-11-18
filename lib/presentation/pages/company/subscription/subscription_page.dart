@@ -203,26 +203,26 @@ class _BillingStatusBanner extends StatelessWidget {
     late String cta;
 
     switch (status) {
-      case 'incomplete':
-        bg = Colors.red.shade100;
-        text = 'Configura un método de pago para activar la suscripción.';
-        cta = 'Configurar pago';
-        break;
-      case 'past_due':
-        bg = Colors.orange.shade100;
-        text = 'Hay pagos pendientes. Revisa tu método de pago.';
-        cta = 'Gestionar pago';
-        break;
-      case 'canceled':
-        bg = Colors.grey.shade100;
-        text = 'Suscripción cancelada. Puedes reactivarla.';
-        cta = 'Gestionar';
-        break;
-      case 'active':
-        bg = Colors.blue.shade100;
-        text = 'Suscripción activa.';
-        cta = 'Gestionar';
-        break;
+      // case 'incomplete':
+      //   bg = Colors.red.shade100;
+      //   text = 'Configura un método de pago para activar la suscripción.';
+      //   cta = 'Configurar pago';
+      //   break;
+      // case 'past_due':
+      //   bg = Colors.orange.shade100;
+      //   text = 'Hay pagos pendientes. Revisa tu método de pago.';
+      //   cta = 'Gestionar pago';
+      //   break;
+      // case 'canceled':
+      //   bg = Colors.grey.shade100;
+      //   text = 'Suscripción cancelada. Puedes reactivarla.';
+      //   cta = 'Gestionar';
+      //   break;
+      // case 'active':
+      //   bg = Colors.blue.shade100;
+      //   text = 'Suscripción activa.';
+      //   cta = 'Gestionar';
+      //   break;
       default:
         bg = Colors.blue.shade100;
         text = 'Estado: $status';

@@ -1,4 +1,5 @@
 import 'package:farmatime/presentation/pages/company/entries/company_entries_controller.dart';
+import 'package:farmatime/presentation/widgets/card/payment_issue_alert_card.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +21,12 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
+              if (controller.brain.company.value!.billingStatus != 'active') ... [
+                PaymentIssueAlertCard(
+                  billingStatus: controller.brain.company.value!.billingStatus,
+                ),
+                const SizedBox(height: 12),
+              ],
               _FiltersCard(controller: controller),
               const SizedBox(height: 16),
               _RecordsCard(controller: controller),
@@ -152,31 +159,75 @@ class _EmployeeDropdown extends StatelessWidget {
       children: [
         Text('Empleados', style: theme.textTheme.labelMedium),
         Obx(() {
-          final items = <DropdownMenuItem<String?>>[
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('Todos'),
-            ),
-            ...controller.employees.map(
-              (e) => DropdownMenuItem<String?>(
-                value: e.id,
-                child: Text(e.name),
-              ),
-            )
-          ];
+          final isBillingActive = controller.isBillingActive;
 
-          return DropdownButtonFormField<String?>(
-            initialValue: controller.selectedEmployeeId.value,
-            items: items,
-            onChanged: (val) => controller.setEmployee(val),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            icon: const Icon(Icons.arrow_drop_down_rounded),
+          final items = <DropdownMenuItem<String?>>[];
+
+          if (isBillingActive) {
+            // Plan normal: opción "Todos" + todos los empleados
+            items.add(
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Todos'),
+              ),
+            );
+            items.addAll(
+              controller.employees.map(
+                (e) => DropdownMenuItem<String?>(
+                  value: e.id,
+                  child: Text(e.name),
+                ),
+              ),
+            );
+          } else {
+            // Plan NO activo: solo primer empleado
+            if (controller.employees.isNotEmpty) {
+              final first = controller.employees.first;
+              items.add(
+                DropdownMenuItem<String?>(
+                  value: first.id,
+                  child: Text(first.name),
+                ),
+              );
+            }
+          }
+
+          final String? value = isBillingActive
+              ? controller.selectedEmployeeId.value
+              : (controller.employees.isNotEmpty
+                  ? controller.employees.first.id
+                  : null);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButtonFormField<String?>(
+                value: value,
+                items: items,
+                onChanged: isBillingActive
+                    ? (val) => controller.setEmployee(val)
+                    : null, // 🔒 bloqueado si no está activo
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_drop_down_rounded),
+              ),
+              if (!isBillingActive && controller.employees.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'En el plan gratuito solo puedes ver los fichajes del primer empleado.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.secondary,
+                    ),
+                  ),
+                ),
+            ],
           );
         }),
       ],

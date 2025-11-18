@@ -72,6 +72,12 @@ class Routes {
   // COMPANY SUBSCRIPTION SEAT CHECKOUT
   static const String companySubscriptionSeatCheckout = '/company/subscription/seat-checkout';
 
+  // COMPANY SUBSCRIPTION PAYMENT ISSUE
+  static const String companySubscriptionPaymentIssue = '/company/subscription/payment-issue';
+
+  // COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
+  static const String companySubscriptionConfirmSeatChange = '/company/subscription/confirm-seat-change';
+
   // COMPANY PAYMENT METHODS
   static const String companyPaymentMethods = '/company/payment-methods';
 

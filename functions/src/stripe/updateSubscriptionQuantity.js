@@ -9,30 +9,50 @@ exports.stripe_updateSubscriptionQuantity = onCall(async (request) => {
   const uid = request.auth.uid;
   const data = request.data || {};
 
-  const companyId = String(data.companyId || '');
+  const companyId = String(data.companyId || '').trim();
   const quantity = Number(data.quantity || 1);
-  const prorationBehaviorRaw = String(data.proration_behavior || '');
+  const prorationBehaviorRaw = String(data.proration_behavior || '').trim();
   const prorationBehavior =
     prorationBehaviorRaw === 'none' ? 'none' : 'create_prorations';
 
-  if (!companyId) throw new HttpsError('invalid-argument', 'companyId requerido');
+  if (!companyId) {
+    throw new HttpsError('invalid-argument', 'companyId requerido');
+  }
   if (!Number.isInteger(quantity) || quantity <= 0) {
     throw new HttpsError('invalid-argument', 'quantity inválido');
   }
 
-  assertCompanyAccount(uid, companyId);
+  await assertCompanyAccount(uid, companyId);
 
   const snap = await db.collection('companies').doc(companyId).get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'Empresa no encontrada');
+  }
+
   const company = snap.data() || {};
   if (!company.stripeSubscriptionId) {
     throw new HttpsError('failed-precondition', 'No hay suscripción Stripe');
   }
 
   const stripe = getStripe();
-  const subscription = await stripe.subscriptions.retrieve(company.stripeSubscriptionId);
-  const itemId = subscription.items.data[0].id;
 
-  const updatedItem = await stripe.subscriptionItems.update(itemId, {
+  const subscription = await stripe.subscriptions.retrieve(company.stripeSubscriptionId);
+  if (!subscription?.items?.data?.length) {
+    throw new HttpsError('internal', 'No se encontró el item de suscripción');
+  }
+
+  const item = subscription.items.data[0];
+  const currentQty = item.quantity ?? 1;
+
+  // 👇 IMPORTANTE: no permitir subir plazas con esta función
+  if (quantity > currentQty) {
+    throw new HttpsError(
+        'failed-precondition',
+        'No se permite aumentar plazas con esta función. Usa stripe_prepareSeatChangePayment.',
+    );
+  }
+
+  const updatedItem = await stripe.subscriptionItems.update(item.id, {
     quantity,
     proration_behavior: prorationBehavior,
   });
@@ -45,6 +65,8 @@ exports.stripe_updateSubscriptionQuantity = onCall(async (request) => {
     currentPeriodEnd: subAfter.current_period_end,
   });
 
-  return { ok: true, quantity: updatedItem.quantity };
+  return {
+    ok: true,
+    quantity: updatedItem.quantity,
+  };
 });
-

@@ -114,12 +114,23 @@ class CompanyAccountPage extends StatelessWidget {
                           leading: const Icon(Icons.subscriptions_rounded),
                           title: const Text('Gestionar suscripción'),
                           subtitle: Text(
-                            'Ver y modificar el plan de suscripción',
+                            'Ver y modificar suscripción',
                             style: Get.theme.textTheme.bodySmall,
                           ),
-                          trailing: Icon(
-                            Icons.chevron_right_rounded,
-                            color: Get.theme.colorScheme.outline,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'cancelled')...[
+                                Icon(
+                                  Icons.error_rounded,
+                                  color: Colors.red,
+                                ),
+                              ], 
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                color: Get.theme.colorScheme.outline,
+                              ),
+                            ],
                           ),
                           onTap: controller.redirectToSubscription,
                         ),

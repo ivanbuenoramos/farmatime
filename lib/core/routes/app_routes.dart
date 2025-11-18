@@ -148,6 +148,12 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.companySubscriptionPaymentIssue,
+        page: () => const SubscriptionPaymentIssuePage(),
+        binding: SubscriptionPaymentIssueBinding(),
+      ),
+      
+      GetPage(
         name: Routes.companyPaymentMethods,
         page: () => const PaymentMethodsPage(),
         binding: PaymentMethodsBinding(),

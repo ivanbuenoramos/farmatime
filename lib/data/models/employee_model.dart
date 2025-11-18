@@ -1,6 +1,6 @@
-// lib/data/models/employee_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum EmployeeAccountStatus {pending, active, inactive, deleted}
 enum EmployeeRole { tecnico, auxiliar, farmaceutico, otro }
 enum WorkdayType { completa, media }
 
@@ -11,19 +11,17 @@ class EmployeeModel {
   final String? tempPassword;
   final String? photoUrl;
   final String companyId;
-  final String? position; // (lo mantenemos por compatibilidad si lo usabas)
-  final bool isActive;
+  final String? position;
+  final EmployeeAccountStatus? accountStatus;
   final DateTime hireDate;
   final DateTime createdAt;
   final DateTime updatedAt;
-
-  // NUEVOS CAMPOS
-  final double hourlyRate;                // € por hora
-  final EmployeeRole role;                // cargo
-  final String? roleOther;                // si role == otro
-  final WorkdayType? workdayType;         // opcional
-  final double vacationDaysPer30;         // días/30 días trabajados
-  final double personalDaysPerYear;       // días/año
+  final double hourlyRate;
+  final EmployeeRole role;
+  final String? roleOther;
+  final WorkdayType? workdayType;
+  final double vacationDaysPer30;
+  final double personalDaysPerYear;
 
   EmployeeModel({
     required this.uid,
@@ -33,7 +31,7 @@ class EmployeeModel {
     this.photoUrl,
     required this.companyId,
     this.position,
-    required this.isActive,
+    required this.accountStatus,
     required this.hireDate,
     required this.createdAt,
     required this.updatedAt,
@@ -86,7 +84,14 @@ class EmployeeModel {
       photoUrl: json['photoUrl'],
       companyId: json['companyId'],
       position: json['position'],
-      isActive: json['isActive'] ?? true,
+      accountStatus: switch (json['accountStatus'] as String?) {
+        'pending' => EmployeeAccountStatus.pending,
+        'active' => EmployeeAccountStatus.active,
+        'inactive' => EmployeeAccountStatus.inactive,
+        'deleted' => EmployeeAccountStatus.deleted,
+        null => null,
+        _ => EmployeeAccountStatus.active, // default migración
+      },
       hireDate: toDate(json['hireDate'] ?? json['createdAt']),
       createdAt: toDate(json['createdAt']),
       updatedAt: toDate(json['updatedAt']),
@@ -94,7 +99,7 @@ class EmployeeModel {
       role: roleFrom(json['role'] as String?),
       roleOther: json['roleOther'],
       workdayType: workdayFrom(json['workdayType'] as String?),
-      vacationDaysPer30: toDouble(json['vacationDaysPer30'], 2.5), // ~30 días/año ≈ 2.5/30 días
+      vacationDaysPer30: toDouble(json['vacationDaysPer30'], 2.5),
       personalDaysPerYear: toDouble(json['personalDaysPerYear'], 0),
     );
   }
@@ -107,7 +112,13 @@ class EmployeeModel {
         'photoUrl': photoUrl,
         'companyId': companyId,
         'position': position,
-        'isActive': isActive,
+        'accountStatus': switch (accountStatus) {
+          EmployeeAccountStatus.pending => 'pending',
+          EmployeeAccountStatus.active => 'active',
+          EmployeeAccountStatus.inactive => 'inactive',
+          EmployeeAccountStatus.deleted => 'deleted',
+          null => null,
+        },
         'hireDate': hireDate.toIso8601String(),
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
@@ -137,7 +148,7 @@ class EmployeeModel {
     String? photoUrl,
     String? companyId,
     String? position,
-    bool? isActive,
+    EmployeeAccountStatus? accountStatus,
     DateTime? hireDate,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -156,7 +167,7 @@ class EmployeeModel {
       photoUrl: photoUrl ?? this.photoUrl,
       companyId: companyId ?? this.companyId,
       position: position ?? this.position,
-      isActive: isActive ?? this.isActive,
+      accountStatus: accountStatus ?? this.accountStatus,
       hireDate: hireDate ?? this.hireDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

@@ -2,6 +2,7 @@ import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/company/dashboard/company_dashboard_page.dart';
 import 'package:farmatime/presentation/pages/company/employees/company_employees_page.dart';
 import 'package:farmatime/presentation/pages/company/entries/company_entries_page.dart';
+import 'package:farmatime/presentation/pages/company/main/widgets/subscription_payment_issue_modal.dart';
 import 'package:farmatime/presentation/presentation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -11,7 +12,6 @@ import 'package:get/get.dart';
 
 
 class CompanyMainPage extends StatelessWidget {
-
   CompanyMainPage({super.key});
 
   @override

@@ -36,9 +36,7 @@ class ClockRowView {
 }
 
 class CompanyEntriesController extends GetxController {
-
-  final Brain brain = Get.find<Brain>();  
-
+  final Brain brain = Get.find<Brain>();
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Filtros
@@ -57,10 +55,15 @@ class CompanyEntriesController extends GetxController {
   // Config
   final int expectedDailyMinutes = 480; // 8h por defecto
 
+  // 👉 Estado de facturación
+  bool get isBillingActive =>
+      (brain.company.value?.billingStatus ?? 'active') == 'active';
+
   static DateTime _todayStart() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, 0, 0, 0);
-    }
+  }
+
   static DateTime _todayEnd() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
@@ -84,6 +87,10 @@ class CompanyEntriesController extends GetxController {
   }
 
   Future<void> setEmployee(String? employeeId) async {
+    // 👉 En plan no activo, no dejamos cambiar de empleado
+    if (!isBillingActive) {
+      return;
+    }
     selectedEmployeeId.value = employeeId; // null = todos
     await fetchRecords();
   }
@@ -103,6 +110,11 @@ class CompanyEntriesController extends GetxController {
         name: data['name'] ?? 'Sin nombre',
       );
     }).toList());
+
+    // 👉 Si la facturación NO está activa, forzamos el primer empleado
+    if (!isBillingActive && employees.isNotEmpty) {
+      selectedEmployeeId.value = employees.first.id;
+    }
   }
 
   Future<void> fetchRecords() async {
@@ -114,18 +126,32 @@ class CompanyEntriesController extends GetxController {
       Query col = _db
           .collection('clockRecords')
           .where('companyId', isEqualTo: brain.company.value?.id)
-          .where('clockIn', isGreaterThanOrEqualTo: from.value.toIso8601String())
+          .where('clockIn',
+              isGreaterThanOrEqualTo: from.value.toIso8601String())
           .where('clockIn', isLessThanOrEqualTo: to.value.toIso8601String());
 
-      if (selectedEmployeeId.value != null) {
-        col = col.where('employeeId', isEqualTo: selectedEmployeeId.value);
+      // 🔒 Restricción por facturación
+      if (!isBillingActive) {
+        // Forzar siempre al primer empleado creado
+        final forcedId =
+            selectedEmployeeId.value ?? (employees.isNotEmpty ? employees.first.id : null);
+        if (forcedId != null) {
+          col = col.where('employeeId', isEqualTo: forcedId);
+        }
+      } else {
+        // Flujo normal: filtros
+        if (selectedEmployeeId.value != null) {
+          col = col.where('employeeId', isEqualTo: selectedEmployeeId.value);
+        }
       }
 
       // Orden descendente por clockIn
       final snap = await col.orderBy('clockIn', descending: true).get();
 
       final dateFmt = DateFormat.Hm();
-      final nameCache = <String, String>{ for (var e in employees) e.id : e.name };
+      final nameCache = <String, String>{
+        for (var e in employees) e.id: e.name
+      };
 
       final now = DateTime.now();
 
@@ -136,19 +162,23 @@ class CompanyEntriesController extends GetxController {
         final inDt = item.clockIn;
         final outDt = item.clockOut ?? now;
 
-        final worked = outDt.difference(inDt).inMinutes.clamp(0, 24 * 60);
+        final worked =
+            outDt.difference(inDt).inMinutes.clamp(0, 24 * 60);
 
         final employeeName = nameCache[item.employeeId] ?? item.employeeId;
 
-        final rangeText = "${dateFmt.format(inDt)}–${item.clockOut == null ? '…' : dateFmt.format(outDt)}";
+        final rangeText =
+            "${dateFmt.format(inDt)}–${item.clockOut == null ? '…' : dateFmt.format(outDt)}";
 
-        rows.add(ClockRowView(
-          day: DateTime(inDt.year, inDt.month, inDt.day),
-          employeeName: employeeName,
-          rangeText: rangeText,
-          workedMinutes: worked,
-          expectedMinutes: expectedDailyMinutes,
-        ));
+        rows.add(
+          ClockRowView(
+            day: DateTime(inDt.year, inDt.month, inDt.day),
+            employeeName: employeeName,
+            rangeText: rangeText,
+            workedMinutes: worked,
+            expectedMinutes: expectedDailyMinutes,
+          ),
+        );
       }
     } catch (e) {
       print(e);

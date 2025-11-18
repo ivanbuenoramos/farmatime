@@ -40,7 +40,7 @@ class IndexPage extends GetView<IndexController> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Conecta con las oportunidades de empleo más interesantes y empieza tu nueva carrera hoy mismo.',
+                'Controla el horario laboral, gestiona turnos y vacaciones con cumplimiento normativo, reduciendo al mínimo el trabajo administrativo.',
                 textAlign: TextAlign.center,
                 style: Get.theme.textTheme.bodyMedium,
               ),

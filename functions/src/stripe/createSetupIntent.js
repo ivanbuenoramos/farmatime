@@ -8,15 +8,25 @@ exports.stripe_createSetupIntent = onCall(async (request) => {
   try {
     assertAuth(request);
     const uid = String(request.auth.uid || '').trim();
-    const { companyId } = request.data || {};
-    if (!companyId) throw new HttpsError('invalid-argument', 'companyId requerido');
+    const data = request.data || {};
+    const companyId = String(data.companyId || '').trim();
+
+    if (!companyId) {
+      throw new HttpsError('invalid-argument', 'companyId requerido');
+    }
+
     await assertCompanyAccount(uid, companyId);
 
     const doc = await db.collection('companies').doc(companyId).get();
-    if (!doc.exists) throw new HttpsError('not-found', 'Empresa no encontrada');
+    if (!doc.exists) {
+      throw new HttpsError('not-found', 'Empresa no encontrada');
+    }
+
     const company = doc.data() || {};
     const customerId = company.stripeCustomerId;
-    if (!customerId) throw new HttpsError('failed-precondition', 'Cliente Stripe no configurado');
+    if (!customerId) {
+      throw new HttpsError('failed-precondition', 'Cliente Stripe no configurado');
+    }
 
     const stripe = getStripe();
 
@@ -38,8 +48,11 @@ exports.stripe_createSetupIntent = onCall(async (request) => {
       setupIntentClientSecret: setupIntent.client_secret,
     };
   } catch (err) {
-    logger.error('[stripe_createSetupIntent] FAILED', err);
+    logger.error('[stripe_createSetupIntent] FAILED', {
+      msg: err?.message || String(err),
+      stack: err?.stack || null,
+    });
     if (err instanceof HttpsError) throw err;
-    throw new HttpsError('internal', err.message);
+    throw new HttpsError('internal', err.message || 'Error interno');
   }
 });

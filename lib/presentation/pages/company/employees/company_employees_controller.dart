@@ -91,6 +91,10 @@ class CompanyEmployeesController extends GetxController {
     }
   }
 
+  void onSubscriptionStatusBannerTapped() {
+    Get.toNamed(Routes.companySubscription);
+  }
+
   void _showNoSlotsModal(int employeesCount) {
     Get.bottomSheet(
       Container(

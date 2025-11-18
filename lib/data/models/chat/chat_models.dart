@@ -21,11 +21,12 @@ class ChatUserRef {
 }
 
 class Conversation {
-  final String id; // doc id
+  final String id;
   final String companyId;
   final bool isGroup;
-  final String title; // para grupo o el nombre del otro en 1:1
-  final List<String> memberIds; // [userId1, userId2, ...]
+  final String title;
+  final String? imageUrl;
+  final List<String> memberIds;
   final String? lastMessageText;
   final DateTime? lastMessageAt;
   final DateTime updatedAt;
@@ -35,6 +36,7 @@ class Conversation {
     required this.companyId,
     required this.isGroup,
     required this.title,
+    this.imageUrl,
     required this.memberIds,
     required this.updatedAt,
     this.lastMessageAt,
@@ -45,6 +47,7 @@ class Conversation {
         'companyId': companyId,
         'isGroup': isGroup,
         'title': title,
+        if (imageUrl != null) 'imageUrl': imageUrl,
         'memberIds': memberIds,
         'lastMessageText': lastMessageText,
         'updatedAt': Timestamp.fromDate(updatedAt),
@@ -58,6 +61,7 @@ class Conversation {
       companyId: m['companyId'] as String,
       isGroup: (m['isGroup'] as bool?) ?? false,
       title: m['title'] as String? ?? '',
+      imageUrl: m['imageUrl'] as String?,
       memberIds: (m['memberIds'] as List<dynamic>? ?? const [])
           .map((e) => e.toString())
           .toList(),

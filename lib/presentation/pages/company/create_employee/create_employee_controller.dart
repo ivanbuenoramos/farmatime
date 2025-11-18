@@ -1,5 +1,6 @@
 import 'package:farmatime/core/services/toast_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:get/get.dart';
 
@@ -89,9 +90,8 @@ class CreateEmployeeController extends GetxController {
 
     isLoading.value = true;
     try {
-      // Creamos un modelo "parcial": el uid lo asignará el servidor.
       final newEmployee = EmployeeModel(
-        uid: '', // ignorado por el repo; el servidor generará uno
+        uid: '',
         companyId: companyId,
         name: name,
         email: email,
@@ -99,7 +99,7 @@ class CreateEmployeeController extends GetxController {
         hireDate: DateTime.now(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        isActive: true,
+        accountStatus: EmployeeAccountStatus.active,
         hourlyRate: rate,
         role: role.value,
         roleOther: role.value == EmployeeRole.otro ? roleOtherController.text.trim() : null,
