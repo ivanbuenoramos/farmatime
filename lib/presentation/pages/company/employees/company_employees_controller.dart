@@ -69,9 +69,9 @@ class CompanyEmployeesController extends GetxController {
           await getEmployeesByCompanyIdUseCase.call(companyId);
       if (result.success) {
         employees.value = (result.data as List<EmployeeModel>);
+        employees.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
       } else {
-        Get.snackbar(
-            'Error', 'No se pudieron cargar los empleados: ${result.errorCode}');
+        Get.snackbar('Error', 'No se pudieron cargar los empleados: ${result.errorCode}');
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch employees: $e');

@@ -74,6 +74,8 @@ class EmployeeProfileController extends GetxController {
     } else {
       photoUrl.value = fileUrl;
     }
+
+    saveChanges();
     
     isUploadingLogo.value = false;
   }

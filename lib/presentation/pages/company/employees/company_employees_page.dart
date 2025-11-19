@@ -1,4 +1,5 @@
 import 'package:farmatime/data/models/employee_model.dart';
+import 'package:farmatime/presentation/pages/company/employees/widgets/info_locked_dialog.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/widgets/card/payment_issue_alert_card.dart';
 import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
@@ -30,7 +31,6 @@ class CompanyEmployeesPage extends StatelessWidget {
         final employees = controller.employees;
         final seats = controller.contractedSeats.value;
 
-        // total de tarjetas = max(empleados existentes, plazas contratadas)
         final totalCards = (seats > employees.length) ? seats : employees.length;
 
         return SingleChildScrollView(
@@ -52,7 +52,7 @@ class CompanyEmployeesPage extends StatelessWidget {
                       padding: EdgeInsets.only(bottom: 12),
                       child: LinearProgressIndicator(),
                     ),
-              
+
                   ListView.separated(
                     shrinkWrap: true,
                     itemCount: totalCards,
@@ -65,13 +65,13 @@ class CompanyEmployeesPage extends StatelessWidget {
                       if (isRealEmployee) {
                         final employee = employees[index];
                         return Opacity(
-                          opacity: (controller.brain.company.value!.billingStatus == 'active' || index == 0) ? 1.0 : 0.6,
+                          opacity: (employee.accountStatus == EmployeeAccountStatus.active) ? 1.0 : 0.6,
                           child: InkWell(
                             onTap: () {
-                              if (controller.brain.company.value!.billingStatus == 'active' || index == 0) {
+                              if (employee.accountStatus == EmployeeAccountStatus.active) {
                                 controller.reditectToEmployeeDetail(employee);
                               } else {
-                                null;
+                                showEmployeeInfoLockedDialog();
                               }
                             },
                             child: Ink(
@@ -106,8 +106,12 @@ class CompanyEmployeesPage extends StatelessWidget {
                                         const SizedBox(height: 2),
                                         Row(
                                           children: [
+                                            // Text(
+                                            //   employee.position ?? 'Empleado',
+                                            //   style: Get.textTheme.bodySmall
+                                            // ),
                                             Text(
-                                              employee.position ?? 'Empleado',
+                                              employee.accountStatus?.name ?? 'Estado desconocido',
                                               style: Get.textTheme.bodySmall
                                             ),
                                             if (employee.workdayType != null) ...[

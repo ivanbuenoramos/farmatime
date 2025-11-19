@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/clock_in_out_model.dart';
@@ -10,10 +11,7 @@ import 'package:farmatime/domain/usecases/clock/get_current_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
 
-
-
 class EmployeeMyDayController extends GetxController {
-
   final CreateEntryUseCase createEntryUseCase;
   final UpdateEntryUseCase updateEntryUseCase;
   final GetCurrentEntryUseCase getCurrentEntryUseCase;
@@ -35,15 +33,11 @@ class EmployeeMyDayController extends GetxController {
   Timer? _clockTimer;
   final currentDuration = Rx<Duration>(Duration.zero);
 
-
-
   @override
   void onInit() {
     super.onInit();
     _loadInitialData();
   }
-
-
 
   @override
   void onClose() {
@@ -51,21 +45,20 @@ class EmployeeMyDayController extends GetxController {
     super.onClose();
   }
 
-
-
   Future<void> _loadInitialData() async {
     isLoading.value = true;
     final employeeId = brain.employee.value?.uid;
-    if (employeeId == null) return;
+    if (employeeId == null) {
+      isLoading.value = false;
+      return;
+    }
 
-    /// 1. Cargamos TODOS los fichajes del empleado (ordenados ↓)
     final allEntriesResult = await getEntriesByEmployeeUseCase.call(employeeId);
 
     if (allEntriesResult.success) {
       final all = List<ClockInOutModel>.from(allEntriesResult.data)
         ..sort((a, b) => b.clockIn.compareTo(a.clockIn)); // ↓ más reciente primero
 
-      /// 2. El primero marca si hay entrada activa
       if (all.isNotEmpty && all.first.clockOut == null) {
         currentEntry.value = all.first;
         _startClockTimer();
@@ -75,13 +68,14 @@ class EmployeeMyDayController extends GetxController {
         currentDuration.value = Duration.zero;
       }
 
-      /// 3. Solo los de hoy para la tarjeta “Fichajes de hoy”
       final today = DateTime.now();
       todayEntries.assignAll(
-        all.where((e) =>
-          e.clockIn.year == today.year &&
-          e.clockIn.month == today.month &&
-          e.clockIn.day == today.day),
+        all.where(
+          (e) =>
+              e.clockIn.year == today.year &&
+              e.clockIn.month == today.month &&
+              e.clockIn.day == today.day,
+        ),
       );
     } else {
       Get.snackbar('Error', 'No se pudieron cargar fichajes');
@@ -90,15 +84,12 @@ class EmployeeMyDayController extends GetxController {
     isLoading.value = false;
   }
 
-
-
   void _startClockTimer() {
     _clockTimer?.cancel();
 
     final clockIn = currentEntry.value?.clockIn;
     if (clockIn == null) return;
 
-    // ←  Primer valor inmediatamente
     currentDuration.value = DateTime.now().difference(clockIn);
 
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -106,30 +97,76 @@ class EmployeeMyDayController extends GetxController {
     });
   }
 
+  /// Lee la ubicación de forma segura.
+  /// Si falla, devuelve `null` y deja seguir el fichaje sin ubicación.
+  Future<Position?> _getSafePosition() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        Get.snackbar(
+          'Ubicación desactivada',
+          'Activa la ubicación del dispositivo para registrar dónde fichas.',
+        );
+        return null;
+      }
 
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Get.snackbar(
+            'Permiso denegado',
+            'No se ha concedido permiso de ubicación. Se registrará el fichaje sin ubicación.',
+          );
+          return null;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        Get.snackbar(
+          'Permiso bloqueado',
+          'Los permisos de ubicación están bloqueados. Actívalos en ajustes para registrar la ubicación.',
+        );
+        return null;
+      }
+
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+    } catch (e) {
+      Get.snackbar('Error ubicación', 'No se pudo obtener la ubicación.');
+      return null;
+    }
+  }
 
   Future<void> clockOut() async {
     final entry = currentEntry.value;
     if (entry == null) return;
 
+    final now = DateTime.now();
+    final position = await _getSafePosition(); // 👈 intentamos leer ubicación
+
     final updated = entry.copyWith(
-      clockOut: DateTime.now(),
-      updatedAt: DateTime.now(),
+      clockOut: now,
+      clockOutLat: position?.latitude ?? entry.clockOutLat,
+      clockOutLng: position?.longitude ?? entry.clockOutLng,
+      updatedAt: now,
     );
 
     final result = await updateEntryUseCase.call(updated);
     if (result.success && result.data != null) {
       currentEntry.value = null;
-      _clockTimer?.cancel();             // detener cronómetro
+      _clockTimer?.cancel();
       currentDuration.value = Duration.zero;
+
       final idx = todayEntries.indexWhere((e) => e.id == updated.id);
-      if (idx != -1) todayEntries[idx] = updated;
+      if (idx != -1) {
+        todayEntries[idx] = updated;
+      }
     } else {
       Get.snackbar('Error', 'No se pudo registrar la salida');
     }
   }
-
-
 
   Duration getTotalWorkedToday() {
     return todayEntries.fold(Duration.zero, (sum, entry) {
@@ -141,16 +178,12 @@ class EmployeeMyDayController extends GetxController {
     });
   }
 
-
-
   String getFormattedWorkedToday() {
     final duration = getTotalWorkedToday();
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     return '${hours}h ${minutes.toString().padLeft(2, '0')}min';
   }
-
-
 
   Future<void> clockIn() async {
     if (currentEntry.value != null) {
@@ -159,14 +192,24 @@ class EmployeeMyDayController extends GetxController {
     }
 
     final employee = brain.employee.value;
+    if (employee == null) {
+      Get.snackbar('Error', 'No se encontró el empleado en sesión');
+      return;
+    }
+
     final now = DateTime.now();
+    final position = await _getSafePosition(); // 👈 intentamos leer ubicación
 
     final newEntry = ClockInOutModel(
       id: const Uuid().v4(),
-      employeeId: employee!.uid,
+      employeeId: employee.uid,
       companyId: employee.companyId,
       clockIn: now,
       clockOut: null,
+      clockInLat: position?.latitude,
+      clockInLng: position?.longitude,
+      clockOutLat: null,
+      clockOutLng: null,
       notes: null,
       createdAt: now,
       updatedAt: now,
@@ -176,14 +219,11 @@ class EmployeeMyDayController extends GetxController {
     if (result.success && result.data != null) {
       currentEntry.value = result.data;
       todayEntries.insert(0, result.data!);
-      _startClockTimer();                     // ← aquí
+      _startClockTimer();
     } else {
       Get.snackbar('Error', 'No se pudo registrar la entrada');
     }
   }
-
-
-
 
   String getTimeSinceLastClockIn() {
     final clockIn = currentEntry.value?.clockIn;

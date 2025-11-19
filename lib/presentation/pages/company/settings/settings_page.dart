@@ -123,48 +123,6 @@ class SettingsPage extends GetView<SettingsController> {
       ),
     );
   }
-
-  void _showLanguageSheet(BuildContext context) {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade400,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ...controller.supportedLocales.map(
-                (l) => RadioListTile<Locale>(
-                  value: l,
-                  groupValue: controller.currentLocale.value,
-                  onChanged: (v) {
-                    if (v != null) controller.changeLanguage(v);
-                    Get.back();
-                  },
-                  title: Text(controller.languageName(l)),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-    );
-  }
 }
 
 /// ====== UI helpers (tiles/sections) ======
@@ -219,7 +177,6 @@ class _Tile extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
-  final Color? titleColor;
 
   const _Tile({
     required this.leading,
@@ -227,7 +184,6 @@ class _Tile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.onTap,
-    this.titleColor,
   });
 
   @override
@@ -251,7 +207,7 @@ class _Tile extends StatelessWidget {
                     Text(
                       title,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: titleColor ?? theme.colorScheme.secondary,
+                        color: theme.colorScheme.secondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

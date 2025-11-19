@@ -86,7 +86,7 @@ class ShiftTemplatesPage extends GetView<ShiftTemplatesController> {
       ),
     );
     if (ok == true) {
-      await controller.deleteTemplate(t.id!);
+      await controller.deleteTemplate(t.id);
     }
   }
 }

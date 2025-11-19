@@ -1,3 +1,4 @@
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -42,12 +43,9 @@ class CompanyAccountPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundImage: controller.logoUrl.value.isNotEmpty
-                            ? NetworkImage(controller.logoUrl.value)
-                            : null,
-                        child: controller.logoUrl.value.isEmpty ? const Icon(Icons.local_pharmacy_rounded, size: 40) : null,
+                      ProfileAvatar(
+                        imageUrl: controller.brain.company.value!.logoUrl,
+                        name: controller.brain.company.value!.legalName,
                       ),
                       const SizedBox(width: 12),
                       Column(
@@ -60,6 +58,7 @@ class CompanyAccountPage extends StatelessWidget {
                       ),
                     ],
                   ),
+                  
                   const SizedBox(height: 16),
                   
                   Card(

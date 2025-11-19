@@ -28,6 +28,11 @@ export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_binding.dart';
 export 'package:farmatime/presentation/pages/employee/auth/sign_in/employe_auth_sign_in_controller.dart';
 
+// EMPLOYEE SUBSCRIPTION CANCELED
+export 'package:farmatime/presentation/pages/employee/subscription_canceled/subscription_canceled_page.dart';
+export 'package:farmatime/presentation/pages/employee/subscription_canceled/subscription_canceled_binding.dart';
+export 'package:farmatime/presentation/pages/employee/subscription_canceled/subscription_canceled_controller.dart';
+
 // EMPLOYEE MAIN
 export 'package:farmatime/presentation/pages/employee/main/employee_main_page.dart';
 export 'package:farmatime/presentation/pages/employee/main/employee_main_binding.dart';

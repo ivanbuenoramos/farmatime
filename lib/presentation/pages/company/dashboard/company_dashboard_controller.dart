@@ -1,15 +1,14 @@
-import 'package:farmatime/core/routes/routes.dart';
-import 'package:farmatime/presentation/pages/company/employees/company_employees_controller.dart';
-import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/employee_shift_model.dart';
 import 'package:farmatime/domain/usecases/clock/get_today_last_clocks_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
+import 'package:farmatime/presentation/pages/company/employees/company_employees_controller.dart';
 
 
 
@@ -18,8 +17,8 @@ enum TodayStatus { working, absent, off }
 class EmployeeRow {
   final EmployeeModel emp;
   final TodayStatus status;
-  final DateTime? lastClockIn;        // si está trabajando
-  final ExpectedShiftModel? expected; // null si no trabaja hoy
+  final DateTime? lastClockIn;
+  final ExpectedShiftModel? expected;
 
   EmployeeRow({
     required this.emp,
@@ -31,9 +30,9 @@ class EmployeeRow {
 
 class IncoherentAlert {
   final EmployeeModel emp;
-  final String reason;    // "Ausencia", "Retraso", etc.
-  final int deltaMinutes; // desviación
-  final DateTime date;    // hoy
+  final String reason;
+  final int deltaMinutes;
+  final DateTime date;
 
   IncoherentAlert({
     required this.emp,

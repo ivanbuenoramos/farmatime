@@ -2,13 +2,14 @@ import 'package:farmatime/core/routes/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:farmatime/data/models/shift_template_model.dart';
-import 'package:farmatime/data/models/schedule/day_entry.dart';
+
+
 
 class PickShiftBottomSheet extends StatefulWidget {
   const PickShiftBottomSheet({
     super.key,
     required this.templates,
-    required this.onApply, // devuelve (start,end)
+    required this.onApply,
   });
 
   final List<ShiftTemplate> templates;

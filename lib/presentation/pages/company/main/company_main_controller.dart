@@ -1,9 +1,11 @@
-import 'package:farmatime/presentation/pages/company/main/widgets/subscription_payment_issue_modal.dart';
 import 'package:flutter/material.dart';
+
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
-import 'package:farmatime/presentation/presentation.dart';
+import 'package:farmatime/presentation/pages/company/main/widgets/subscription_payment_issue_modal.dart';
+
+
 
 class CompanyMainController extends GetxController {
   

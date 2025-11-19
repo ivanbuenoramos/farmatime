@@ -15,6 +15,9 @@ class Routes {
   // EMPLOYEE AUTH SIGN IN
   static const String employeeAuthSignIn = '/employee/auth/sign-in';
 
+  // EMPLOYEE SUBSCRIPTION CANCELED
+  static const String employeeSubscriptionCanceled = '/employee/subscription-canceled';
+
   // EMPLOYEE MAIN
   static const String employeeMain = '/employee/main';
 

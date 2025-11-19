@@ -96,22 +96,28 @@ class CompanyEntriesController extends GetxController {
   }
 
   Future<void> _loadEmployees() async {
+    final companyId = brain.company.value?.id;
+    if (companyId == null) return;
+
     final snap = await _db
         .collection('employees')
-        .where('companyId', isEqualTo: brain.company.value?.id)
-        .where('isActive', isEqualTo: true)
+        .where('companyId', isEqualTo: companyId)
+        .where('accountStatus', isEqualTo: 'active')
         .orderBy('name')
         .get();
 
-    employees.assignAll(snap.docs.map((d) {
-      final data = d.data();
-      return EmployeeOption(
-        id: data['id'] ?? d.id,
-        name: data['name'] ?? 'Sin nombre',
-      );
-    }).toList());
+    employees.assignAll(
+      snap.docs.map((d) {
+        final data = d.data();
+        return EmployeeOption(
+          id: data['id'] ?? d.id,
+          name: data['name'] ?? 'Sin nombre',
+        );
+      }).toList(),
+    );
 
-    // 👉 Si la facturación NO está activa, forzamos el primer empleado
+    // 👉 Si la facturación NO está activa y hay empleados activos,
+    // forzamos el primero para filtros
     if (!isBillingActive && employees.isNotEmpty) {
       selectedEmployeeId.value = employees.first.id;
     }

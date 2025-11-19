@@ -94,13 +94,9 @@ class EmployeeAccountController extends GetxController {
   }
 
   void logOut() async {
-    print('1');
     brain.clearSession();
-    print('2');
     await logOutUseCase.call();
-    print('3');
     Get.offAllNamed(Routes.index);
-    print('Logged out');
   }
 
   @override

@@ -1,10 +1,14 @@
-import 'package:farmatime/presentation/widgets/card/base_card.dart';
+import 'package:farmatime/presentation/widgets/card/payment_issue_alert_card.dart';
 import 'package:flutter/material.dart';
+
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
+
+
 
 class SubscriptionPage extends StatelessWidget {
   const SubscriptionPage({super.key});
@@ -35,9 +39,10 @@ class SubscriptionPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           physics: const BouncingScrollPhysics(),
           children: [
-            _BillingStatusBanner(
-              status: c.billingStatus.value,
-              onManage: c.redirectToSeatCheckout,
+
+            PaymentIssueAlertCard(
+              billingStatus: c.billingStatus.value,
+              onTap: c.redirectToSeatCheckout,
             ),
 
             const SizedBox(height: 12),
@@ -189,71 +194,22 @@ class _AmountRow extends StatelessWidget {
   }
 }
 
-class _BillingStatusBanner extends StatelessWidget {
-  final String status; // active | incomplete | past_due | canceled...
-  final VoidCallback onManage;
-  const _BillingStatusBanner({required this.status, required this.onManage});
 
-  @override
-  Widget build(BuildContext context) {
-    // if (status.isEmpty || status == 'active') return const SizedBox.shrink();
-
-    late Color bg;
-    late String text;
-    late String cta;
-
-    switch (status) {
-      // case 'incomplete':
-      //   bg = Colors.red.shade100;
-      //   text = 'Configura un método de pago para activar la suscripción.';
-      //   cta = 'Configurar pago';
-      //   break;
-      // case 'past_due':
-      //   bg = Colors.orange.shade100;
-      //   text = 'Hay pagos pendientes. Revisa tu método de pago.';
-      //   cta = 'Gestionar pago';
-      //   break;
-      // case 'canceled':
-      //   bg = Colors.grey.shade100;
-      //   text = 'Suscripción cancelada. Puedes reactivarla.';
-      //   cta = 'Gestionar';
-      //   break;
-      // case 'active':
-      //   bg = Colors.blue.shade100;
-      //   text = 'Suscripción activa.';
-      //   cta = 'Gestionar';
-      //   break;
-      default:
-        bg = Colors.blue.shade100;
-        text = 'Estado: $status';
-        cta = 'Gestionar';
-    }
-
-    return Container(
-      decoration:BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text)),
-          TextButton(onPressed: onManage, child: Text(cta)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ManagePaymentButton extends StatelessWidget {
+class _ManagePaymentButton extends StatefulWidget {
   final VoidCallback onTap;
   const _ManagePaymentButton({required this.onTap});
 
+  @override
+  State<_ManagePaymentButton> createState() => _ManagePaymentButtonState();
+}
+
+class _ManagePaymentButtonState extends State<_ManagePaymentButton> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: onTap,
+        onPressed: widget.onTap,
         icon: const Icon(Icons.open_in_new),
         label: const Text('Gestionar pago y facturación'),
       ),

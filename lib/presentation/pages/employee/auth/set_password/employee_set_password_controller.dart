@@ -1,5 +1,6 @@
 // presentation/pages/account/change_password/change_password_controller.dart
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -99,16 +100,16 @@ class EmployeeSetPasswordController extends GetxController {
   }
 
   Future<void> onSuccess() async {
-    final Result updateResult = await updateEmployeeUseCase.call(
-      brain.employee.value!.copyWith(tempPassword: ''),
+
+    final EmployeeModel updatedEmployee = brain.employee.value!.copyWith(
+      tempPassword: '',
+      accountStatus: EmployeeAccountStatus.active,
     );
 
-    print(updateResult.success);
+    final Result updateResult = await updateEmployeeUseCase.call(updatedEmployee);
 
     if (updateResult.success) {
-      brain.updateEmployeeData(
-        brain.employee.value!.copyWith(tempPassword: ''),
-      );
+      brain.updateEmployeeData(updatedEmployee);
     } else {
       toast.showParsedErrorCode(
         updateResult.errorCode,

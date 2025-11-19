@@ -34,20 +34,29 @@ exports.createEmployeeAccount = onCall(async (request) => {
   await assertCompanyAccount(callerUid, companyId);
 
   // Helpers locales
+  const SEAT_STATUSES = ['pending', 'active', 'inactive', 'disabled'];
+
   async function countActiveEmployees(companyId) {
+    // Cuenta todos los empleados que CONSUMEN plaza (no 'deleted')
     const agg = await db
         .collection('employees')
         .where('companyId', '==', companyId)
-        .where('isActive', '==', true)
+        .where('accountStatus', 'in', SEAT_STATUSES)
         .count()
         .get();
+
     return agg.data().count || 0;
   }
+
   async function getContractedSeats(companyId) {
     const snap = await db.collection('companies').doc(companyId).get();
     if (!snap.exists) throw new HttpsError('not-found', 'Empresa no encontrada');
     const data = snap.data() || {};
-    return (typeof data.contractedSeats === 'number' ? data.contractedSeats : data.purchasedEmployeeSlots) || 0;
+    return (
+      (typeof data.contractedSeats === 'number' ?
+        data.contractedSeats :
+        data.purchasedEmployeeSlots) || 0
+    );
   }
 
   logger.info('[createEmployeeAccount] START', { companyId, email, role });
@@ -61,8 +70,9 @@ exports.createEmployeeAccount = onCall(async (request) => {
   }
 
   let createdUser = null;
+
   try {
-    // Crear usuario
+    // Crear usuario en Auth
     const tempPass = Math.random().toString(36).slice(-10) + 'A!';
     createdUser = await admin.auth().createUser({
       email,
@@ -71,16 +81,28 @@ exports.createEmployeeAccount = onCall(async (request) => {
       emailVerified: false,
       disabled: false,
     });
-    logger.info('[createEmployeeAccount] auth user created', { uid: createdUser.uid, email });
-
-    // Custom claims opcionales
-    await admin.auth().setCustomUserClaims(createdUser.uid, { companyId, role }).catch((e) => {
-      logger.warn('[createEmployeeAccount] setCustomUserClaims warn', { code: e.code, msg: e.message });
+    logger.info('[createEmployeeAccount] auth user created', {
+      uid: createdUser.uid,
+      email,
     });
 
-    // Rechequeo plazas
+    // Custom claims opcionales
+    await admin
+        .auth()
+        .setCustomUserClaims(createdUser.uid, { companyId, role })
+        .catch((e) => {
+          logger.warn('[createEmployeeAccount] setCustomUserClaims warn', {
+            code: e.code,
+            msg: e.message,
+          });
+        });
+
+    // Rechequeo plazas (por si entre medias se ha creado otro empleado)
     const activeAfter = await countActiveEmployees(companyId);
-    logger.info('[createEmployeeAccount] seats/post-auth', { maxSeats, activeAfter });
+    logger.info('[createEmployeeAccount] seats/post-auth', {
+      maxSeats,
+      activeAfter,
+    });
     if (activeAfter >= maxSeats) {
       try {
         await admin.auth().deleteUser(createdUser.uid);
@@ -90,53 +112,65 @@ exports.createEmployeeAccount = onCall(async (request) => {
       throw new HttpsError('failed-precondition', 'Sin plazas disponibles');
     }
 
-    // Crear doc empleado
+    const nowTs = admin.firestore.FieldValue.serverTimestamp();
+
+    // DOC EMPLEADO → alineado con EmployeeModel
     const employeeDoc = {
       uid: createdUser.uid,
       companyId,
       name,
       email,
+
+      // Nuevos campos del modelo
       tempPassword: tempPass,
-      isActive: true,
+      photoUrl: null,
+      position: null,
+      accountStatus: 'pending', // EmployeeAccountStatus.pending
+      hireDate: nowTs,
+
+      createdAt: nowTs,
+      updatedAt: nowTs,
+
       hourlyRate: Number(hourlyRate) || 0,
-      role,
+      role, // 'tecnico' | 'auxiliar' | 'farmaceutico' | 'otro'
       roleOther: roleOther || null,
-      workdayType: workdayType || null,
+      workdayType: workdayType || null, // 'completa' | 'media' | null
       vacationDaysPer30: Number(vacationDaysPer30) || 2.5,
       personalDaysPerYear: Number(personalDaysPerYear) || 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     await db.collection('employees').doc(createdUser.uid).set(employeeDoc);
-    logger.info('[createEmployeeAccount] employee doc created', { uid: createdUser.uid });
+    logger.info('[createEmployeeAccount] employee doc created', {
+      uid: createdUser.uid,
+    });
 
     // Reset link (no crítico)
     let resetLink = null;
     try {
-      // ⚠️ Asegúrate de que la URL esté en Auth > Dominios autorizados.
-      // Si no, quita el objeto de settings y deja el valor por defecto:
-      // resetLink = await admin.auth().generatePasswordResetLink(email);
       resetLink = await admin.auth().generatePasswordResetLink(email, {
-        url: 'https://tudominio.com/onboarding', // <- autoriza este dominio o usa tu *.web.app / *.firebaseapp.com
+        url: 'https://tudominio.com/onboarding',
         handleCodeInApp: true,
       });
       logger.info('[createEmployeeAccount] resetLink generated');
     } catch (e) {
-      logger.warn('[createEmployeeAccount] resetLink warn', { code: e.code, msg: e.message });
-      // No fallamos la función por esto
+      logger.warn('[createEmployeeAccount] resetLink warn', {
+        code: e.code,
+        msg: e.message,
+      });
     }
 
     logger.info('[createEmployeeAccount] DONE', { uid: createdUser.uid });
     return { uid: createdUser.uid, resetLink };
   } catch (err) {
-    // Mapeo de errores comunes para evitar "INTERNAL" genérico
     const code = err && (err.code || err.errorInfo?.code);
     const msg = err && (err.message || err.errorInfo?.message);
 
-    logger.error('[createEmployeeAccount] ERROR', { code, msg, stack: err?.stack });
+    logger.error('[createEmployeeAccount] ERROR', {
+      code,
+      msg,
+      stack: err?.stack,
+    });
 
-    // Limpieza si se creó el usuario
     if (createdUser?.uid) {
       try {
         await admin.auth().deleteUser(createdUser.uid);
@@ -145,7 +179,6 @@ exports.createEmployeeAccount = onCall(async (request) => {
       }
     }
 
-    // Mapear errores típicos de Auth Admin
     if (code === 'auth/email-already-exists') {
       throw new HttpsError('already-exists', 'El correo ya está en uso');
     }
@@ -153,7 +186,10 @@ exports.createEmployeeAccount = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Email inválido');
     }
     if (code === 'auth/operation-not-allowed') {
-      throw new HttpsError('failed-precondition', 'Operación no permitida');
+      throw new HttpsError(
+          'failed-precondition',
+          'Operación no permitida',
+      );
     }
     if (code === 'auth/uid-already-exists') {
       throw new HttpsError('already-exists', 'UID ya existe');
@@ -162,8 +198,10 @@ exports.createEmployeeAccount = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Password inválida');
     }
     if (code === 'failed-precondition') {
-      // por si lanzamos nosotros mismos antes
-      throw new HttpsError('failed-precondition', msg || 'Fallo de precondición');
+      throw new HttpsError(
+          'failed-precondition',
+          msg || 'Fallo de precondición',
+      );
     }
 
     throw new HttpsError('internal', msg || 'Error interno');

@@ -1,5 +1,6 @@
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:get/get.dart';
 
 class EmployeeMainController extends GetxController {
@@ -14,11 +15,14 @@ class EmployeeMainController extends GetxController {
   }
 
   void redirectToSetPasswordIfNeeded() {
-    if (brain.employee.value != null &&
-        brain.employee.value!.tempPassword != null &&
-        brain.employee.value!.tempPassword! != '') {
+    checkAccountStatus();
+  }
+
+  void checkAccountStatus() {
+    if (brain.employee.value != null && brain.employee.value!.accountStatus == EmployeeAccountStatus.disabled) {
+      Get.offAllNamed(Routes.employeeSubscriptionCanceled);
+    } else if (brain.employee.value != null && brain.employee.value!.tempPassword != null && brain.employee.value!.tempPassword! != '') {
       Get.toNamed(Routes.employeeSetPassword);
     }
-
   }
 }

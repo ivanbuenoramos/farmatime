@@ -1,6 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum EmployeeAccountStatus {pending, active, inactive, deleted}
+enum EmployeeAccountStatus {
+  pending,    // pendiente de activación, todavía no ha accedido
+  active,     // activo
+  inactive,   // dehabilitado por impago de la empresa (no afecta al empleado), se puede recuperar
+  disabled,   // deshabilitado por cancelación de suscripción (si afecta al empleado), se puede recuperar
+  deleted     // cuando la empresa elimina al empleado
+}
 enum EmployeeRole { tecnico, auxiliar, farmaceutico, otro }
 enum WorkdayType { completa, media }
 
@@ -35,7 +41,6 @@ class EmployeeModel {
     required this.hireDate,
     required this.createdAt,
     required this.updatedAt,
-    // nuevos (con defaults razonables)
     required this.hourlyRate,
     required this.role,
     this.roleOther,
@@ -88,6 +93,7 @@ class EmployeeModel {
         'pending' => EmployeeAccountStatus.pending,
         'active' => EmployeeAccountStatus.active,
         'inactive' => EmployeeAccountStatus.inactive,
+        'disabled' => EmployeeAccountStatus.disabled,
         'deleted' => EmployeeAccountStatus.deleted,
         null => null,
         _ => EmployeeAccountStatus.active, // default migración
@@ -116,6 +122,7 @@ class EmployeeModel {
           EmployeeAccountStatus.pending => 'pending',
           EmployeeAccountStatus.active => 'active',
           EmployeeAccountStatus.inactive => 'inactive',
+          EmployeeAccountStatus.disabled => 'disabled',
           EmployeeAccountStatus.deleted => 'deleted',
           null => null,
         },

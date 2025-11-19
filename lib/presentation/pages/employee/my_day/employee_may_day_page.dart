@@ -158,41 +158,43 @@ class EmployeeMyDayPage extends GetView<EmployeeMyDayController> {
                             }
                             return list;
                           }).toList()
-                            ..sort((a, b) => a['time'].compareTo(b['time'])); // Ordena cronológicamente
-                                  
-                          return Column(
-                            children: fichajes.map((fichaje) {
-                              final isEntrada = fichaje['type'] == 'entrada';
-                              final time = fichaje['time'] as DateTime;
-                              
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 5),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          isEntrada ? Icons.login : Icons.logout,
-                                          color: isEntrada ? Colors.blue : Colors.red,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          isEntrada ? 'Entrada' : 'Salida',
-                                          style: TextStyle(
+                            ..sort((a, b) => a['time'].compareTo(b['time']));
+
+                          if (fichajes.isEmpty) {
+                            return Text('Por ahora no has fichado aún.', style: TextStyle(color: Colors.grey));
+                          } else {
+                            return Column(
+                              children: fichajes.map((fichaje) {
+                                final isEntrada = fichaje['type'] == 'entrada';
+                                final time = fichaje['time'] as DateTime;
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 5),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isEntrada ? Icons.login : Icons.logout,
                                             color: isEntrada ? Colors.blue : Colors.red,
-                                            fontWeight: FontWeight.bold,
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(formatHour(time)),
-                                  ],
-                                ),
-                              );
-                                  
-                            }).toList(),
-                          );
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            isEntrada ? 'Entrada' : 'Salida',
+                                            style: TextStyle(
+                                              color: isEntrada ? Colors.blue : Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(formatHour(time)),
+                                    ],
+                                  ),
+                                );  
+                              }).toList(),
+                            );
+                          }
                         }),
                       ],
                     ),
@@ -210,7 +212,7 @@ class EmployeeMyDayPage extends GetView<EmployeeMyDayController> {
                   Expanded(
                     child: BlockButton(
                       onPressed: entry == null ? controller.clockIn : null,
-                      height: 40,
+                      height: 45,
                       label: 'ENTRADA',
                     ),
                   ),
@@ -218,7 +220,7 @@ class EmployeeMyDayPage extends GetView<EmployeeMyDayController> {
                   Expanded(
                     child: BlockButton(
                       onPressed: entry != null ? controller.clockOut : null,
-                      height: 40,
+                      height: 45,
                       label: 'SALIDA',
                       color: Colors.red,
                     ),

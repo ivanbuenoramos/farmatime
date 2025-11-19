@@ -18,17 +18,7 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
     try {
       final callable = functions.httpsCallable('createEmployeeAccount');
 
-      final payload = {
-        'companyId': employee.companyId,
-        'name': employee.name,
-        'email': employee.email,
-        'hourlyRate': employee.hourlyRate,
-        'role': employee.role.name,
-        'roleOther': employee.roleOther,
-        'workdayType': employee.workdayType?.name,
-        'vacationDaysPer30': employee.vacationDaysPer30,
-        'personalDaysPerYear': employee.personalDaysPerYear,
-      };
+      final payload = employee.toJson();
 
       final resp = await callable.call(payload);
       final data = (resp.data as Map?) ?? {};

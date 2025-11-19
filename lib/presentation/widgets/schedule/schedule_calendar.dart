@@ -155,7 +155,6 @@ class EmployeeScheduleCalendar extends StatelessWidget {
   void _showDayInfoDialog(BuildContext context, DateTime day) {
     final theme = Theme.of(context);
     final d = _dateOnly(day);
-    final override = overridesByDay[d];
     final rule = _firstWhereOrNull<RecurringShiftRule>(rules, (r) => r.matchesDate(d));
     final effective = _computedEntryFor(day);
     final dur = _workDurationOf(effective);
@@ -184,10 +183,6 @@ class EmployeeScheduleCalendar extends StatelessWidget {
       estado = 'Laboral';
       icon = Icons.schedule_rounded;
     }
-
-    final fuente = override != null
-        ? 'Excepción'
-        : (rule != null ? 'Regla recurrente' : 'Sin asignación');
 
     // Texto de horario
     String? rango;

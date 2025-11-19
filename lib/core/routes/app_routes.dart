@@ -46,6 +46,12 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.employeeSubscriptionCanceled,
+        page: () => const EmployeeSubscriptionCanceledPage(),
+        binding: EmployeeSubscriptionCanceledBinding(),
+      ),
+
+      GetPage(
         name: Routes.employeeMain,
         page: () => EmployeeMainPage(),
         binding: EmployeeMainBinding(),

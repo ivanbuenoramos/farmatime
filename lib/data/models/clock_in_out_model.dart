@@ -1,12 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ClockInOutModel {
-  final String id;                  // UID del registro
-  final String employeeId;          // UID del empleado
-  final String companyId;           // UID de la empresa
-  final DateTime clockIn;           // Hora de entrada
-  final DateTime? clockOut;         // Hora de salida (puede ser null si aún no ha salido)
-  final String? notes;              // Opcional: notas sobre el fichaje
+  final String id;
+  final String employeeId;
+  final String companyId;
+
+  final DateTime clockIn;
+  final DateTime? clockOut;
+
+  final double? clockInLat;
+  final double? clockInLng;
+
+  final double? clockOutLat;
+  final double? clockOutLng;
+
+  final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -16,6 +24,10 @@ class ClockInOutModel {
     required this.companyId,
     required this.clockIn,
     this.clockOut,
+    this.clockInLat,
+    this.clockInLng,
+    this.clockOutLat,
+    this.clockOutLng,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -25,8 +37,15 @@ class ClockInOutModel {
         'id': id,
         'employeeId': employeeId,
         'companyId': companyId,
-        'clockIn': clockIn,               // 👈 DateTime → Firestore Timestamp
-        'clockOut': clockOut,             // 👈 idem (null se guarda como null)
+        'clockIn': clockIn,
+        'clockOut': clockOut,
+
+        // 🔥 Guardamos ubicación entrada/salida
+        'clockInLat': clockInLat,
+        'clockInLng': clockInLng,
+        'clockOutLat': clockOutLat,
+        'clockOutLng': clockOutLng,
+
         'notes': notes,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
@@ -35,9 +54,9 @@ class ClockInOutModel {
   factory ClockInOutModel.fromJson(Map<String, dynamic> json) {
     DateTime parse(dynamic v) {
       if (v == null) return DateTime.now();
-      if (v is Timestamp) return v.toDate();    // 👈 Firestore Timestamp
+      if (v is Timestamp) return v.toDate();
       if (v is DateTime) return v;
-      return DateTime.parse(v.toString());      // 👈 String ISO (compatibilidad)
+      return DateTime.parse(v.toString());
     }
 
     return ClockInOutModel(
@@ -46,6 +65,12 @@ class ClockInOutModel {
       companyId: json['companyId'],
       clockIn: parse(json['clockIn']),
       clockOut: json['clockOut'] != null ? parse(json['clockOut']) : null,
+
+      clockInLat: (json['clockInLat'] as num?)?.toDouble(),
+      clockInLng: (json['clockInLng'] as num?)?.toDouble(),
+      clockOutLat: (json['clockOutLat'] as num?)?.toDouble(),
+      clockOutLng: (json['clockOutLng'] as num?)?.toDouble(),
+
       notes: json['notes'],
       createdAt: parse(json['createdAt']),
       updatedAt: parse(json['updatedAt']),
@@ -58,6 +83,10 @@ class ClockInOutModel {
     String? companyId,
     DateTime? clockIn,
     DateTime? clockOut,
+    double? clockInLat,
+    double? clockInLng,
+    double? clockOutLat,
+    double? clockOutLng,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -68,6 +97,10 @@ class ClockInOutModel {
       companyId: companyId ?? this.companyId,
       clockIn: clockIn ?? this.clockIn,
       clockOut: clockOut ?? this.clockOut,
+      clockInLat: clockInLat ?? this.clockInLat,
+      clockInLng: clockInLng ?? this.clockInLng,
+      clockOutLat: clockOutLat ?? this.clockOutLat,
+      clockOutLng: clockOutLng ?? this.clockOutLng,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

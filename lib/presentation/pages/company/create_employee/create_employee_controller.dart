@@ -1,11 +1,10 @@
-import 'package:farmatime/core/services/toast_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/employee_model.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/domain/usecases/employee/create_employee_usecase.dart';
 
 
@@ -99,7 +98,7 @@ class CreateEmployeeController extends GetxController {
         hireDate: DateTime.now(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
-        accountStatus: EmployeeAccountStatus.active,
+        accountStatus: EmployeeAccountStatus.pending,
         hourlyRate: rate,
         role: role.value,
         roleOther: role.value == EmployeeRole.otro ? roleOtherController.text.trim() : null,

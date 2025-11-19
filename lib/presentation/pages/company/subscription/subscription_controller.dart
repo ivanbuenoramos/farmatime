@@ -1,8 +1,5 @@
 import 'dart:async';
 
-import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,8 +8,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/billing/billing_models.dart';
-import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:farmatime/domain/usecases/stripe/list_invoices_usecase.dart';
+import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/update_subscription_quantity_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_billing_portal_session_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_and_subscription_usecase.dart';
@@ -263,17 +260,6 @@ class SubscriptionController extends GetxController {
   // -------------------------------------------------------
   // 🔹 Conversión de prorationBehavior
   // -------------------------------------------------------
-  ProrationBehavior _parseProrationBehavior(String value) {
-    switch (value) {
-      case 'create_prorations':
-        return ProrationBehavior.createProrations;
-      case 'none':
-        return ProrationBehavior.none;
-      default:
-        return ProrationBehavior.createProrations;
-    }
-  }
-
   Future<void> _loadInvoices() async {
     if (companyId.isEmpty) return;
     print('INVOICES DEBUG -> uid=${FirebaseAuth.instance.currentUser?.uid}  companyId=${brain.company.value?.id}');

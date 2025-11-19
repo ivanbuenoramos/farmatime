@@ -1,5 +1,6 @@
 import 'package:farmatime/presentation/pages/employee/profile/employee_profile_controller.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -52,19 +53,26 @@ class EmployeeProfilePage extends StatelessWidget {
               return Stack(
                 alignment: Alignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundImage: controller.photoUrl.value.isNotEmpty
-                        ? NetworkImage(controller.photoUrl.value)
-                        : null,
-                    child: controller.photoUrl.value.isEmpty ? const Icon(Icons.local_pharmacy, size: 48) : null,
+                  GestureDetector(
+                    onTap: controller.pickLogo,
+                    child: ProfileAvatar(
+                      imageUrl: controller.brain.employee.value!.photoUrl,
+                      name: controller.brain.employee.value!.name,
+                      size: 120,
+                    ),
                   ),
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child: IconButton(
-                      onPressed: controller.pickLogo,
-                      icon: const Icon(Icons.edit, color: Colors.blue),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey),
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(Icons.edit_rounded, color: Get.theme.colorScheme.primary)
                     ),
                   ),
                   if (controller.isUploadingLogo.value)
@@ -75,17 +83,19 @@ class EmployeeProfilePage extends StatelessWidget {
               );
             }),
             const SizedBox(height: 12),
-            Text(controller.nameController.text, style: Get.theme.textTheme.headlineMedium),
-            const SizedBox(height: 16),
             
-            const SizedBox(height: 15),
+            Text(controller.nameController.text, style: Get.theme.textTheme.headlineMedium),
+            
+            const SizedBox(height: 16),
 
-            /// Datos empresa
             BaseCard(
               title: 'Datos de la empresa',
               children: [
+                const SizedBox(height: 8),
                 buildInput(label: 'Nombre', controller: controller.nameController),
+                const SizedBox(height: 10),
                 buildInput(label: 'DNI', controller: controller.cifController),
+                const SizedBox(height: 10),
                 buildInput(label: 'Email', controller: controller.emailController),
               ],
             ),

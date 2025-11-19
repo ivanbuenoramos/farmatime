@@ -28,7 +28,7 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
                 const SizedBox(height: 12),
               ],
               _FiltersCard(controller: controller),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _RecordsCard(controller: controller),
               if (controller.errorText.value != null) ...[
                 const SizedBox(height: 12),

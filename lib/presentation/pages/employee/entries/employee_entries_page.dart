@@ -65,13 +65,17 @@ class EmployeeEntriesPage extends GetView<EmployeeEntriesController> {
                                   children: [
                                     Icon(
                                       e.type == ClockInOutType.entry ? Icons.login : Icons.logout,
-                                      color: e.type == ClockInOutType.entry ? Colors.blue : Colors.red,
+                                      color: e.type == ClockInOutType.entry 
+                                        ? Get.theme.colorScheme.primary
+                                        : Get.theme.colorScheme.error,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       e.type == ClockInOutType.entry ? 'Entrada' : 'Salida',
                                       style: TextStyle(
-                                        color: e.type == ClockInOutType.entry ? Colors.blue : Colors.red,
+                                        color: e.type == ClockInOutType.entry 
+                                          ? Get.theme.colorScheme.primary
+                                          : Get.theme.colorScheme.error,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
