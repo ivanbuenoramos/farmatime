@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:farmatime/data/models/clock_in_out_model.dart';
+import 'package:farmatime/presentation/pages/company/edit_entry/edit_entry_binding.dart';
+import 'package:farmatime/presentation/pages/company/edit_entry/edit_entry_page.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
@@ -187,18 +189,13 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
     return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
   }
 
-  String _initialLetter(String name) {
-    if (name.trim().isEmpty) return '?';
-    return name.trim()[0].toUpperCase();
-  }
-
   String _formatDuration(int minutes) {
     if (minutes <= 0) return '0 min';
     final h = minutes ~/ 60;
     final m = minutes % 60;
     if (h > 0 && m > 0) return '${h}h ${m}min';
     if (h > 0) return '${h}h';
-    return '${m} min';
+    return '$m min';
   }
 
   @override
@@ -384,106 +381,138 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                     title: 'Fichajes',
                     children: [
                       const SizedBox(height: 8),
-                      ...shifts.map((s) {
-                        final inTxt = fTime.format(s.clockIn);
-                        final outTxt = s.clockOut == null
-                            ? '—'
-                            : fTime.format(s.clockOut!);
-                        final end = s.clockOut ?? now;
-                        final worked = end
-                            .difference(s.clockIn)
-                            .inMinutes
-                            .clamp(0, 24 * 60);
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: shifts.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final s = shifts[index];
+                          final inTxt = fTime.format(s.clockIn);
+                          final outTxt = s.clockOut == null ? '—' : fTime.format(s.clockOut!);
+                          final end = s.clockOut ?? now;
+                          final worked = end
+                              .difference(s.clockIn)
+                              .inMinutes
+                              .clamp(0, 24 * 60);
 
-                        return Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.login,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text('Entrada: $inTxt'),
-                                  const SizedBox(width: 16),
-                                  const Icon(
-                                    Icons.logout,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text('Salida: $outTxt'),
-                                ],
+                          final textTheme = Theme.of(context).textTheme;
+                          final colorScheme = Theme.of(context).colorScheme;
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              EditEntryBinding().dependencies();
+                              Get.dialog(
+                                EditEntryModal(entry: s),
+                                arguments: s,
+                              );
+                            },
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                color: colorScheme.outline.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outline.withOpacity(0.4),
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                              Row(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(
-                                    Icons.timer_outlined,
-                                    size: 18,
+                                  // Fila principal: rango horario + badge "Editado"
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time_filled,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '$inTxt  –  $outTxt',
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (s.isEdited)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(999),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.edit,
+                                                size: 14,
+                                                color: Colors.orange,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'Editado',
+                                                style: textTheme.bodySmall?.copyWith(
+                                                  color: Colors.orange,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Duración: ${_formatDuration(worked)}',
+
+                                  const SizedBox(height: 6),
+
+                                  // Duración
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.timer_outlined,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _formatDuration(worked),
+                                        style: textTheme.bodyMedium,
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.place_outlined,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Entrada: ${_formatLatLng(s.clockInLat, s.clockInLng)}',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(width: 24),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Salida:  ${_formatLatLng(s.clockOutLat, s.clockOutLng)}',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if ((s.notes ?? '').isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.sticky_note_2_outlined,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(s.notes!),
+
+                                  // Motivo de edición
+                                  if (s.isEdited && (s.editReason?.isNotEmpty ?? false)) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.notes_rounded,
+                                          size: 18,
+                                          color: Colors.orange,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            s.editReason!,
+                                            style: textTheme.bodySmall?.copyWith(
+                                              color:
+                                                  textTheme.bodySmall?.color?.withOpacity(0.9),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      }),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ],
@@ -495,10 +524,10 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
     );
   }
 
-  static String _formatLatLng(double? lat, double? lng) {
-    if (lat == null || lng == null) return 'Sin ubicación';
-    return '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
-  }
+  // static String _formatLatLng(double? lat, double? lng) {
+  //   if (lat == null || lng == null) return 'Sin ubicación';
+  //   return '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+  // }
 }
 
 class _EmptyMapPlaceholder extends StatelessWidget {

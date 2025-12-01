@@ -14,7 +14,13 @@ class ClockInOutModel {
   final double? clockOutLat;
   final double? clockOutLng;
 
-  final String? notes;
+  // 🔥 NUEVOS CAMPOS DE EDICIÓN
+  final bool isEdited;
+  final String? editedBy; // "company" | "employee"
+  final DateTime? editedAt;
+  final String? editReason;
+  final List<String> editedFields;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -28,7 +34,13 @@ class ClockInOutModel {
     this.clockInLng,
     this.clockOutLat,
     this.clockOutLng,
-    this.notes,
+
+    required this.isEdited,
+    this.editedBy,
+    this.editedAt,
+    this.editReason,
+    required this.editedFields,
+
     required this.createdAt,
     required this.updatedAt,
   });
@@ -40,13 +52,17 @@ class ClockInOutModel {
         'clockIn': clockIn,
         'clockOut': clockOut,
 
-        // 🔥 Guardamos ubicación entrada/salida
         'clockInLat': clockInLat,
         'clockInLng': clockInLng,
         'clockOutLat': clockOutLat,
         'clockOutLng': clockOutLng,
 
-        'notes': notes,
+        'isEdited': isEdited,
+        'editedBy': editedBy,
+        'editedAt': editedAt,
+        'editReason': editReason,
+        'editedFields': editedFields,
+
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };
@@ -71,7 +87,14 @@ class ClockInOutModel {
       clockOutLat: (json['clockOutLat'] as num?)?.toDouble(),
       clockOutLng: (json['clockOutLng'] as num?)?.toDouble(),
 
-      notes: json['notes'],
+      isEdited: json['isEdited'] ?? false,
+      editedBy: json['editedBy'],
+      editedAt: json['editedAt'] != null ? parse(json['editedAt']) : null,
+      editReason: json['editReason'],
+      editedFields: (json['editedFields'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+
       createdAt: parse(json['createdAt']),
       updatedAt: parse(json['updatedAt']),
     );
@@ -87,7 +110,13 @@ class ClockInOutModel {
     double? clockInLng,
     double? clockOutLat,
     double? clockOutLng,
-    String? notes,
+
+    bool? isEdited,
+    String? editedBy,
+    DateTime? editedAt,
+    String? editReason,
+    List<String>? editedFields,
+
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -101,7 +130,13 @@ class ClockInOutModel {
       clockInLng: clockInLng ?? this.clockInLng,
       clockOutLat: clockOutLat ?? this.clockOutLat,
       clockOutLng: clockOutLng ?? this.clockOutLng,
-      notes: notes ?? this.notes,
+
+      isEdited: isEdited ?? this.isEdited,
+      editedBy: editedBy ?? this.editedBy,
+      editedAt: editedAt ?? this.editedAt,
+      editReason: editReason ?? this.editReason,
+      editedFields: editedFields ?? this.editedFields,
+
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

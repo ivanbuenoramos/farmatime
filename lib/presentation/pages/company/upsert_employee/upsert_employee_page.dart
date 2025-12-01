@@ -158,12 +158,12 @@ class UpsertEmployeePage extends GetView<UpsertEmployeeController> {
                       Widget avatarContent;
                       if (photoUrl.isNotEmpty) {
                         avatarContent = CircleAvatar(
-                          radius: 34,
+                          radius: 50,
                           backgroundImage: NetworkImage(photoUrl),
                         );
                       } else {
                         avatarContent = CircleAvatar(
-                          radius: 34,
+                          radius: 50,
                           backgroundColor: theme.colorScheme.primary.withOpacity(0.12),
                           child: Text(
                             hasName ? _initials(name) : '?',
@@ -175,42 +175,41 @@ class UpsertEmployeePage extends GetView<UpsertEmployeeController> {
                         );
                       }
 
-                      return Stack(
-                        children: [
-                          avatarContent,
-                          if (controller.isEdit)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: InkWell(
-                                onTap: controller.isUploadingPhoto.value
-                                    ? null
-                                    : controller.pickPhoto,
-                                borderRadius: BorderRadius.circular(16),
+                      return GestureDetector(
+                        onTap: controller.isUploadingPhoto.value
+                            ? null
+                            : controller.pickPhoto,
+                        child: Stack(
+                          children: [
+                            avatarContent,
+                            if (controller.isEdit)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
                                 child: Container(
-                                  padding: const EdgeInsets.all(4),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.primary,
                                     shape: BoxShape.circle,
                                   ),
                                   child: controller.isUploadingPhoto.value
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.camera_alt_rounded,
-                                          size: 16,
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
                                           color: Colors.white,
                                         ),
+                                      )
+                                    : const Icon(
+                                        Icons.edit_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       );
                     }),
                     spacing8,

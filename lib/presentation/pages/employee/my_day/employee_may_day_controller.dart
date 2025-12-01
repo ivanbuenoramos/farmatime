@@ -210,9 +210,10 @@ class EmployeeMyDayController extends GetxController {
       clockInLng: position?.longitude,
       clockOutLat: null,
       clockOutLng: null,
-      notes: null,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now, 
+      isEdited: false, 
+      editedFields: [],
     );
 
     final result = await createEntryUseCase.call(newEntry);
