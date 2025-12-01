@@ -51,7 +51,7 @@ class ToastService {
       title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
       description: description != null ? Text(description, style: TextStyle(color: textColor, fontSize: 16)) : null,
       style: ToastificationStyle.flatColored,
-      borderRadius: BorderRadius.circular(0),
+      borderRadius: BorderRadius.circular(10),
       showProgressBar: false,
       foregroundColor: textColor,
       backgroundColor: backgroundColor,

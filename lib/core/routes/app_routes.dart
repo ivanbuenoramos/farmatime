@@ -112,9 +112,15 @@ class AppRoutes {
       ),
 
       GetPage(
-        name: Routes.companyCreateEmployee,
-        page: () => const CreateEmployeePage(),
-        binding: CreateEmployeeBinding(),
+        name: Routes.companyClockReports,
+        page: () => const ClockReportsPage(),
+        binding: ClockReportsBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyUpsertEmployee,
+        page: () => const UpsertEmployeePage(),
+        binding: UpsertEmployeeBinding(),
       ),
 
       GetPage(
@@ -157,6 +163,12 @@ class AppRoutes {
         name: Routes.companySubscriptionPaymentIssue,
         page: () => const SubscriptionPaymentIssuePage(),
         binding: SubscriptionPaymentIssueBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companySubscriptionIncompletePayment,
+        page: () => const IncompletePaymentPage(),
+        binding: IncompletePaymentBinding(),
       ),
       
       GetPage(

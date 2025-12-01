@@ -83,7 +83,7 @@ class CompanyEmployeesController extends GetxController {
   /// FAB o tarjeta vacía → crear empleado (si hay hueco), sino modal
   void onAddEmployeePressed() {
     if (canCreateEmployee) {
-      reditectToCreateEmployee();
+      reditectToUpsertEmployee();
     } else {
       _showNoSlotsModal(
         contractedSeats.value,
@@ -188,8 +188,8 @@ class CompanyEmployeesController extends GetxController {
     Get.toNamed(Routes.companySubscription);
   }
 
-  void reditectToCreateEmployee() {
-    Get.toNamed(Routes.companyCreateEmployee);
+  void reditectToUpsertEmployee() {
+    Get.toNamed(Routes.companyUpsertEmployee);
   }
 
   void reditectToEmployeeDetail(EmployeeModel employee) {

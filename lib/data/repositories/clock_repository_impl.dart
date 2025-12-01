@@ -105,4 +105,59 @@ class ClockRepositoryImpl implements ClockRepository {
     }
   }
 
+  @override
+  Future<List<ClockInOutModel>> getClockRecords({
+    required String companyId,
+    required DateTime from,
+    required DateTime to,
+    String? employeeId,
+  }) async {
+    Query col = firestore
+        .collection('clockRecords')
+        .where('companyId', isEqualTo: companyId)
+        .where('clockIn', isGreaterThanOrEqualTo: from)
+        .where('clockIn', isLessThanOrEqualTo: to);
+
+    if (employeeId != null) {
+      col = col.where('employeeId', isEqualTo: employeeId);
+    }
+
+    final snap = await col.orderBy('clockIn', descending: true).get();
+
+    return snap.docs
+        .map(
+          (d) => ClockInOutModel.fromJson(
+            d.data() as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<ClockInOutModel>> getClockRecordsForEmployeeDay({
+    required String companyId,
+    required String employeeId,
+    required DateTime day,
+  }) async {
+    final fromDay = DateTime(day.year, day.month, day.day, 0, 0, 0);
+    final toDay =
+        DateTime(day.year, day.month, day.day, 23, 59, 59, 999);
+
+    final snap = await firestore
+        .collection('clockRecords')
+        .where('companyId', isEqualTo: companyId)
+        .where('employeeId', isEqualTo: employeeId)
+        .where('clockIn', isGreaterThanOrEqualTo: fromDay)
+        .where('clockIn', isLessThanOrEqualTo: toDay)
+        .orderBy('clockIn')
+        .get();
+
+    return snap.docs
+        .map(
+          (d) => ClockInOutModel.fromJson(
+            d.data(),
+          ),
+        )
+        .toList();
+  }
 }

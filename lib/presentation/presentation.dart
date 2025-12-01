@@ -83,10 +83,15 @@ export 'package:farmatime/presentation/pages/company/main/company_main_page.dart
 export 'package:farmatime/presentation/pages/company/main/company_main_binding.dart';
 export 'package:farmatime/presentation/pages/company/main/company_main_controller.dart';
 
+// COMPANY CLOCK REPORTS
+export 'package:farmatime/presentation/pages/company/clock_reports/clock_reports_page.dart';
+export 'package:farmatime/presentation/pages/company/clock_reports/clock_reports_binding.dart';
+export 'package:farmatime/presentation/pages/company/clock_reports/clock_reports_controller.dart';
+
 // COMPANY CRETAE EMPLOYEE
-export 'package:farmatime/presentation/pages/company/create_employee/create_employee_page.dart';
-export 'package:farmatime/presentation/pages/company/create_employee/create_employee_binding.dart';
-export 'package:farmatime/presentation/pages/company/create_employee/create_employee_controller.dart';
+export 'package:farmatime/presentation/pages/company/upsert_employee/upsert_employee_page.dart';
+export 'package:farmatime/presentation/pages/company/upsert_employee/upsert_employee_binding.dart';
+export 'package:farmatime/presentation/pages/company/upsert_employee/upsert_employee_controller.dart';
 
 // COMPANY EMPLOYEE DETAIL
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail.page.dart';
@@ -117,6 +122,11 @@ export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/
 export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_controller.dart';
+
+// COMPANY SUBSCRIPTION INCOMPLETE PAYMENT
+export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_controller.dart';
 
 // COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
 export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_page.dart';

@@ -14,6 +14,13 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
       appBar: AppBar(
         title: const Text('Control de fichajes'),
         titleSpacing: 16,
+        actions: [
+          IconButton(
+            tooltip: 'Ver reportes',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: controller.redirectToReportsPage,
+          ),
+        ],
       ),
       body: Obx(() {
         return RefreshIndicator(
@@ -34,8 +41,9 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
                 const SizedBox(height: 12),
                 Text(
                   controller.errorText.value!,
-                  style: theme.textTheme.bodyMedium!
-                      .copyWith(color: theme.colorScheme.error),
+                  style: theme.textTheme.bodyMedium!.copyWith(
+                    color: theme.colorScheme.error
+                  ),
                 ),
               ],
             ],
@@ -317,6 +325,11 @@ class _RecordsTable extends StatelessWidget {
         : theme.colorScheme.error;
 
     return DataRow(
+      onLongPress: () {
+        // Mostrar detalles del día al hacer long press
+        final controller = Get.find<CompanyEntriesController>();
+        controller.openDayDetails(context, r);
+      },
       cells: [
         DataCell(Text(fmtDay(r.day))),
         DataCell(Text(r.employeeName)),

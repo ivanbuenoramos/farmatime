@@ -16,6 +16,7 @@ exports.stripe_listPaymentMethods = require('./src/stripe/listPaymentMethods').s
 exports.stripe_setDefaultPaymentMethod = require('./src/stripe/setDefaultPaymentMethod').stripe_setDefaultPaymentMethod;
 exports.stripe_detachPaymentMethod = require('./src/stripe/detachPaymentMethod').stripe_detachPaymentMethod;
 exports.stripe_createSetupIntent = require('./src/stripe/createSetupIntent').stripe_createSetupIntent;
+exports.stripe_getIncompletePayment = require('./src/stripe/getIncompletePayment').stripe_getIncompletePayment;
 
 // --- EMPLEADOS ---
 exports.createEmployeeAccount = require('./src/employees/createEmployeeAccount').createEmployeeAccount;
@@ -25,5 +26,6 @@ exports.sendLoginNotification = require('./src/notifications/sendLoginNotificati
 exports.sendEmployeeWelcome = require('./src/notifications/sendEmployeeWelcome').sendEmployeeWelcome;
 
 // --- REPORTES (PDF) ---
-exports.reports_generateMonthToDate = require('./src/reports/monthlyReports').reports_generateMonthToDate;
-exports.reports_scheduleMonthly = require('./src/reports/monthlyReports').reports_scheduleMonthly;
+// --- REPORTES (PDF) ---
+exports.reportsScheduleMonthly = require('./src/reports/monthlyReports').reportsScheduleMonthly;
+exports.reportsGenerateRange = require('./src/reports/monthlyReports').reportsGenerateRange;

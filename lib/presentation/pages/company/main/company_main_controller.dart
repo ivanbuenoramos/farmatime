@@ -1,3 +1,4 @@
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
@@ -25,9 +26,14 @@ class CompanyMainController extends GetxController {
       // });
     }
 
-    if (brain.company.value!.billingStatus == 'past_due') {
+    if (brain.company.value!.billingStatus == 'past_due' ||
+        brain.company.value!.billingStatus == 'unpaid') {
       showSubscriptionPaymentIssueModal();
       return;
+    } else if (brain.company.value!.billingStatus == 'incomplete') {
+      Future.microtask(() {
+        Get.toNamed(Routes.companySubscriptionIncompletePayment);
+      });
     }
   }
 

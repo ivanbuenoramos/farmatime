@@ -29,6 +29,7 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'edit',
+                onTap: () => controller.reditectToUpsertEmployee(controller.employee.value),
                 child: Row(
                   children: [
                     Icon(Icons.edit_rounded, color: Get.theme.colorScheme.secondary),

@@ -1,9 +1,16 @@
-import 'package:farmatime/core/app/brain.dart';
-import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
-import 'package:farmatime/data/models/clock_in_out_model.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/presentation/widgets/modals/day_clockings_modal.dart';
+import 'package:farmatime/domain/usecases/clock/get_company_clock_records_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/get_employee_day_clock_records_usecase.dart';
+
+
 
 class EmployeeOption {
   final String id;
@@ -15,16 +22,22 @@ class EmployeeOption {
 class ClockRowView {
   final DateTime day;
   final String employeeName;
-  final String rangeText;        // "08:00–16:12" (o "08:00–…" si clockOut null)
-  final int workedMinutes;       // minutos efectivos (hasta ahora si no hay salida)
-  final int expectedMinutes;     // meta diaria en min (por defecto 480)
+  final String rangeText;
+  final int workedMinutes;
+  final int expectedMinutes;
+
   int get diffMinutes => workedMinutes - expectedMinutes;
+
   String get workedHhMm =>
       "${(workedMinutes ~/ 60)}:${(workedMinutes % 60).toString().padLeft(2, '0')}";
+
   String get expectedHhMm =>
       "${(expectedMinutes ~/ 60)}h${expectedMinutes % 60 == 0 ? '' : ' ${(expectedMinutes % 60)} min'}";
+
   String get diffSigned =>
-      "${diffMinutes >= 0 ? '+' : '-'}${diffMinutes.abs() ~/ 60 > 0 ? '${diffMinutes.abs() ~/ 60}h ' : ''}${(diffMinutes.abs() % 60)}m";
+      "${diffMinutes >= 0 ? '+' : '-'}"
+      "${diffMinutes.abs() ~/ 60 > 0 ? '${diffMinutes.abs() ~/ 60}h ' : ''}"
+      "${(diffMinutes.abs() % 60)}m";
 
   ClockRowView({
     required this.day,
@@ -38,6 +51,15 @@ class ClockRowView {
 class CompanyEntriesController extends GetxController {
   final Brain brain = Get.find<Brain>();
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  final GetCompanyClockRecordsUseCase getCompanyClockRecordsUseCase;
+  final GetEmployeeDayClockRecordsUseCase
+      getEmployeeDayClockRecordsUseCase;
+
+  CompanyEntriesController({
+    required this.getCompanyClockRecordsUseCase,
+    required this.getEmployeeDayClockRecordsUseCase,
+  });
 
   // Filtros
   final Rx<DateTime> from = Rx<DateTime>(_todayStart());
@@ -53,9 +75,8 @@ class CompanyEntriesController extends GetxController {
   final errorText = RxnString();
 
   // Config
-  final int expectedDailyMinutes = 480; // 8h por defecto
+  final int expectedDailyMinutes = 480; // 8h
 
-  // 👉 Estado de facturación
   bool get isBillingActive =>
       (brain.company.value?.billingStatus ?? 'active') == 'active';
 
@@ -76,7 +97,6 @@ class CompanyEntriesController extends GetxController {
   }
 
   Future<void> setRange(DateTime start, DateTime end) async {
-    // Limitar a 31 días
     if (end.difference(start).inDays > 31) {
       errorText.value = 'El rango máximo es de 1 mes.';
       return;
@@ -87,10 +107,7 @@ class CompanyEntriesController extends GetxController {
   }
 
   Future<void> setEmployee(String? employeeId) async {
-    // 👉 En plan no activo, no dejamos cambiar de empleado
-    if (!isBillingActive) {
-      return;
-    }
+    if (!isBillingActive) return;
     selectedEmployeeId.value = employeeId; // null = todos
     await fetchRecords();
   }
@@ -116,8 +133,6 @@ class CompanyEntriesController extends GetxController {
       }).toList(),
     );
 
-    // 👉 Si la facturación NO está activa y hay empleados activos,
-    // forzamos el primero para filtros
     if (!isBillingActive && employees.isNotEmpty) {
       selectedEmployeeId.value = employees.first.id;
     }
@@ -129,49 +144,43 @@ class CompanyEntriesController extends GetxController {
     rows.clear();
 
     try {
-      Query col = _db
-          .collection('clockRecords')
-          .where('companyId', isEqualTo: brain.company.value?.id)
-          .where('clockIn',
-              isGreaterThanOrEqualTo: from.value.toIso8601String())
-          .where('clockIn', isLessThanOrEqualTo: to.value.toIso8601String());
-
-      // 🔒 Restricción por facturación
-      if (!isBillingActive) {
-        // Forzar siempre al primer empleado creado
-        final forcedId =
-            selectedEmployeeId.value ?? (employees.isNotEmpty ? employees.first.id : null);
-        if (forcedId != null) {
-          col = col.where('employeeId', isEqualTo: forcedId);
-        }
-      } else {
-        // Flujo normal: filtros
-        if (selectedEmployeeId.value != null) {
-          col = col.where('employeeId', isEqualTo: selectedEmployeeId.value);
-        }
+      final companyId = brain.company.value?.id;
+      if (companyId == null) {
+        isLoading.value = false;
+        return;
       }
 
-      // Orden descendente por clockIn
-      final snap = await col.orderBy('clockIn', descending: true).get();
+      // decidir employeeId a filtrar (según facturación)
+      String? employeeIdFilter;
+      if (!isBillingActive) {
+        employeeIdFilter = selectedEmployeeId.value ??
+            (employees.isNotEmpty ? employees.first.id : null);
+      } else {
+        employeeIdFilter = selectedEmployeeId.value;
+      }
+
+      final records = await getCompanyClockRecordsUseCase(
+        companyId: companyId,
+        from: from.value,
+        to: to.value,
+        employeeId: employeeIdFilter,
+      );
 
       final dateFmt = DateFormat.Hm();
       final nameCache = <String, String>{
         for (var e in employees) e.id: e.name
       };
-
       final now = DateTime.now();
 
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final item = ClockInOutModel.fromJson(data as Map<String, dynamic>);
-
+      for (final item in records) {
         final inDt = item.clockIn;
         final outDt = item.clockOut ?? now;
 
         final worked =
             outDt.difference(inDt).inMinutes.clamp(0, 24 * 60);
 
-        final employeeName = nameCache[item.employeeId] ?? item.employeeId;
+        final employeeName =
+            nameCache[item.employeeId] ?? item.employeeId;
 
         final rangeText =
             "${dateFmt.format(inDt)}–${item.clockOut == null ? '…' : dateFmt.format(outDt)}";
@@ -192,5 +201,43 @@ class CompanyEntriesController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> openDayDetails(BuildContext context, ClockRowView row) async {
+    final companyId = brain.company.value?.id;
+    if (companyId == null) return;
+
+    String? employeeId = selectedEmployeeId.value;
+
+    if (employeeId == null) {
+      try {
+        final match = employees.firstWhere(
+          (e) => e.name == row.employeeName,
+        );
+        employeeId = match.id;
+      } catch (_) {
+        return;
+      }
+    }
+
+    final records = await getEmployeeDayClockRecordsUseCase(
+      companyId: companyId,
+      employeeId: employeeId,
+      day: row.day,
+    );
+
+    if (records.isEmpty) return;
+
+    await showClockingsDayModal(
+      context: context,
+      employeeName: row.employeeName,
+      employeeEmail: null,
+      day: row.day,
+      records: records,
+    );
+  }
+
+  void redirectToReportsPage() {
+    Get.toNamed(Routes.companyClockReports);
   }
 }

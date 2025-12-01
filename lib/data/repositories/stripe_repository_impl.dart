@@ -3,6 +3,7 @@ import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/data/models/billing/payment_method_model.dart';
 import 'package:farmatime/data/models/billing/prepare_payment_models.dart';
 import 'package:farmatime/data/models/billing/setup_card_payload.dart';
+import 'package:farmatime/data/models/billing/stripe_incomplete_payment_model.dart.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -218,6 +219,35 @@ class StripeRepositoryImpl implements StripeRepository {
     } catch (e) {
       print(e);
       return Result(success: false, data: null, errorCode: e.toString());
+    }
+  }
+
+  @override
+  Future<Result<StripeIncompletePaymentModel?>> getIncompletePayment({
+    required String companyId,
+  }) async {
+    try {
+      final callable =
+          _functions.httpsCallable('stripe_getIncompletePayment');
+      final res = await callable.call(<String, dynamic>{
+        'companyId': companyId,
+      });
+
+      final data = Map<String, dynamic>.from(res.data as Map);
+      final model = StripeIncompletePaymentModel.fromJson(data);
+
+      return Result(data: model, success: true);
+    } on FirebaseFunctionsException catch (e) {
+      print(e);
+      return Result(
+        data: null,
+        success: false,
+      );
+    } catch (e) {
+      return Result(
+        data: null,
+        success: false,
+      );
     }
   }
 }

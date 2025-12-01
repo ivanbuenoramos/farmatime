@@ -1,5 +1,6 @@
 import 'package:farmatime/data/models/billing/payment_method_model.dart';
 import 'package:farmatime/data/models/billing/setup_card_payload.dart';
+import 'package:farmatime/data/models/billing/stripe_incomplete_payment_model.dart.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/data/models/billing/prepare_payment_models.dart';
@@ -42,4 +43,8 @@ abstract class StripeRepository {
   Future<Result<void>> detachPaymentMethod(String companyId, String paymentMethodId);
   
   Future<Result<SetupCardPayload?>> createSetupIntent(String companyId);
+
+  Future<Result<StripeIncompletePaymentModel?>> getIncompletePayment({
+    required String companyId,
+  });
 }

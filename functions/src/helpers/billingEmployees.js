@@ -16,16 +16,19 @@ async function updateEmployeesForBillingState(companyId) {
   const contractedSeats =
     typeof company.contractedSeats === 'number' ? company.contractedSeats : 0;
 
-  // Cuántos empleados pueden estar en 'active'
+  // Cuántos empleados pueden estar en 'active' (incluyendo el gratuito)
   let allowedActive = 1; // siempre mínimo 1 por el empleado gratuito
 
   if (billingStatus === 'active') {
-    // Aquí contractedSeats ya lleva la primera plaza incluida
+    // contractedSeats ya lleva la primera plaza incluida
     allowedActive = Math.max(contractedSeats, 1);
   } else if (billingStatus === 'past_due' || billingStatus === 'unpaid') {
-    allowedActive = 1; // solo el más antiguo
+    // solo el más antiguo en active, resto inactive
+    allowedActive = 1;
   } else if (billingStatus === 'canceled') {
-    allowedActive = 0; // todos disabled
+    // cancelada → el más antiguo sigue active (gratis), pero esto
+    // lo controlamos en el bucle (index === 0). El resto irán a disabled.
+    allowedActive = 1;
   }
 
   const snap = await db
@@ -62,13 +65,21 @@ async function updateEmployeesForBillingState(companyId) {
     let newStatus = emp.currentStatus;
 
     if (billingStatus === 'canceled') {
-      // Cancelada -> todos disabled
-      newStatus = 'disabled';
-    } else {
-      // active / past_due / unpaid / lo que sea
-      if (index < allowedActive) {
+      // ⛔ Cancelada:
+      // - el más antiguo (index === 0) sigue active (empleado gratuito)
+      // - el resto pasan a disabled
+      if (index === 0) {
         newStatus = 'active';
       } else {
+        newStatus = 'disabled';
+      }
+    } else {
+      // active / past_due / unpaid / otros
+      if (index < allowedActive) {
+        // dentro del cupo -> active
+        newStatus = 'active';
+      } else {
+        // fuera del cupo -> inactive
         newStatus = 'inactive';
       }
     }

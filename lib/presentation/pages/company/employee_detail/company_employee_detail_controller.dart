@@ -162,6 +162,13 @@ class EmployeeDetailController extends GetxController {
     calendarFocusedDay.value = focused;
     await _loadScheduleForYear(focused.year);
   }
+
+  void reditectToUpsertEmployee(EmployeeModel? employee) {
+    Get.toNamed(
+      Routes.companyUpsertEmployee,
+      arguments: employee,
+    );
+  }
 }
 
 enum ClockInOutType { entry, exit }

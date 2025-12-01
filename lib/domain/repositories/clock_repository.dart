@@ -13,4 +13,17 @@ abstract class ClockRepository {
     DateTime from,
     DateTime to,
   );
+  
+  Future<List<ClockInOutModel>> getClockRecords({
+    required String companyId,
+    required DateTime from,
+    required DateTime to,
+    String? employeeId,
+  });
+
+  Future<List<ClockInOutModel>> getClockRecordsForEmployeeDay({
+    required String companyId,
+    required String employeeId,
+    required DateTime day,
+  });
 }

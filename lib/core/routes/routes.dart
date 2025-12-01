@@ -48,11 +48,14 @@ class Routes {
   // COMPANY MAIN
   static const String companyMain = '/company/main';
 
+  // COMPANY CLOCK REPORTS
+  static const String companyClockReports = '/company/clock-reports';
+
   // COMPANY MAIN
   static const String chat = '/chat';
 
   // COMPANY CREATE EMPLOYEE
-  static const String companyCreateEmployee = '/company/create-employee';
+  static const String companyUpsertEmployee = '/company/upsert-employee';
 
   // COMPANY EMPLOYEE DETAIL
   static const String companyEmployeeDetail = '/company/employee-detail';
@@ -77,6 +80,9 @@ class Routes {
 
   // COMPANY SUBSCRIPTION PAYMENT ISSUE
   static const String companySubscriptionPaymentIssue = '/company/subscription/payment-issue';
+
+  // COMPANY SUBSCRIPTION INCOMPLETE PAYMENT
+  static const String companySubscriptionIncompletePayment = '/company/subscription/incomplete-payment';
 
   // COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
   static const String companySubscriptionConfirmSeatChange = '/company/subscription/confirm-seat-change';
