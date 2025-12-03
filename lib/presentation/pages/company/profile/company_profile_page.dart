@@ -49,26 +49,27 @@ class CompanyProfilePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil de farmacia'),
-        actions: [
-          //pupUp menu
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'logout') {
-                controller.logOut();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'logout',
-                child: Text('Cerrar sesión'),
-              ),
-              PopupMenuItem<String>(
-                onTap: controller.saveChanges,
-                child: Text('Guardar cambios'),
-              ),
-            ]
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Get.theme.colorScheme.surface,
+          border: Border(
+            top: BorderSide(color: Get.theme.colorScheme.outline),
           ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: SafeArea(
+          child: FilledButton(
+            onPressed: controller.saveChanges,
+            child: const Text('Guardar'),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),

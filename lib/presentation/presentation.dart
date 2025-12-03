@@ -118,6 +118,11 @@ export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/
 export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_controller.dart';
 
+// COMPANY SUBSCRIPTION SELECT EMPLOYEES TO REMOVE
+export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employees_to_remove_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_controller.dart';
+
 // COMPANY SUBSCRIPTION PAYMENT ISSUE
 export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_binding.dart';

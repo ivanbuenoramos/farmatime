@@ -78,6 +78,9 @@ class Routes {
   // COMPANY SUBSCRIPTION SEAT CHECKOUT
   static const String companySubscriptionSeatCheckout = '/company/subscription/seat-checkout';
 
+  // COMPANY SUBSCRIPTION SELECT EMPLOYEES TO REMOVE
+  static const String companySubscriptionSelectEmployeesToRemove = '/company/subscription/select-employees-to-remove';
+
   // COMPANY SUBSCRIPTION PAYMENT ISSUE
   static const String companySubscriptionPaymentIssue = '/company/subscription/payment-issue';
 

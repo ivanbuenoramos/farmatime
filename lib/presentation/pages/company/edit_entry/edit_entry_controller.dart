@@ -27,6 +27,7 @@ class EditEntryController extends GetxController {
   void onInit() {
     super.onInit();
     clockIn = originalEntry.clockIn.obs;
+    reasonController.text = originalEntry.editReason ?? '';
     clockOut = Rxn<DateTime>(originalEntry.clockOut);
   }
 
@@ -66,6 +67,11 @@ class EditEntryController extends GetxController {
 
   Future<void> onSave() async {
     errorMessage.value = null;
+
+    if (reasonController.text.trim().isEmpty) {
+      errorMessage.value = 'Debes indicar un motivo para la edición';
+      return;
+    }
 
     // Detectar qué campos han cambiado
     final List<String> editedFields = [];

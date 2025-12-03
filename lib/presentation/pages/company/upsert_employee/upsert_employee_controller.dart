@@ -105,7 +105,7 @@ class UpsertEmployeeController extends GetxController {
       if (url == null) {
         toastService.show(
           title: 'Error',
-          description: 'No se pudo subir la imagen.',
+          message: 'No se pudo subir la imagen.',
           type: ToastType.error,
         );
         return;
@@ -115,7 +115,7 @@ class UpsertEmployeeController extends GetxController {
     } catch (_) {
       toastService.show(
         title: 'Error',
-        description: 'No se pudo subir la imagen.',
+        message: 'No se pudo subir la imagen.',
         type: ToastType.error,
       );
     } finally {
@@ -130,7 +130,7 @@ class UpsertEmployeeController extends GetxController {
     if (name.isEmpty || email.isEmpty || !GetUtils.isEmail(email)) {
       toastService.show(
         title: 'Error',
-        description: 'Por favor, introduce un nombre y correo válidos.',
+        message: 'Por favor, introduce un nombre y correo válidos.',
         type: ToastType.error,
       );
       return;
@@ -143,7 +143,7 @@ class UpsertEmployeeController extends GetxController {
     if (rate < 0) {
       toastService.show(
         title: 'Error',
-        description: 'El precio por hora no puede ser negativo.',
+        message: 'El precio por hora no puede ser negativo.',
         type: ToastType.error,
       );
       return;
@@ -151,7 +151,7 @@ class UpsertEmployeeController extends GetxController {
     if (vac30 < 0) {
       toastService.show(
         title: 'Error',
-        description: 'Los días de vacaciones/30 días no pueden ser negativos.',
+        message: 'Los días de vacaciones/30 días no pueden ser negativos.',
         type: ToastType.error,
       );
       return;
@@ -159,7 +159,7 @@ class UpsertEmployeeController extends GetxController {
     if (personal < 0) {
       toastService.show(
         title: 'Error',
-        description: 'Los días de asuntos propios/año no pueden ser negativos.',
+        message: 'Los días de asuntos propios/año no pueden ser negativos.',
         type: ToastType.error,
       );
       return;
@@ -168,7 +168,7 @@ class UpsertEmployeeController extends GetxController {
         roleOtherController.text.trim().isEmpty) {
       toastService.show(
         title: 'Error',
-        description: 'Indica el cargo en "Otro (especificar)".',
+        message: 'Indica el cargo en "Otro (especificar)".',
         type: ToastType.error,
       );
       return;
@@ -237,7 +237,7 @@ class UpsertEmployeeController extends GetxController {
       final err = result.errorCode ?? 'No se pudo crear el empleado.';
       toastService.show(
         title: 'Error',
-        description: err,
+        message: err,
         type: ToastType.error,
       );
       return;
@@ -245,7 +245,7 @@ class UpsertEmployeeController extends GetxController {
 
     toastService.show(
       title: 'Empleado creado',
-      description: 'El empleado ha sido creado correctamente.',
+      message: 'El empleado ha sido creado correctamente.',
       type: ToastType.success,
     );
 
@@ -285,7 +285,7 @@ class UpsertEmployeeController extends GetxController {
       final err = result.errorCode ?? 'No se pudo actualizar el empleado.';
       toastService.show(
         title: 'Error',
-        description: err,
+        message: err,
         type: ToastType.error,
       );
       return;
@@ -293,7 +293,7 @@ class UpsertEmployeeController extends GetxController {
 
     toastService.show(
       title: 'Cambios guardados',
-      description: 'Los datos del empleado se han actualizado correctamente.',
+      message: 'Los datos del empleado se han actualizado correctamente.',
       type: ToastType.success,
     );
 

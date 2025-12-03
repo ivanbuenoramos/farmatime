@@ -385,42 +385,51 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: shifts.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final s = shifts[index];
                           final inTxt = fTime.format(s.clockIn);
                           final outTxt = s.clockOut == null ? '—' : fTime.format(s.clockOut!);
                           final end = s.clockOut ?? now;
                           final worked = end
-                              .difference(s.clockIn)
-                              .inMinutes
-                              .clamp(0, 24 * 60);
-
+                            .difference(s.clockIn)
+                            .inMinutes
+                            .clamp(0, 24 * 60);
                           final textTheme = Theme.of(context).textTheme;
                           final colorScheme = Theme.of(context).colorScheme;
-
                           return InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () {
+                            onTap: () async {
                               EditEntryBinding().dependencies();
-                              Get.dialog(
-                                EditEntryModal(entry: s),
-                                arguments: s,
+                              final updated = await showModalBottomSheet<ClockInOutModel?>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => EditEntryModal(entry: s),
                               );
+                              if (updated != null) {
+                                final i = widget.records.indexWhere((r) => r.id == updated.id);
+                                if (i != -1) {
+                                  setState(() {
+                                    widget.records[i] = updated;
+                                  });
+                                }
+                              }
                             },
                             child: Ink(
                               decoration: BoxDecoration(
-                                color: colorScheme.outline.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(12),
+                                color: colorScheme.outline.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: colorScheme.outline.withOpacity(0.4),
+                                  color: s.isEdited
+                                      ? Colors.orange.withOpacity(0.6)
+                                      : colorScheme.outline,
                                 ),
                               ),
                               padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Fila principal: rango horario + badge "Editado"
                                   Row(
                                     children: [
                                       const Icon(
@@ -506,6 +515,19 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Editado por ${
+                                        s.editedBy == 'company' 
+                                          ? 'farmacia' 
+                                          : s.editedBy == 'employee'
+                                              ? 'empleado' 
+                                              : s.editedBy ?? 'desconocido' 
+                                      } el ${s.editedAt != null ? DateFormat('d/M/y - HH:mm').format(s.editedAt!) : 'desconocida'}',
+                                      style: textTheme.bodySmall?.copyWith(
+                                        fontStyle: FontStyle.italic,
+                                      ),  
+                                    )
                                   ],
                                 ],
                               ),

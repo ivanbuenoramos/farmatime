@@ -26,8 +26,7 @@ async function updateEmployeesForBillingState(companyId) {
     // solo el más antiguo en active, resto inactive
     allowedActive = 1;
   } else if (billingStatus === 'canceled') {
-    // cancelada → el más antiguo sigue active (gratis), pero esto
-    // lo controlamos en el bucle (index === 0). El resto irán a disabled.
+    // cancelada → el más antiguo sigue active (gratis)
     allowedActive = 1;
   }
 
@@ -44,9 +43,10 @@ async function updateEmployeesForBillingState(companyId) {
   const employees = [];
   snap.forEach((doc) => {
     const data = doc.data() || {};
-    const createdAt = data.createdAt instanceof admin.firestore.Timestamp ?
-      data.createdAt.toMillis() :
-      0;
+    const createdAt =
+      data.createdAt instanceof admin.firestore.Timestamp ?
+        data.createdAt.toMillis() :
+        0;
 
     employees.push({
       id: doc.id,
@@ -56,30 +56,32 @@ async function updateEmployeesForBillingState(companyId) {
     });
   });
 
-  // Ordenar por antigüedad (más antiguo primero)
-  employees.sort((a, b) => a.createdAt - b.createdAt);
+  // 🔹 NO tocar empleados deleted:
+  const deletedEmployees = employees.filter(
+      (e) => e.currentStatus === 'deleted',
+  );
+  const nonDeletedEmployees = employees.filter(
+      (e) => e.currentStatus !== 'deleted',
+  );
+
+  // Ordenar por antigüedad (más antiguo primero) SOLO los que no están deleted
+  nonDeletedEmployees.sort((a, b) => a.createdAt - b.createdAt);
 
   const batch = db.batch();
 
-  employees.forEach((emp, index) => {
+  nonDeletedEmployees.forEach((emp, index) => {
     let newStatus = emp.currentStatus;
 
     if (billingStatus === 'canceled') {
-      // ⛔ Cancelada:
-      // - el más antiguo (index === 0) sigue active (empleado gratuito)
-      // - el resto pasan a disabled
       if (index === 0) {
         newStatus = 'active';
       } else {
-        newStatus = 'disabled';
+        newStatus = 'disabled'; // si usas 'inactive' en el enum, cámbialo aquí
       }
     } else {
-      // active / past_due / unpaid / otros
       if (index < allowedActive) {
-        // dentro del cupo -> active
         newStatus = 'active';
       } else {
-        // fuera del cupo -> inactive
         newStatus = 'inactive';
       }
     }
@@ -92,6 +94,9 @@ async function updateEmployeesForBillingState(companyId) {
     }
   });
 
+  // 🔹 Los deleted ni se tocan:
+  // (si quisieras asegurarte de que se quedan como 'deleted', ni siquiera entras en el bucle)
+
   await batch.commit();
 
   logger.info('[billingEmployees] employees updated', {
@@ -99,6 +104,8 @@ async function updateEmployeesForBillingState(companyId) {
     billingStatus,
     allowedActive,
     total: employees.length,
+    nonDeleted: nonDeletedEmployees.length,
+    deleted: deletedEmployees.length,
   });
 }
 

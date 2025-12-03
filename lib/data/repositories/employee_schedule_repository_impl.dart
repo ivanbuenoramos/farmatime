@@ -358,12 +358,5 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     }
 
     return ExpectedShiftModel(start: start, end: end);
-}
-
-  DateTime _combine(DateTime day, String hhmm) {
-    final parts = hhmm.split(':');
-    final h = int.parse(parts[0]);
-    final m = int.parse(parts[1]);
-    return DateTime(day.year, day.month, day.day, h, m);
   }
 }

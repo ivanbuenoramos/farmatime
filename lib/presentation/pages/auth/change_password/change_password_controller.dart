@@ -60,7 +60,7 @@ class ChangePasswordController extends GetxController {
     if (res.success) {
       toast.show(
         title: 'Contraseña actualizada',
-        description: 'Tu contraseña se cambió correctamente.',
+        message: 'Tu contraseña se cambió correctamente.',
         type: ToastType.success,
       );
       currentCtrl.clear();
@@ -76,7 +76,7 @@ class ChangePasswordController extends GetxController {
         case 'invalid-credential':
           toast.show(
             title: 'Error de autenticación',
-            description: 'La contraseña actual no es correcta.',
+            message: 'La contraseña actual no es correcta.',
             type: ToastType.error,
           );
           break;

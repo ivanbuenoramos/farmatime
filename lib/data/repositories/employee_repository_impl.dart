@@ -9,9 +9,9 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
   
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
-            app: Firebase.app(),
-            region: 'europe-west1',
-          );
+    app: Firebase.app(),
+    region: 'europe-west1',
+  );
 
   @override
   Future<Result<EmployeeModel?>> createEmployee(EmployeeModel employee) async {
@@ -45,6 +45,7 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
       await firestore.collection('employees').doc(employee.uid).update(employee.toJson());
       return Result(success: true, data: employee);
     } catch (e) {
+      print(e);
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }
@@ -59,6 +60,7 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
       }
       return Result(success: true, data: EmployeeModel.fromJson(doc.data()!));
     } catch (e) {
+      print(e);
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }
@@ -67,13 +69,15 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
   Future<Result<List<EmployeeModel>>> getEmployeesByCompanyId(String companyId) async {
     try {
       final query = await firestore
-          .collection('employees')
-          .where('companyId', isEqualTo: companyId)
-          .get();
+        .collection('employees')
+        .where('accountStatus', isNotEqualTo: 'deleted')
+        .where('companyId', isEqualTo: companyId)
+        .get();
 
       final employees = query.docs.map((doc) => EmployeeModel.fromJson(doc.data())).toList();
       return Result(success: true, data: employees);
     } catch (e) {
+      print(e);
       return Result(success: false, data: [], errorCode: e.toString());
     }
   }

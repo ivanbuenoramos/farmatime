@@ -20,12 +20,12 @@ exports.stripe_getIncompletePayment = require('./src/stripe/getIncompletePayment
 
 // --- EMPLEADOS ---
 exports.createEmployeeAccount = require('./src/employees/createEmployeeAccount').createEmployeeAccount;
+exports.onEmployeeStatusChanged = require('./src/employees/onEmployeeStatusChanged').handleEmployeeDeletion;
 
 // --- NOTIFICACIONES ---
 exports.sendLoginNotification = require('./src/notifications/sendLoginNotification').sendLoginNotification;
 exports.sendEmployeeWelcome = require('./src/notifications/sendEmployeeWelcome').sendEmployeeWelcome;
 
-// --- REPORTES (PDF) ---
 // --- REPORTES (PDF) ---
 exports.reportsScheduleMonthly = require('./src/reports/monthlyReports').reportsScheduleMonthly;
 exports.reportsGenerateRange = require('./src/reports/monthlyReports').reportsGenerateRange;

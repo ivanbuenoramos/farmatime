@@ -12,7 +12,7 @@ class ToastService {
 
     String? iconPath,
     required String title,
-    String? description,
+    String? message,
     required ToastType type,
     int duration = 6, // Duración en segundos
   }) {
@@ -49,7 +49,7 @@ class ToastService {
       icon: SizedBox(),
       alignment: Alignment.topCenter,
       title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 18)),
-      description: description != null ? Text(description, style: TextStyle(color: textColor, fontSize: 16)) : null,
+      description: message != null ? Text(message, style: TextStyle(color: textColor, fontSize: 16)) : null,
       style: ToastificationStyle.flatColored,
       borderRadius: BorderRadius.circular(10),
       showProgressBar: false,

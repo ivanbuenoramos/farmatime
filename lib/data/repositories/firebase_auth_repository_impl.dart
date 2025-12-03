@@ -63,7 +63,7 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
       await _auth.sendPasswordResetEmail(email: email);
       toastService.show(
         title: 'Correo enviado',
-        description: 'Revisa tu correo para restablecer la contraseña.',
+        message: 'Revisa tu correo para restablecer la contraseña.',
         type: ToastType.success,
       );
       return Result(success: true, data: null);
@@ -120,21 +120,21 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
         await user.sendEmailVerification();
         toastService.show(
           title: 'Correo de verificación enviado',
-          description: 'Revisa tu correo para verificar tu cuenta.',
+          message: 'Revisa tu correo para verificar tu cuenta.',
           type: ToastType.success,
         );
         return Result(success: true, data: null);
       } else if (user == null) {
         toastService.show(
           title: 'Error',
-          description: 'No hay un usuario autenticado.',
+          message: 'No hay un usuario autenticado.',
           type: ToastType.error,
         );
         return Result(success: false, data: null, errorCode: 'user-not-found');
       } else {
         toastService.show(
           title: 'Error',
-          description: 'El correo ya está verificado.',
+          message: 'El correo ya está verificado.',
           type: ToastType.warning,
         );
         return Result(success: false, data: null, errorCode: 'already-verified');
@@ -156,6 +156,7 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
       await user.delete();
       return Result(success: true, data: null);
     } catch (e) {
+      print(e);
       return Result(success: false, data: null);
     }
   }

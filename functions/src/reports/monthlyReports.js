@@ -8,7 +8,6 @@ const {
   endOfMonth,
   format,
   parseISO,
-  isWithinInterval,
 } = require('date-fns');
 
 if (!admin.apps.length) admin.initializeApp();
@@ -58,13 +57,28 @@ async function getEmployees(companyId) {
 }
 
 async function getClockRecords(companyId, employeeId, from, to) {
+  const start = from instanceof Date ? from : new Date(from);
+  const end = to instanceof Date ? to : new Date(to);
+
+  const startTs = admin.firestore.Timestamp.fromDate(start);
+  const endTs = admin.firestore.Timestamp.fromDate(end);
+
   const snap = await db
       .collection('clockRecords')
       .where('companyId', '==', companyId)
       .where('employeeId', '==', employeeId)
+      .where('clockIn', '>=', startTs)
+      .where('clockIn', '<=', endTs)
       .get();
 
-  const interval = { start: from, end: to };
+  console.log('[reports] clockRecords encontrados', {
+    companyId,
+    employeeId,
+    count: snap.size,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+
   const records = [];
 
   snap.forEach((doc) => {
@@ -72,26 +86,30 @@ async function getClockRecords(companyId, employeeId, from, to) {
     if (!r.clockIn) return;
 
     const inDate = toDate(r.clockIn);
-    if (!inDate) return;
+    const outDate = r.clockOut ? toDate(r.clockOut) : null;
 
-    if (isWithinInterval(inDate, interval)) {
-      const outDate = r.clockOut ? toDate(r.clockOut) : null;
-
-      records.push({
-        employeeId,
-        companyId,
-        clockIn: inDate.toISOString(), // normalizamos a ISO string
-        clockOut: outDate ? outDate.toISOString() : null,
-        notes: r.notes ?? null,
-      });
-    }
+    records.push({
+      employeeId,
+      companyId,
+      clockIn: inDate ? inDate.toISOString() : null,
+      clockOut: outDate ? outDate.toISOString() : null,
+      notes: r.notes ?? null,
+      isEdited: !!r.isEdited,
+      editedFields: Array.isArray(r.editedFields) ? r.editedFields : [],
+      editedAt: r.editedAt ? toDate(r.editedAt)?.toISOString() : null,
+      editedBy: r.editedBy || null,
+      editReason: r.editReason || null,
+    });
   });
 
-  records.sort((a, b) => a.clockIn.localeCompare(b.clockIn));
+  records.sort((a, b) => (a.clockIn || '').localeCompare(b.clockIn || ''));
+
+  console.log('[reports] clockRecords finales tras mapeo:', records.length);
+
   return records;
 }
 
-function buildPdf({ companyName, employeeName, periodLabel, records }) {
+function buildPdf({ company, employee, periodLabel, records }) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 36 });
     const chunks = [];
@@ -99,50 +117,235 @@ function buildPdf({ companyName, employeeName, periodLabel, records }) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(16).text('Reporte de fichajes', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(11).text(`Empresa: ${companyName}`);
-    doc.text(`Empleado: ${employeeName}`);
-    doc.text(`Periodo: ${periodLabel}`);
-    doc.moveDown();
+    const primaryColor = '#1971FF';
 
+    const companyName =
+      company.legalName || company.name || company.companyName || company.id;
+    const employeeName = employee.name || employee.fullName || employee.id;
+
+    // ==== CABECERA ====
     doc
-        .fontSize(11)
-        .text('Fecha         Entrada   Salida    Horas     Notas');
-    doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
+        .fontSize(22)
+        .fillColor(primaryColor)
+        .font('Helvetica-Bold')
+        .text('farmatime', { align: 'center' });
 
+    doc.moveDown(0.2);
+    doc
+        .fontSize(14)
+        .fillColor('black')
+        .font('Helvetica')
+        .text(`Periodo: ${periodLabel}`, { align: 'center' });
+
+    doc.moveDown(0.8);
+    doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
+    doc.moveDown(0.6);
+
+    // ==== BLOQUE EMPRESA ====
+    const address = company.address || {};
+    const line1 = (address.address || '').trim();
+    const line2Parts = [];
+    if (address.zipCode) line2Parts.push(address.zipCode);
+    if (address.city) line2Parts.push(address.city);
+    const line2 = line2Parts.join(' ');
+    const line3Parts = [];
+    if (address.state) line3Parts.push(address.state);
+    if (address.country) line3Parts.push(address.country);
+    const line3 = line3Parts.join(', ');
+
+    const vatNumber = company.vatNumber || '';
+    const companyEmail = company.email || '';
+    const companyPhone = company.phoneNumber || '';
+
+    doc.fontSize(12).font('Helvetica-Bold').text('Datos de la empresa');
+    doc.moveDown(0.3);
+
+    const label = (text, value) => {
+      doc.font('Helvetica-Bold').text(`${text}: `, { continued: true });
+      doc.font('Helvetica').text(value || '');
+    };
+
+    label('Razón social', companyName);
+    if (vatNumber) label('NIF/CIF', vatNumber);
+    if (line1) label('Dirección', line1);
+    if (line2) label('Localidad', line2);
+    if (line3) label('Provincia / País', line3);
+    if (companyEmail) label('Email', companyEmail);
+    if (companyPhone) label('Teléfono', companyPhone);
+
+    doc.moveDown(0.6);
+    doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
+    doc.moveDown(0.6);
+
+    // ==== BLOQUE EMPLEADO ====
+    doc.fontSize(12).font('Helvetica-Bold').text('Datos del empleado');
+    doc.moveDown(0.3);
+
+    label('Nombre', employeeName);
+    if (employee.workdayType) label('Tipo de jornada', employee.workdayType);
+
+    doc.moveDown(0.6);
+    doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
+    doc.moveDown(0.6);
+
+    // ==== TABLA DE FICHAJES AGRUPADA POR DÍA ====
+    doc.fontSize(12).font('Helvetica-Bold').text('Detalle de fichajes');
+    doc.moveDown(0.3);
+
+    if (!records.length) {
+      doc.font('Helvetica').fontSize(10).text('No hay fichajes en el periodo.');
+      doc.end();
+      return;
+    }
+
+    // Agrupar por fecha (día)
+    const groupedByDate = {};
     let totalHours = 0;
-    let days = 0;
+    let daysCount = 0;
 
     for (const r of records) {
       const d = parseISO(r.clockIn);
-      const dateStr = format(d, 'yyyy-MM-dd');
-      const hi = r.clockIn ? format(parseISO(r.clockIn), 'HH:mm') : '--:--';
-      const ho = r.clockOut ? format(parseISO(r.clockOut), 'HH:mm') : '--:--';
-      const h = diffHours(r.clockIn, r.clockOut);
+      const key = format(d, 'yyyy-MM-dd');
+      if (!groupedByDate[key]) groupedByDate[key] = [];
+      groupedByDate[key].push(r);
 
+      const h = diffHours(r.clockIn, r.clockOut);
       if (h > 0) {
         totalHours += h;
-        days += 1;
+        daysCount += 1;
+      }
+    }
+
+    const sortedDates = Object.keys(groupedByDate).sort();
+
+    const ensureSpace = (extra = 40) => {
+      if (doc.y + extra > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+      }
+    };
+
+    for (const dateKey of sortedDates) {
+      const dayRecords = groupedByDate[dateKey];
+      const dateLabel = format(parseISO(dayRecords[0].clockIn), 'dd/MM/yyyy');
+
+      ensureSpace(60);
+      doc
+          .font('Helvetica-Bold')
+          .fontSize(11)
+          .fillColor(primaryColor)
+          .text(dateLabel);
+      doc.fillColor('black');
+      doc.moveDown(0.1);
+
+      // Cabecera de columnas
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Entrada', 40, doc.y, { continued: true });
+      doc.text('Salida', 110, doc.y, { continued: true });
+      doc.text('Horas', 180, doc.y, { continued: true });
+      doc.text('Notas', 240, doc.y, { continued: true });
+      doc.text('Editado', 450, doc.y);
+      doc.moveDown(0.1);
+      doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
+
+      doc.moveDown(0.1);
+      doc.font('Helvetica').fontSize(9);
+
+      for (const r of dayRecords) {
+        ensureSpace(30);
+
+        const hi = r.clockIn ? format(parseISO(r.clockIn), 'HH:mm') : '--:--';
+        const ho = r.clockOut ? format(parseISO(r.clockOut), 'HH:mm') : '--:--';
+        const h = diffHours(r.clockIn, r.clockOut);
+        const hoursLabel = h > 0 ? h.toFixed(2) : '-';
+        const editedLabel = r.isEdited ? 'Sí' : 'No';
+
+        const rowY = doc.y;
+
+        doc.text(hi, 40, rowY, { continued: true });
+        doc.text(ho, 110, rowY, { continued: true });
+        doc.text(hoursLabel, 180, rowY, { continued: true });
+        doc.text(r.notes || '', 240, rowY, {
+          continued: true,
+          width: 200,
+        });
+        doc.text(editedLabel, 450, rowY);
+
+        doc.moveDown(0.2);
       }
 
       doc.moveDown(0.2);
-      doc.text(
-          `${dateStr}     ${hi}      ${ho}      ${h.toFixed(2)}      ${
-            r.notes || ''
-          }`,
-          { width: 520 },
-      );
-      if (doc.y > 760) doc.addPage();
     }
 
-    doc.moveDown();
+    // Resumen
+    doc.moveDown(0.4);
     doc.moveTo(36, doc.y).lineTo(559, doc.y).stroke();
     doc.moveDown(0.3);
-    doc.fontSize(12).text(
-        `Total días: ${days}    Total horas: ${totalHours.toFixed(2)}`,
-        { align: 'right' },
-    );
+    doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .text(
+            `Total días con fichaje: ${daysCount}    Total horas: ${totalHours.toFixed(
+                2,
+            )}`,
+            { align: 'right' },
+        );
+
+    // ==== SECCIÓN DE EDICIONES ====
+    const editedRecords = records.filter((r) => r.isEdited);
+
+    if (editedRecords.length) {
+      doc.addPage();
+      doc.fontSize(12).font('Helvetica-Bold').fillColor(primaryColor);
+      doc.text('Historial de ediciones de fichajes');
+      doc.fillColor('black');
+      doc.moveDown(0.3);
+
+      // Agrupamos ediciones por día (fecha del clockIn)
+      const editsByDate = {};
+      for (const r of editedRecords) {
+        const key = format(parseISO(r.clockIn), 'yyyy-MM-dd');
+        if (!editsByDate[key]) editsByDate[key] = [];
+        editsByDate[key].push(r);
+      }
+      const editDates = Object.keys(editsByDate).sort();
+
+      doc.fontSize(10).font('Helvetica');
+
+      for (const dateKey of editDates) {
+        ensureSpace(60);
+        const dateLabel = format(parseISO(dateKey), 'dd/MM/yyyy');
+        doc.font('Helvetica-Bold').text(dateLabel);
+        doc.font('Helvetica');
+        doc.moveDown(0.1);
+
+        const dayEdits = editsByDate[dateKey];
+
+        dayEdits.forEach((r) => {
+          ensureSpace(50);
+          const hi = r.clockIn ? format(parseISO(r.clockIn), 'HH:mm') : '--:--';
+          const ho = r.clockOut ? format(parseISO(r.clockOut), 'HH:mm') : '--:--';
+          const editedAtLabel = r.editedAt ?
+            format(parseISO(r.editedAt), 'dd/MM/yyyy HH:mm') :
+            '-';
+          const editedBy = r.editedBy || '-';
+          const fields = r.editedFields && r.editedFields.length ?
+            r.editedFields.join(', ') :
+            '-';
+          const reason = r.editReason || '-';
+
+          doc.text(
+              `• Fichaje ${hi} - ${ho} | Campos editados: ${fields}`,
+              { width: 520 },
+          );
+          doc.text(`  Editado por: ${editedBy}`);
+          doc.text(`  Fecha edición: ${editedAtLabel}`);
+          doc.text(`  Motivo: ${reason}`);
+          doc.moveDown(0.4);
+        });
+
+        doc.moveDown(0.2);
+      }
+    }
 
     doc.end();
   });
@@ -226,9 +429,10 @@ async function generateForCompanyRange(
   const employees = await getEmployees(companyId);
   console.log('[reports] total empleados:', employees.length);
 
-  const periodLabel = `${format(periodStart, 'yyyy-MM-dd')} - ${
-    format(periodEnd, 'yyyy-MM-dd')
-  }`;
+  const periodLabel = `${format(periodStart, 'dd/MM/yyyy')} - ${format(
+      periodEnd,
+      'dd/MM/yyyy',
+  )}`;
 
   let generated = 0;
 
@@ -251,8 +455,8 @@ async function generateForCompanyRange(
     const daysCount = records.filter((r) => r.clockOut).length;
 
     const pdfBuffer = await buildPdf({
-      companyName: company.name || companyId,
-      employeeName: emp.name || emp.id,
+      company,
+      employee: emp,
       periodLabel,
       records,
     });

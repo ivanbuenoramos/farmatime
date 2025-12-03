@@ -77,7 +77,7 @@ class EmployeeSetPasswordController extends GetxController {
         case 'invalid-credential':
           toast.show(
             title: 'Error de autenticación',
-            description: 'La contraseña actual no es correcta.',
+            message: 'La contraseña actual no es correcta.',
             type: ToastType.error,
           );
           break;
@@ -119,7 +119,7 @@ class EmployeeSetPasswordController extends GetxController {
 
     toast.show(
       title: 'Contraseña actualizada',
-      description: 'Tu contraseña se cambió correctamente.',
+      message: 'Tu contraseña se cambió correctamente.',
       type: ToastType.success,
     );
     newCtrl.clear();

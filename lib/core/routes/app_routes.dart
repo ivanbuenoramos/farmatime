@@ -160,6 +160,12 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.companySubscriptionSelectEmployeesToRemove,
+        page: () => const SelectEmployeeToRemovePage(),
+        binding: SelectEmployeeToRemoveBinding(),
+      ),
+
+      GetPage(
         name: Routes.companySubscriptionPaymentIssue,
         page: () => const SubscriptionPaymentIssuePage(),
         binding: SubscriptionPaymentIssueBinding(),

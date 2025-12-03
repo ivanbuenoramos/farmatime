@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/address.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/log_out_usecase.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ class CompanyProfileController extends GetxController {
     required this.updateCompanyUseCase,
     required this.logOutUseCase,
   });
+
+  final ToastService toastService = ToastService();
 
   final nameController = TextEditingController();
   final emailController = TextEditingController();
@@ -72,7 +75,11 @@ class CompanyProfileController extends GetxController {
       fileName: 'logo.jpg',
     );
     if (fileUrl == null) {
-      Get.snackbar('Error', 'No se pudo subir la imagen');
+      toastService.show(
+        title: 'Error',
+        message: 'No se pudo subir la imagen',
+        type: ToastType.error,
+      );
       isUploadingLogo.value = false;
       return;
     } else {
@@ -104,12 +111,16 @@ class CompanyProfileController extends GetxController {
 
     final Result<CompanyModel?> result = await updateCompanyUseCase.call(updatedCompany);
     if (!result.success || result.data == null) {
-      Get.snackbar('Error', 'No se pudo actualizar la empresa');
+      toastService.showParsedErrorCode(result.errorCode, defaultMessage: 'No se pudo actualizar la empresa');
       return;
     }
 
     brain.company.value = result.data;
-    Get.snackbar('Éxito', 'Datos actualizados correctamente');
+    toastService.show(
+      title: 'Éxito',
+      message: 'Datos actualizados correctamente',
+      type: ToastType.success,
+    );
   }
 
   void logOut() async {
