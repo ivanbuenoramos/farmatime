@@ -66,16 +66,29 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
   }
 
   @override
-  Future<Result<List<EmployeeModel>>> getEmployeesByCompanyId(String companyId) async {
+  Future<Result<List<EmployeeModel>>> getEmployeesByCompanyId({
+    required String companyId,
+    bool? includeDeleted = false,
+  }) async {
     try {
-      final query = await firestore
-        .collection('employees')
-        .where('accountStatus', isNotEqualTo: 'deleted')
-        .where('companyId', isEqualTo: companyId)
-        .get();
+      if (includeDeleted == true) {
+        final query = await firestore
+            .collection('employees')
+            .where('companyId', isEqualTo: companyId)
+            .get();
 
-      final employees = query.docs.map((doc) => EmployeeModel.fromJson(doc.data())).toList();
+        final employees = query.docs.map((doc) => EmployeeModel.fromJson(doc.data())).toList();
+        return Result(success: true, data: employees);
+      } else {
+        final query = await firestore
+          .collection('employees')
+          .where('accountStatus', isNotEqualTo: 'deleted')
+          .where('companyId', isEqualTo: companyId)
+          .get();
+
+        final employees = query.docs.map((doc) => EmployeeModel.fromJson(doc.data())).toList();
       return Result(success: true, data: employees);
+      }
     } catch (e) {
       print(e);
       return Result(success: false, data: [], errorCode: e.toString());

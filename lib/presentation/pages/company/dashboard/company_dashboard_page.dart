@@ -34,7 +34,7 @@ class CompanyDashboardPage extends GetView<CompanyDashboardController> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
-              if (controller.brain.company.value!.billingStatus != 'active') ... [
+              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
                 PaymentIssueAlertCard(
                   billingStatus: controller.brain.company.value!.billingStatus,
                 ),
@@ -240,7 +240,6 @@ class _IncoherentCard extends StatelessWidget {
 }
 
 class _SubscriptionCard extends StatelessWidget {
-
   final CompanyDashboardController controller;
 
   const _SubscriptionCard({
@@ -250,40 +249,85 @@ class _SubscriptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dateTimeUtils = DateTimeUtils();
 
-    final DateTimeUtils dateTimeUtils = DateTimeUtils();
+    final company = controller.brain.company.value;
+
+    if (company == null) {
+      return const SizedBox.shrink();
+    }
+
+    final billingStatus = company.billingStatus ?? 'none';
+    final hasSubscription =
+        billingStatus != 'none' && company.stripeSubscriptionId != null;
+
+    final totalSeats = company.contractedSeats ?? 1;
+    final usedSeats = controller.companyEmployeesController.employees.length;
 
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.companySubscription),
       child: BaseCard(
         children: [
-          _SectionHeader('Suscripción', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
+          _SectionHeader(
+            'Suscripción',
+            trailing: Icon(
+              Icons.edit,
+              size: 18,
+              color: theme.colorScheme.outline,
+            ),
+          ),
+
           const SizedBox(height: 12),
+
+          // ───────────── Seats ─────────────
           Row(
             children: [
               Icon(
-                Icons.group, 
-                color: Get.theme.colorScheme.primary,
+                Icons.group,
+                color: theme.colorScheme.primary,
               ),
               const SizedBox(width: 8),
               Text(
-                '${controller.companyEmployeesController.employees.length}/${controller.brain.company.value?.contractedSeats}', 
+                '$usedSeats/$totalSeats',
                 style: theme.textTheme.titleLarge!.copyWith(
-                  color: Get.theme.colorScheme.primary,
-                )
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ],
           ),
+
           const SizedBox(height: 10),
-          Text('Próxima renovación', style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 6),
-          Text(
-            dateTimeUtils.formatDateToString(controller.brain.company.value!.currentPeriodEnd!), 
-            style: theme.textTheme.headlineSmall!.copyWith(
-              color: Get.theme.colorScheme.primary, 
-              fontWeight: FontWeight.w700, 
-              letterSpacing: -0.5)
+
+          // ───────────── Estado suscripción ─────────────
+          if (!hasSubscription) ...[
+            Text(
+              'Plan gratuito',
+              style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 4),
+            Text(
+              '1 empleado incluido',
+              style: theme.textTheme.bodySmall!.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Próxima renovación',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              company.currentPeriodEnd != null
+                  ? dateTimeUtils.formatDateToString(company.currentPeriodEnd!)
+                  : '—',
+              style: theme.textTheme.headlineSmall!.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
         ],
       ),
     );

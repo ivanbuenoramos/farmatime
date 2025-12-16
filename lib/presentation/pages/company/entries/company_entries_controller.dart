@@ -2,22 +2,25 @@ import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/presentation/widgets/modals/day_clockings_modal.dart';
 import 'package:farmatime/domain/usecases/clock/get_company_clock_records_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_employee_day_clock_records_usecase.dart';
 
 
 
-class EmployeeOption {
-  final String id;
-  final String name;
+// class EmployeeOption {
+//   final String id;
+//   final String name;
+//   final EmployeeAccountStatus status;
 
-  EmployeeOption({required this.id, required this.name});
-}
+//   EmployeeOption({required this.id, required this.name});
+// }
 
 class ClockRowView {
   final DateTime day;
@@ -50,15 +53,15 @@ class ClockRowView {
 
 class CompanyEntriesController extends GetxController {
   final Brain brain = Get.find<Brain>();
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   final GetCompanyClockRecordsUseCase getCompanyClockRecordsUseCase;
-  final GetEmployeeDayClockRecordsUseCase
-      getEmployeeDayClockRecordsUseCase;
+  final GetEmployeeDayClockRecordsUseCase getEmployeeDayClockRecordsUseCase;
+  final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
 
   CompanyEntriesController({
     required this.getCompanyClockRecordsUseCase,
     required this.getEmployeeDayClockRecordsUseCase,
+    required this.getEmployeesByCompanyIdUseCase,
   });
 
   // Filtros
@@ -67,7 +70,7 @@ class CompanyEntriesController extends GetxController {
   final RxnString selectedEmployeeId = RxnString(null); // null = "Todos"
 
   // Datos soporte
-  final employees = <EmployeeOption>[].obs;
+  final List<EmployeeModel> employees = <EmployeeModel>[].obs;
 
   // Tabla
   final rows = <ClockRowView>[].obs;
@@ -116,25 +119,22 @@ class CompanyEntriesController extends GetxController {
     final companyId = brain.company.value?.id;
     if (companyId == null) return;
 
-    final snap = await _db
-        .collection('employees')
-        .where('companyId', isEqualTo: companyId)
-        .where('accountStatus', isEqualTo: 'active')
-        .orderBy('name')
-        .get();
-
-    employees.assignAll(
-      snap.docs.map((d) {
-        final data = d.data();
-        return EmployeeOption(
-          id: data['id'] ?? d.id,
-          name: data['name'] ?? 'Sin nombre',
-        );
-      }).toList(),
+   final Result<List<EmployeeModel>> res = await getEmployeesByCompanyIdUseCase.call(
+      companyId: companyId,
+      includeDeleted: true
     );
 
+    if (!res.success) {
+      errorText.value = 'Error al cargar empleados: ${res.errorCode}';
+      return;
+    } else {
+      employees.addAll(res.data);
+      employees.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
+    }
+
+
     if (!isBillingActive && employees.isNotEmpty) {
-      selectedEmployeeId.value = employees.first.id;
+      selectedEmployeeId.value = employees.first.uid;
     }
   }
 
@@ -154,7 +154,7 @@ class CompanyEntriesController extends GetxController {
       String? employeeIdFilter;
       if (!isBillingActive) {
         employeeIdFilter = selectedEmployeeId.value ??
-            (employees.isNotEmpty ? employees.first.id : null);
+            (employees.isNotEmpty ? employees.first.uid : null);
       } else {
         employeeIdFilter = selectedEmployeeId.value;
       }
@@ -168,7 +168,7 @@ class CompanyEntriesController extends GetxController {
 
       final dateFmt = DateFormat.Hm();
       final nameCache = <String, String>{
-        for (var e in employees) e.id: e.name
+        for (var e in employees) e.uid: e.name
       };
       final now = DateTime.now();
 
@@ -214,7 +214,7 @@ class CompanyEntriesController extends GetxController {
         final match = employees.firstWhere(
           (e) => e.name == row.employeeName,
         );
-        employeeId = match.id;
+        employeeId = match.uid;
       } catch (_) {
         return;
       }

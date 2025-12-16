@@ -97,8 +97,9 @@ class CompanyDashboardController extends GetxController {
 
     try {
       // 1) Empleados activos de la empresa
-      final Result<List<EmployeeModel>> employeesResult =
-          await getEmployeesByCompany.call(brain.company.value!.id);
+      final Result<List<EmployeeModel>> employeesResult = await getEmployeesByCompany.call(
+        companyId: brain.company.value!.id,
+      );
 
       if (!employeesResult.success) {
         errorText.value = 'Error al cargar empleados: ${employeesResult.errorCode}';

@@ -53,7 +53,10 @@ class SelectEmployeeToRemoveController extends GetxController {
 
     loading.value = true;
 
-    final res = await getEmployeesByCompanyIdUseCase.call(companyId);
+    final res = await getEmployeesByCompanyIdUseCase.call(
+      companyId: companyId,
+      includeDeleted: false,
+    );
 
     loading.value = false;
 

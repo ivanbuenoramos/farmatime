@@ -169,6 +169,13 @@ class EmployeeDetailController extends GetxController {
       arguments: employee,
     );
   }
+
+  void redirectToDeleteEmployee(EmployeeModel employee) {
+    Get.toNamed(
+      Routes.companyDeleteEmployee,
+      arguments: employee,
+    );
+  }
 }
 
 enum ClockInOutType { entry, exit }

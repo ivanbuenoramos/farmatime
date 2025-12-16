@@ -24,9 +24,27 @@ class CompanyModel {
 
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
+
+  /// Plazas confirmadas (billadas). Incluye la gratuita.
   final int? contractedSeats;
+
+  /// Estado de facturación (active, past_due, unpaid, none, etc.)
   final String? billingStatus;
+
+  /// Fin del periodo actual (según Stripe)
   final DateTime? currentPeriodEnd;
+
+  /// Upgrade pendiente de pago (NO se aplica hasta invoice.paid)
+  final int? pendingSeats;
+
+  /// Downgrade programado para la próxima renovación (sí limita empleados ya)
+  final int? scheduledSeats;
+
+  /// Downgrade programado (paid seats en Stripe = total-1)
+  final int? scheduledPaidSeats;
+
+  /// Para qué periodEnd aplica el downgrade (seguridad)
+  final DateTime? scheduledForPeriodEnd;
 
   final bool verifiedEmail;
   final bool verifiedPhone;
@@ -49,11 +67,29 @@ class CompanyModel {
     this.contractedSeats,
     this.billingStatus,
     this.currentPeriodEnd,
+    this.pendingSeats,
+    this.scheduledSeats,
+    this.scheduledPaidSeats,
+    this.scheduledForPeriodEnd,
     this.verifiedEmail = false,
     this.verifiedPhone = false,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is Timestamp) return v.toDate();
+    if (v is String) {
+      try {
+        return DateTime.parse(v);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
 
   factory CompanyModel.fromJson(Map<String, dynamic> json) => CompanyModel(
         id: json['id'],
@@ -74,29 +110,15 @@ class CompanyModel {
         stripeSubscriptionId: json['stripeSubscriptionId'],
         contractedSeats: json['contractedSeats'],
         billingStatus: json['billingStatus'],
-        currentPeriodEnd: json['currentPeriodEnd'] is DateTime
-            ? json['currentPeriodEnd']
-            : json['currentPeriodEnd'] is Timestamp
-                ? (json['currentPeriodEnd'] as Timestamp).toDate()
-                : json['currentPeriodEnd'] is String
-                    ? DateTime.parse(json['currentPeriodEnd'])
-                    : null,
+        currentPeriodEnd: _parseDate(json['currentPeriodEnd']),
+        pendingSeats: json['pendingSeats'],
+        scheduledSeats: json['scheduledSeats'],
+        scheduledPaidSeats: json['scheduledPaidSeats'],
+        scheduledForPeriodEnd: _parseDate(json['scheduledForPeriodEnd']),
         verifiedEmail: json['verifiedEmail'] ?? false,
         verifiedPhone: json['verifiedPhone'] ?? false,
-        createdAt: json['createdAt'] is DateTime
-            ? json['createdAt']
-            : json['createdAt'] is Timestamp
-                ? (json['createdAt'] as Timestamp).toDate()
-                : json['createdAt'] is String
-                    ? DateTime.parse(json['createdAt'])
-                    : DateTime.now(),
-        updatedAt: json['updatedAt'] is DateTime
-            ? json['updatedAt']
-            : json['updatedAt'] is Timestamp
-                ? (json['updatedAt'] as Timestamp).toDate()
-                : json['updatedAt'] is String
-                    ? DateTime.parse(json['updatedAt'])
-                    : DateTime.now(),
+        createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
+        updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -114,6 +136,10 @@ class CompanyModel {
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd?.toIso8601String(),
+        'pendingSeats': pendingSeats,
+        'scheduledSeats': scheduledSeats,
+        'scheduledPaidSeats': scheduledPaidSeats,
+        'scheduledForPeriodEnd': scheduledForPeriodEnd?.toIso8601String(),
         'verifiedEmail': verifiedEmail,
         'verifiedPhone': verifiedPhone,
         'createdAt': createdAt.toIso8601String(),
@@ -135,6 +161,10 @@ class CompanyModel {
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd,
+        'pendingSeats': pendingSeats,
+        'scheduledSeats': scheduledSeats,
+        'scheduledPaidSeats': scheduledPaidSeats,
+        'scheduledForPeriodEnd': scheduledForPeriodEnd,
         'verifiedEmail': verifiedEmail,
         'verifiedPhone': verifiedPhone,
         'createdAt': createdAt,
@@ -156,6 +186,10 @@ class CompanyModel {
     int? contractedSeats,
     String? billingStatus,
     DateTime? currentPeriodEnd,
+    int? pendingSeats,
+    int? scheduledSeats,
+    int? scheduledPaidSeats,
+    DateTime? scheduledForPeriodEnd,
     bool? verifiedEmail,
     bool? verifiedPhone,
     DateTime? createdAt,
@@ -176,6 +210,10 @@ class CompanyModel {
       contractedSeats: contractedSeats ?? this.contractedSeats,
       billingStatus: billingStatus ?? this.billingStatus,
       currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
+      pendingSeats: pendingSeats ?? this.pendingSeats,
+      scheduledSeats: scheduledSeats ?? this.scheduledSeats,
+      scheduledPaidSeats: scheduledPaidSeats ?? this.scheduledPaidSeats,
+      scheduledForPeriodEnd: scheduledForPeriodEnd ?? this.scheduledForPeriodEnd,
       verifiedEmail: verifiedEmail ?? this.verifiedEmail,
       verifiedPhone: verifiedPhone ?? this.verifiedPhone,
       createdAt: createdAt ?? this.createdAt,

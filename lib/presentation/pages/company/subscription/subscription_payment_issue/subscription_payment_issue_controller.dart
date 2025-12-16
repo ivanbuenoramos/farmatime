@@ -1,3 +1,4 @@
+import 'package:farmatime/domain/usecases/stripe/get_open_invoice_payment_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -5,18 +6,17 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/billing/setup_card_payload.dart';
 import 'package:farmatime/domain/usecases/stripe/create_setup_intent_usecase.dart';
-import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
 
 
 
 class SubscriptionPaymentIssueController extends GetxController {
   SubscriptionPaymentIssueController({
     required this.setupIntentUseCase,
-    required this.prepareSeatChangePaymentUseCase,
+    required this.getOpenInvoicePaymentUseCase,
   });
 
   final CreateSetupIntentUseCase setupIntentUseCase;
-  final PrepareSeatChangePaymentUseCase prepareSeatChangePaymentUseCase;
+  final GetOpenInvoicePaymentUseCase getOpenInvoicePaymentUseCase;
 
   final Brain brain = Get.find<Brain>();
 
@@ -25,10 +25,10 @@ class SubscriptionPaymentIssueController extends GetxController {
 
   String get companyId => brain.company.value?.id ?? '';
 
-  @override
-  void onInit() {
-    super.onInit();
-  }
+  // @override
+  // void onInit() {
+  //   super.onInit();
+  // }
 
   /// Añadir nueva tarjeta (SetupIntent)
   Future<void> addPaymentMethod(BuildContext context) async {
@@ -73,33 +73,53 @@ class SubscriptionPaymentIssueController extends GetxController {
 
   /// Reintentar el pago del último invoice fallado
   Future<void> retryLastInvoicePayment(BuildContext context) async {
+    if (companyId.isEmpty) {
+      Get.snackbar('Error', 'Empresa no encontrada');
+      return;
+    }
+
     loading.value = true;
     error.value = '';
 
     try {
-      // Usamos el mismo flujo que para seatChange: Stripe siempre crea PaymentIntent
-      final res = await prepareSeatChangePaymentUseCase.call(
-        companyId: companyId,
-        newQuantity: brain.company.value!.contractedSeats!,
-      );
+      // ✅ Usar usecase (nuevo flujo)
+      final res = await getOpenInvoicePaymentUseCase.call(companyId: companyId);
 
       if (!res.success || res.data == null) {
-        error.value = 'No se pudo cargar el pago pendiente';
+        final msg = res.errorCode ?? 'No se pudo cargar el pago pendiente';
+        error.value = msg;
+        Get.snackbar('Error', msg);
         return;
       }
 
       final d = res.data!;
-      if (d.requiresPayment == false) {
-        Get.snackbar('Todo correcto', 'El pago ya está resuelto.');
+
+      if (!d.hasOpenInvoice) {
+        Get.snackbar('Todo correcto', 'No hay pagos pendientes.');
+        return;
+      }
+
+      // Si hay invoice pero no PI (raro) -> Billing Portal
+      if (d.requiresPayment != true ||
+          (d.customerId ?? '').isEmpty ||
+          (d.ephemeralKeySecret ?? '').isEmpty ||
+          (d.paymentIntentClientSecret ?? '').isEmpty) {
+        Get.snackbar('Acción requerida', 'Completa el pago desde facturación.');
+
+        // ✅ Ideal: abrir Stripe Billing Portal
+        // final portal = await stripeRepository.createBillingPortalSession(companyId, returnUrl: ...);
+        // if (portal.success) launchUrlString(portal.data);
+        // else Get.snackbar('Error', portal.errorCode ?? 'No se pudo abrir facturación');
+
         return;
       }
 
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           merchantDisplayName: 'FarmaTime',
-          customerId: d.customerId,
-          customerEphemeralKeySecret: d.ephemeralKeySecret,
-          paymentIntentClientSecret: d.paymentIntentClientSecret,
+          customerId: d.customerId!,
+          customerEphemeralKeySecret: d.ephemeralKeySecret!,
+          paymentIntentClientSecret: d.paymentIntentClientSecret!,
           style: ThemeMode.system,
           applePay: const PaymentSheetApplePay(merchantCountryCode: 'ES'),
           googlePay: const PaymentSheetGooglePay(merchantCountryCode: 'ES'),
@@ -108,8 +128,14 @@ class SubscriptionPaymentIssueController extends GetxController {
 
       await Stripe.instance.presentPaymentSheet();
 
+      // OJO: la confirmación real la hará el webhook (invoice.paid/subscription.active)
       Get.back();
-      Get.snackbar('Pago completado', 'Tu suscripción volverá a estar activa.');
+      Get.snackbar('Pago completado', 'Pago recibido. En segundos quedará activo.');
+    } on StripeException catch (e) {
+      // Cancelado por el usuario -> no es error
+      if (e.error.code == FailureCode.Canceled) return;
+
+      Get.snackbar('Error de pago', e.error.localizedMessage ?? e.toString());
     } catch (e) {
       Get.snackbar('Error', e.toString());
     } finally {

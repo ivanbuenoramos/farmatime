@@ -15,21 +15,30 @@ class ClockReportsPage extends GetView<ClockReportsController> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reportes de fichajes'),
+        actions: [
+          Obx(() => IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: controller.isLoading.value
+              ? null
+              : controller.loadReportsForSelectedMonth,
+            tooltip: 'Actualizar',
+          )),
+        ],
       ),
       body: Obx(
         () => Column(
           children: [
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _buildMonthSelector(theme),
             ),
             const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildActionsRow(theme),
-            ),
-            const SizedBox(height: 8),
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 16),
+            //   child: _buildActionsRow(theme),
+            // ),
+            // const SizedBox(height: 8),
             if (controller.errorMessage.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -126,26 +135,26 @@ class ClockReportsPage extends GetView<ClockReportsController> {
             label: const Text('Actualizar'),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: controller.isGenerating.value
-                ? null
-                : controller.generateCurrentMonthToDate,
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.primaryContainer,
-              foregroundColor: theme.colorScheme.onPrimaryContainer,
-            ),
-            icon: controller.isGenerating.value
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.picture_as_pdf),
-            label: const Text('Generar mes actual'),
-          ),
-        ),
+        // const SizedBox(width: 12),
+        // Expanded(
+        //   child: FilledButton.icon(
+        //     onPressed: controller.isGenerating.value
+        //         ? null
+        //         : controller.generateCurrentMonthToDate,
+        //     style: FilledButton.styleFrom(
+        //       backgroundColor: theme.colorScheme.primaryContainer,
+        //       foregroundColor: theme.colorScheme.onPrimaryContainer,
+        //     ),
+        //     icon: controller.isGenerating.value
+        //         ? const SizedBox(
+        //             width: 16,
+        //             height: 16,
+        //             child: CircularProgressIndicator(strokeWidth: 2),
+        //           )
+        //         : const Icon(Icons.picture_as_pdf),
+        //     label: const Text('Generar mes actual'),
+        //   ),
+        // ),
       ],
     );
   }

@@ -73,7 +73,15 @@ class PaymentIssueAlertCard extends StatelessWidget {
                   ? color!
                   : Get.theme.colorScheme.error,
               ),
-              onPressed: onTap ?? () => Get.toNamed(Routes.companySubscription),
+              onPressed: onTap ?? () {
+                if (billingStatus == 'canceled') {
+                  Get.toNamed(Routes.companySubscription);
+                  return;
+                } else if (billingStatus == 'past_due' || billingStatus == 'unpaid') {
+                  Get.toNamed(Routes.companySubscriptionPaymentIssue);
+                  return;
+                }
+              },
               child: Text(
                 onTap != null
                   ? 'Gestionar'
@@ -83,7 +91,7 @@ class PaymentIssueAlertCard extends StatelessWidget {
                       ? 'Actualizar método de pago'
                         : billingStatus == 'canceled'
                         ? 'Renovar suscripción'
-                          : 'Actualizar método de pago',
+                          : '$billingStatus',
               ),
             ),
           ],

@@ -60,6 +60,9 @@ class Routes {
   // COMPANY EMPLOYEE DETAIL
   static const String companyEmployeeDetail = '/company/employee-detail';
 
+  // COMPANY DELETE EMPLOYEE
+  static const String companyDeleteEmployee = '/company/delete-employee';
+
   // COMPANY EMPLOYEE SCHEDULE
   static const String companyEmployeeSchedule = '/company/employee-schedule';
 

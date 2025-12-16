@@ -1,3 +1,4 @@
+import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:get/get.dart';
 
 import 'company_employees_controller.dart';
@@ -16,10 +17,14 @@ class CompanyEmployeesBinding extends Bindings {
     Get.lazyPut<GetEmployeesByCompanyIdUseCase>(
       () => GetEmployeesByCompanyIdUseCase(Get.find<EmployeeRepository>()),
     );
+
+    Get.lazyPut<UpdateEmployeeUseCase>(
+      () => UpdateEmployeeUseCase(Get.find<EmployeeRepository>()),
+    );
     
     Get.lazyPut<CompanyEmployeesController>(() => CompanyEmployeesController(
       getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>(),
-      
+      updateEmployeeUseCase: Get.find<UpdateEmployeeUseCase>(),
     ));
 
   }

@@ -98,6 +98,11 @@ export 'package:farmatime/presentation/pages/company/employee_detail/company_emp
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_binding.dart';
 export 'package:farmatime/presentation/pages/company/employee_detail/company_employee_detail_controller.dart';
 
+// DELETE EMPLOYEE
+export 'package:farmatime/presentation/pages/company/delete_employee/delete_employee_page.dart';
+export 'package:farmatime/presentation/pages/company/delete_employee/delete_employee_binding.dart';
+export 'package:farmatime/presentation/pages/company/delete_employee/delete_employee_controller.dart';
+
 // COMPANY EMPLOYEE SCHEDULE
 export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_page.dart';
 export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_binding.dart';

@@ -5,15 +5,18 @@ import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 
 class CompanyEmployeesController extends GetxController {
   final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
+  final UpdateEmployeeUseCase updateEmployeeUseCase;
 
   CompanyEmployeesController({
     required this.getEmployeesByCompanyIdUseCase,
+    required this.updateEmployeeUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -26,16 +29,12 @@ class CompanyEmployeesController extends GetxController {
 
   String get companyId => brain.company.value?.id ?? '';
 
-  /// ¿Quedan huecos para crear empleado?
   bool get canCreateEmployee => employees.length < contractedSeats.value;
 
   @override
   void onInit() {
     super.onInit();
-    // valor inicial desde memoria
     contractedSeats.value = brain.company.value?.contractedSeats ?? 1;
-
-    // escucha en vivo el doc de la empresa para actualizar plazas
     final id = companyId;
     if (id.isNotEmpty) {
       _companySub = FirebaseFirestore.instance
@@ -54,31 +53,37 @@ class CompanyEmployeesController extends GetxController {
         }
       });
     }
-
     fetchEmployees();
   }
+
+
 
   Future<void> fetchEmployees() async {
     if (companyId.isEmpty) {
       Get.snackbar('Error', 'Falta el ID de empresa');
       return;
-    }
-    try {
-      isLoading.value = true;
-      final Result result =
-          await getEmployeesByCompanyIdUseCase.call(companyId);
-      if (result.success) {
-        employees.value = (result.data as List<EmployeeModel>);
-        employees.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
-      } else {
-        Get.snackbar('Error', 'No se pudieron cargar los empleados: ${result.errorCode}');
+    } else {
+      try {
+        isLoading.value = true;
+        final Result result = await getEmployeesByCompanyIdUseCase.call(
+          companyId: companyId,
+        );
+        if (result.success) {
+          employees.value = (result.data as List<EmployeeModel>).where((e) => e.accountStatus != EmployeeAccountStatus.deleted).toList();
+          brain.companyEmployees.addAll(result.data as List<EmployeeModel>);
+          employees.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
+        } else {
+          Get.snackbar('Error', 'No se pudieron cargar los empleados: ${result.errorCode}');
+        }
+      } catch (e) {
+        Get.snackbar('Error', 'Failed to fetch employees: $e');
+      } finally {
+        isLoading.value = false;
       }
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch employees: $e');
-    } finally {
-      isLoading.value = false;
     }
   }
+
+
 
   /// FAB o tarjeta vacía → crear empleado (si hay hueco), sino modal
   void onAddEmployeePressed() {
@@ -91,9 +96,13 @@ class CompanyEmployeesController extends GetxController {
     }
   }
 
+
+
   void onSubscriptionStatusBannerTapped() {
     Get.toNamed(Routes.companySubscription);
   }
+
+
 
   void _showNoSlotsModal(int employeesCount) {
     Get.bottomSheet(
@@ -184,17 +193,25 @@ class CompanyEmployeesController extends GetxController {
     );
   }
 
+
+
   void reditectToSubscription() {
     Get.toNamed(Routes.companySubscription);
   }
+
+
 
   void reditectToUpsertEmployee() {
     Get.toNamed(Routes.companyUpsertEmployee);
   }
 
+
+
   void reditectToEmployeeDetail(EmployeeModel employee) {
     Get.toNamed(Routes.companyEmployeeDetail, arguments: employee);
   }
+
+
 
   @override
   void onClose() {

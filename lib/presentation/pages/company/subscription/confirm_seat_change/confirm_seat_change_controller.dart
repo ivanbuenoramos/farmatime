@@ -1,22 +1,29 @@
+import 'package:farmatime/data/models/billing/seat_change_apply_response.dart';
+import 'package:farmatime/data/models/billing/seat_change_preview_response.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:farmatime/core/app/brain.dart';
-import 'package:farmatime/data/models/billing/prepare_payment_models.dart';
 import 'package:farmatime/data/models/result.dart';
-import 'package:farmatime/domain/usecases/stripe/prepare_seat_change_payment_usecase.dart';
 import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
+
+// nuevos
+import 'package:farmatime/domain/usecases/stripe/preview_seat_change_usecase.dart';
+import 'package:farmatime/domain/usecases/stripe/apply_seat_change_usecase.dart';
 
 class ConfirmSeatChangeController extends GetxController {
   ConfirmSeatChangeController({
-    required this.prepareSeatChangePaymentUseCase,
+    required this.previewSeatChangeUseCase,
+    required this.applySeatChangeUseCase,
     required this.initialSeats,
     required this.newSeats,
   });
 
-  final PrepareSeatChangePaymentUseCase prepareSeatChangePaymentUseCase;
+  final PreviewSeatChangeUseCase previewSeatChangeUseCase;
+  final ApplySeatChangeUseCase applySeatChangeUseCase;
+
   final int initialSeats;
   final int newSeats;
 
@@ -24,8 +31,12 @@ class ConfirmSeatChangeController extends GetxController {
 
   final RxBool loading = false.obs;
   final RxString error = ''.obs;
-  final Rx<PrepareSeatChangePaymentResponse?> preview =
-      Rx<PrepareSeatChangePaymentResponse?>(null);
+
+  final Rx<SeatChangePreviewResponse?> preview =
+      Rx<SeatChangePreviewResponse?>(null);
+
+  List<String> get employeesToDeactivate =>
+      (Get.arguments?['employeesToDeactivate'] as List?)?.cast<String>() ?? <String>[];
 
   String get companyId => brain.company.value?.id ?? '';
 
@@ -34,7 +45,7 @@ class ConfirmSeatChangeController extends GetxController {
     return uid != null && uid == companyId;
   }
 
-  bool get canConfirm => preview.value != null && error.value.isEmpty;
+  bool get canConfirm => preview.value != null && error.value.isEmpty && !loading.value;
 
   @override
   void onInit() {
@@ -44,8 +55,7 @@ class ConfirmSeatChangeController extends GetxController {
 
   Future<void> _loadPreview() async {
     if (companyId.isEmpty || !isCompanyAccount) {
-      error.value =
-          'Solo la cuenta de empresa puede actualizar las plazas de esta suscripción.';
+      error.value = 'Solo la cuenta de empresa puede actualizar plazas.';
       return;
     }
 
@@ -53,18 +63,18 @@ class ConfirmSeatChangeController extends GetxController {
     error.value = '';
 
     try {
-      final Result<PrepareSeatChangePaymentResponse?> res =
-          await prepareSeatChangePaymentUseCase.call(
+      final Result<SeatChangePreviewResponse?> res =
+          await previewSeatChangeUseCase.call(
         companyId: companyId,
-        newQuantity: newSeats,
+        newTotalSeats: newSeats,
       );
 
       if (!res.success || res.data == null) {
-        error.value = res.errorCode ?? 'No se pudo preparar el cambio de plan';
+        error.value = res.errorCode ?? 'No se pudo cargar el resumen.';
         return;
       }
 
-      preview.value = res.data;
+      preview.value = res.data!;
     } catch (e) {
       error.value = e.toString();
     } finally {
@@ -72,40 +82,73 @@ class ConfirmSeatChangeController extends GetxController {
     }
   }
 
-  Future<void> confirmAndPay(BuildContext context) async {
-    final data = preview.value;
-    if (data == null) return;
+  Future<void> confirm(BuildContext context) async {
+    if (!isCompanyAccount) return;
 
     loading.value = true;
+    error.value = '';
+
     try {
-      // Si no hay pago, solo cerramos y refrescamos
-      if (data.requiresPayment == false) {
-        _finishAndRefresh();
+      // 1) aplicar (Stripe)
+      final Result<SeatChangeApplyResponse?> res = await applySeatChangeUseCase.call(
+        companyId: companyId,
+        newTotalSeats: newSeats,
+        employeesToDeactivate: employeesToDeactivate,
+      );
+
+      if (!res.success || res.data == null) {
+        Get.snackbar('Error', res.errorCode ?? 'No se pudo aplicar el cambio.');
         return;
       }
 
-      // Si hay pago, montamos PaymentSheet con los datos recibidos
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'FarmaTime',
-          customerId: data.customerId,
-          customerEphemeralKeySecret: data.ephemeralKeySecret,
-          paymentIntentClientSecret: data.paymentIntentClientSecret,
-          style: ThemeMode.system,
-          allowsDelayedPaymentMethods: false,
-          applePay: const PaymentSheetApplePay(merchantCountryCode: 'ES'),
-          googlePay: const PaymentSheetGooglePay(
-            merchantCountryCode: 'ES',
-            testEnv: false,
-          ),
-        ),
-      );
+      final d = res.data!;
+      if (!d.ok) {
+        Get.snackbar('Error', 'No se pudo aplicar el cambio.');
+        return;
+      }
 
-      await Stripe.instance.presentPaymentSheet();
-      _finishAndRefresh();
+      // 2) si requiere acción (SCA), mostrar PaymentSheet
+      if (d.requiresAction) {
+        if ((d.customerId ?? '').isEmpty ||
+            (d.ephemeralKeySecret ?? '').isEmpty ||
+            (d.paymentIntentClientSecret ?? '').isEmpty) {
+          Get.snackbar('Error', 'Faltan datos para completar el pago.');
+          return;
+        }
+
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            merchantDisplayName: 'FarmaTime',
+            customerId: d.customerId!,
+            customerEphemeralKeySecret: d.ephemeralKeySecret!,
+            paymentIntentClientSecret: d.paymentIntentClientSecret!,
+            style: ThemeMode.system,
+            allowsDelayedPaymentMethods: false,
+            applePay: const PaymentSheetApplePay(merchantCountryCode: 'ES'),
+            googlePay: const PaymentSheetGooglePay(merchantCountryCode: 'ES'),
+          ),
+        );
+
+        await Stripe.instance.presentPaymentSheet();
+      }
+
+      // 3) cerrar y refrescar
+      Get.back(result: true); // cierra ConfirmSeatChangePage
+      Get.back(); // cierra SeatCheckoutPage
+
+      final p = preview.value;
+      if (p != null && p.scheduledAtPeriodEnd) {
+        Get.snackbar('Listo', 'La reducción se aplicará en la próxima renovación.');
+      } else {
+        Get.snackbar('Listo', 'Cambio aplicado. Puede tardar unos segundos en reflejarse.');
+      }
+
+      if (Get.isRegistered<SubscriptionController>()) {
+        Get.find<SubscriptionController>().invoicesLoading.refresh();
+      }
     } on StripeException catch (e) {
       if (e.error.code == FailureCode.Canceled) {
-        Get.snackbar('Pago cancelado', 'No se ha realizado ningún cargo');
+        Get.snackbar('Pago cancelado', 'No se ha realizado ningún cargo.');
       } else {
         Get.snackbar('Error de pago', e.error.localizedMessage ?? e.toString());
       }
@@ -113,17 +156,6 @@ class ConfirmSeatChangeController extends GetxController {
       Get.snackbar('Error', e.toString());
     } finally {
       loading.value = false;
-    }
-  }
-
-  void _finishAndRefresh() {
-    // Cerramos SOLO esta pantalla con result:true
-    Get.back(result: true);
-    // Y luego cerramos el checkout de plazas
-    Get.back();
-    Get.snackbar('Listo', 'Tu suscripción se actualizará en segundos.');
-    if (Get.isRegistered<SubscriptionController>()) {
-      Get.find<SubscriptionController>().invoicesLoading.refresh();
     }
   }
 }

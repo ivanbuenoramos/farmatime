@@ -119,7 +119,7 @@ class CompanyAccountPage extends StatelessWidget {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'cancelled')...[
+                              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none' && controller.brain.company.value!.billingStatus != 'cancelled')...[
                                 Icon(
                                   Icons.error_rounded,
                                   color: Colors.red,

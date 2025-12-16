@@ -7,7 +7,13 @@ class GetEmployeesByCompanyIdUseCase {
 
   GetEmployeesByCompanyIdUseCase(this.repository);
 
-  Future<Result<List<EmployeeModel>>> call(String companyId) {
-    return repository.getEmployeesByCompanyId(companyId);
+  Future<Result<List<EmployeeModel>>> call({
+    required String companyId,
+    bool includeDeleted = false,
+  }) {
+    return repository.getEmployeesByCompanyId(
+      companyId: companyId,
+      includeDeleted: includeDeleted,
+    );
   }
 }

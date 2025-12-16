@@ -17,6 +17,7 @@ class Brain {
   // Observable for user data
   Rx<EmployeeModel?> employee = Rx<EmployeeModel?>(null);
   Rx<CompanyModel?> company = Rx<CompanyModel?>(null);
+  RxList<EmployeeModel> companyEmployees = <EmployeeModel>[].obs;
 
   Future<void> loadSession() async {
     final storage = GetStorage();

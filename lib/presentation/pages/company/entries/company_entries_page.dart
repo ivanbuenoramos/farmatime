@@ -1,5 +1,7 @@
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/presentation/pages/company/entries/company_entries_controller.dart';
 import 'package:farmatime/presentation/widgets/card/payment_issue_alert_card.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -28,7 +30,7 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             children: [
-              if (controller.brain.company.value!.billingStatus != 'active') ... [
+              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
                 PaymentIssueAlertCard(
                   billingStatus: controller.brain.company.value!.billingStatus,
                 ),
@@ -171,6 +173,23 @@ class _EmployeeDropdown extends StatelessWidget {
 
           final items = <DropdownMenuItem<String?>>[];
 
+          String parseAccountStatus(EmployeeModel e) {
+            switch (e.accountStatus) {
+              case EmployeeAccountStatus.pending:
+                return 'Pendiente de activación';
+              case EmployeeAccountStatus.active:
+                return 'Activo';
+              case EmployeeAccountStatus.inactive:
+                return 'Inactivo';
+              case EmployeeAccountStatus.disabled:
+                return 'Deshabilitado';
+              case EmployeeAccountStatus.deleted:
+                return 'Eliminado';
+              default:
+                return '-';
+            }
+          }
+
           if (isBillingActive) {
             // Plan normal: opción "Todos" + todos los empleados
             items.add(
@@ -182,8 +201,32 @@ class _EmployeeDropdown extends StatelessWidget {
             items.addAll(
               controller.employees.map(
                 (e) => DropdownMenuItem<String?>(
-                  value: e.id,
-                  child: Text(e.name),
+                  value: e.uid,
+                  child: Row(
+                    children: [
+                      //si es el empleado seleccionado, no mostrar su avatar
+                      ProfileAvatar(
+                        name: e.name,
+                        imageUrl: e.photoUrl,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        e.name,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.secondary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(
+                          parseAccountStatus(e),
+                          style: theme.textTheme.bodySmall
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -193,8 +236,26 @@ class _EmployeeDropdown extends StatelessWidget {
               final first = controller.employees.first;
               items.add(
                 DropdownMenuItem<String?>(
-                  value: first.id,
-                  child: Text(first.name),
+                  value: first.uid,
+                  child: Row(
+                    children: [
+                      ProfileAvatar(
+                        name: first.name,
+                        imageUrl: first.photoUrl,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        children: [
+                          Text(first.name),
+                          Text(first.accountStatus?.name ?? '-',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.secondary,
+                              )),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -203,7 +264,7 @@ class _EmployeeDropdown extends StatelessWidget {
           final String? value = isBillingActive
               ? controller.selectedEmployeeId.value
               : (controller.employees.isNotEmpty
-                  ? controller.employees.first.id
+                  ? controller.employees.first.uid
                   : null);
 
           return Column(

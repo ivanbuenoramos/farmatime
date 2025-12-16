@@ -14,7 +14,7 @@ exports.stripe_createBillingPortalSession = onCall(async (request) => {
     const returnUrl = String(data.returnUrl || '');
 
     if (!companyId) throw new HttpsError('invalid-argument', 'companyId requerido');
-    assertCompanyAccount(uid, companyId);
+    await assertCompanyAccount(uid, companyId);
 
     const snap = await db.collection('companies').doc(companyId).get();
     if (!snap.exists) throw new HttpsError('not-found', 'Empresa no existe');

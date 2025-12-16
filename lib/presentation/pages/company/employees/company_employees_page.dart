@@ -37,14 +37,14 @@ class CompanyEmployeesPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             children: [
-              if (controller.brain.company.value!.billingStatus != 'active') ... [
+              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
                 PaymentIssueAlertCard(
                   billingStatus: controller.brain.company.value!.billingStatus,
                 ),
                 const SizedBox(height: 12),
               ],
               BaseCard(
-                title: 'Empleados · ${employees.length}/$seats', // indicador breve
+                title: 'Empleados · ${employees.length}/$seats',
                 children: [
               
                   if (controller.isLoading.value)
@@ -144,7 +144,7 @@ class CompanyEmployeesPage extends StatelessWidget {
                       // Tarjeta vacía (hueco libre contratado)
                       return DottedSlotCard(
                         onTap: controller.onAddEmployeePressed,
-                        enabled: controller.brain.company.value!.billingStatus == 'active',
+                        enabled: controller.brain.company.value!.billingStatus == 'active' || controller.brain.company.value!.billingStatus == 'none',
                       );
                     },
                   ),

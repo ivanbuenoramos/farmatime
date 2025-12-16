@@ -1,6 +1,10 @@
 import 'package:farmatime/data/models/billing/payment_method_model.dart';
+import 'package:farmatime/data/models/billing/seat_change_apply_response.dart';
+import 'package:farmatime/data/models/billing/seat_change_preview_response.dart';
 import 'package:farmatime/data/models/billing/setup_card_payload.dart';
 import 'package:farmatime/data/models/billing/stripe_incomplete_payment_model.dart.dart';
+import 'package:farmatime/data/models/billing/stripe_open_invoice_payment_model.dart';
+import 'package:farmatime/data/models/billing/update_seats_and_pay_result.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/data/models/billing/prepare_payment_models.dart';
@@ -16,7 +20,7 @@ abstract class StripeRepository {
   /// Actualiza la cantidad de asientos (quantity) en Stripe.
   Future<Result<void>> updateSubscriptionQuantity(
     String companyId,
-    int newQuantity, {
+    int totalSeats, {
     ProrationBehavior prorationBehavior = ProrationBehavior.createProrations,
   });
 
@@ -33,7 +37,18 @@ abstract class StripeRepository {
 
   Future<Result<PrepareSeatChangePaymentResponse?>> prepareSeatChangePayment({
     required String companyId,
-    required int newQuantity,
+    required int newTotalSeats,
+  });
+
+  Future<Result<SeatChangeApplyResponse?>> applySeatChange({
+    required String companyId,
+    required int newTotalSeats,
+    required List<String> employeesToDeactivate,
+  });
+
+  Future<Result<SeatChangePreviewResponse?>> previewSeatChange({
+    required String companyId,
+    required int newTotalSeats,
   });
 
   Future<Result<List<PaymentMethodModel>>> listPaymentMethods(String companyId);
@@ -46,5 +61,14 @@ abstract class StripeRepository {
 
   Future<Result<StripeIncompletePaymentModel?>> getIncompletePayment({
     required String companyId,
+  });
+  
+  Future<Result<StripeOpenInvoicePaymentModel?>> getOpenInvoicePayment({
+    required String companyId,
+  });
+
+  Future<Result<UpdateSeatsAndPayResult?>> updateSeatsAndPay({
+    required String companyId,
+    required int newTotalSeats,
   });
 }

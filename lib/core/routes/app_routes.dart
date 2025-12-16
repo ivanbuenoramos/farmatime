@@ -130,6 +130,12 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.companyDeleteEmployee,
+        page: () => const DeleteEmployeePage(),
+        binding: DeleteEmployeeBinding(),
+      ),
+
+      GetPage(
         name: Routes.companyEmployeeSchedule,
         page: () => EmployeeSchedulePage(),
         binding: EmployeeScheduleBinding(),

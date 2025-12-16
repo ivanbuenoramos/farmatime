@@ -43,6 +43,7 @@ class EmployeeDetailPage extends GetView<EmployeeDetailController> {
               ),
               PopupMenuItem(
                 value: 'delete',
+                onTap: () => controller.redirectToDeleteEmployee(controller.employee.value!),
                 child: Row(
                   children: [
                     Icon(Icons.delete_rounded, color: Get.theme.colorScheme.error),

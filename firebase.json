@@ -40,7 +40,10 @@
       ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run lint"
-      ]
+      ],
+      "env": {
+        "PRICE_ID": "price_1SDNxxEzO55Y4lolGiifm1hw"
+      }
     }
   ],
   "extensions": {

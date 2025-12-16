@@ -109,6 +109,7 @@ class CompanyAuthSignUpController extends GetxController {
         legalName: name,
         verifiedEmail: false,
         verifiedPhone: false,
+        billingStatus: 'none',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

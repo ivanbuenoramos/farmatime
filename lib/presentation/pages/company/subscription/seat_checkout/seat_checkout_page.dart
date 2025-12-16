@@ -42,16 +42,8 @@ class SeatCheckoutPage extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: (!hasChanges || c.loading.value)
-                          ? null
-                          : () => c.onContinue(context),   // <-- ANTES: c.pay(context)
-                      child: c.loading.value
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Continuar'),
+                      onPressed: () => c.onContinue(),
+                      child: const Text('Continuar'),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -157,8 +149,8 @@ class SeatCheckoutPage extends StatelessWidget {
                   _kv(context, 'Actualmente contratadas', '$currentSeats'),
                   const SizedBox(height: 8),
                   _kv(context, 'Nueva cantidad', '$newSeats'),
-                  const Divider(height: 24),
-                  _kvBig(context, 'Importe mensual estimado', _fmtCents(c.monthlyCents)),
+                  // const Divider(height: 24),
+                  // _kvBig(context, 'Importe mensual estimado', _fmtCents(c.pr)),
                 ],
               ),
             ],

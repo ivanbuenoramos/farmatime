@@ -1,3 +1,6 @@
+import 'package:farmatime/data/repositories/employee_repository_impl.dart';
+import 'package:farmatime/domain/repositories/employee_repository.dart';
+import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/presentation.dart';
@@ -16,8 +19,16 @@ class CompanyMainBinding extends Bindings {
     CompanyEntriesBinding().dependencies();
     InboxBinding().dependencies();
     CompanyAccountBinding().dependencies();
+
+    Get.lazyPut<EmployeeRepository>(() => EmployeeRepositoryImpl());
+
+    Get.lazyPut<GetEmployeesByCompanyIdUseCase>(
+      () => GetEmployeesByCompanyIdUseCase(Get.find<EmployeeRepository>()),
+    );
     
-    Get.lazyPut<CompanyMainController>(() => CompanyMainController());
+    Get.lazyPut<CompanyMainController>(() => CompanyMainController(
+      getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>(),
+    ));
 
   }
 }

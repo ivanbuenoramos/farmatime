@@ -14,7 +14,7 @@ class PrepareSeatChangePaymentUseCase {
   }) {
     return repository.prepareSeatChangePayment(
       companyId: companyId,
-      newQuantity: newQuantity,
+      newTotalSeats: newQuantity,
     );
   }
 }

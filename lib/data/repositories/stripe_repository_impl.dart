@@ -2,8 +2,12 @@ import 'package:cloud_functions/cloud_functions.dart' hide Result;
 import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/data/models/billing/payment_method_model.dart';
 import 'package:farmatime/data/models/billing/prepare_payment_models.dart';
+import 'package:farmatime/data/models/billing/seat_change_apply_response.dart';
+import 'package:farmatime/data/models/billing/seat_change_preview_response.dart';
 import 'package:farmatime/data/models/billing/setup_card_payload.dart';
 import 'package:farmatime/data/models/billing/stripe_incomplete_payment_model.dart.dart';
+import 'package:farmatime/data/models/billing/stripe_open_invoice_payment_model.dart';
+import 'package:farmatime/data/models/billing/update_seats_and_pay_result.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -27,7 +31,7 @@ class StripeRepositoryImpl implements StripeRepository {
           _functions.httpsCallable('stripe_createCustomerAndSubscription');
       await callable.call({
         'companyId': companyId,
-        'initialQuantity': initialQuantity,
+        // 'initialQuantity': initialQuantity,
       });
       return Result(success: true, data: null);
     } on FirebaseFunctionsException catch (e) {
@@ -39,17 +43,18 @@ class StripeRepositoryImpl implements StripeRepository {
     }
   }
 
+
   @override
   Future<Result<void>> updateSubscriptionQuantity(
     String companyId,
-    int newQuantity, {
+    int totalSeats, { // puedes renombrar el param a totalSeats cuando quieras
     ProrationBehavior prorationBehavior = ProrationBehavior.createProrations,
   }) async {
     try {
       final callable = _functions.httpsCallable('stripe_updateSubscriptionQuantity');
       await callable.call({
         'companyId': companyId,
-        'quantity': newQuantity,
+        'totalSeats': totalSeats,
         'proration_behavior': prorationBehavior == ProrationBehavior.createProrations
             ? 'create_prorations'
             : 'none',
@@ -132,15 +137,53 @@ class StripeRepositoryImpl implements StripeRepository {
   }
 
   @override
+  Future<Result<SeatChangePreviewResponse?>> previewSeatChange({
+    required String companyId,
+    required int newTotalSeats,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('stripe_previewSeatChange');
+      final resp = await callable.call({
+        'companyId': companyId,
+        'newTotalSeats': newTotalSeats,
+      });
+      final data = Map<String, dynamic>.from(resp.data as Map);
+      return Result(success: true, data: SeatChangePreviewResponse.fromJson(data));
+    } catch (e) {
+      return Result(success: false, data: null, errorCode: e.toString());
+    }
+  }
+
+  @override
+  Future<Result<SeatChangeApplyResponse?>> applySeatChange({
+    required String companyId,
+    required int newTotalSeats,
+    required List<String> employeesToDeactivate,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('stripe_applySeatChange');
+      final resp = await callable.call({
+        'companyId': companyId,
+        'newTotalSeats': newTotalSeats,
+        'employeesToDeactivate': employeesToDeactivate,
+      });
+      final data = Map<String, dynamic>.from(resp.data as Map);
+      return Result(success: true, data: SeatChangeApplyResponse.fromJson(data));
+    } catch (e) {
+      return Result(success: false, data: null, errorCode: e.toString());
+    }
+  }
+
+  @override
   Future<Result<PrepareSeatChangePaymentResponse?>> prepareSeatChangePayment({
     required String companyId,
-    required int newQuantity,
+    required int newTotalSeats,
   }) async {
     try {
       final callable = _functions.httpsCallable('stripe_prepareSeatChangePayment');
       final resp = await callable.call(<String, dynamic>{
         'companyId': companyId,
-        'newQuantity': newQuantity,
+        'newTotalSeats': newTotalSeats,
       });
 
       final data = Map<String, dynamic>.from(resp.data as Map);
@@ -149,7 +192,6 @@ class StripeRepositoryImpl implements StripeRepository {
         data: PrepareSeatChangePaymentResponse.fromJson(data),
       );
     } catch (e) {
-      print(e);
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }
@@ -247,6 +289,63 @@ class StripeRepositoryImpl implements StripeRepository {
       return Result(
         data: null,
         success: false,
+      );
+    }
+  }
+
+  @override
+  Future<Result<StripeOpenInvoicePaymentModel?>> getOpenInvoicePayment({
+    required String companyId,
+  }) async {
+    try {
+      final callable = _functions.httpsCallable('stripe_getOpenInvoicePayment');
+      final res = await callable.call(<String, dynamic>{
+        'companyId': companyId,
+      });
+
+      final data = Map<String, dynamic>.from(res.data as Map);
+      final model = StripeOpenInvoicePaymentModel.fromJson(data);
+
+      return Result(success: true, data: model);
+    } on FirebaseFunctionsException catch (e) {
+      final pretty = '${e.code}: ${e.message ?? ''}';
+      return Result(success: false, data: null, errorCode: pretty);
+    } catch (e) {
+      return Result(success: false, data: null, errorCode: 'unknown: $e');
+    }
+  }
+
+  @override
+  Future<Result<UpdateSeatsAndPayResult?>> updateSeatsAndPay({
+    required String companyId,
+    required int newTotalSeats,
+  }) async {
+    try {
+      final callable =
+          _functions.httpsCallable('stripe_updateSeatsAndPay');
+
+      final res = await callable.call({
+        'companyId': companyId,
+        'newTotalSeats': newTotalSeats,
+      });
+
+      final data = Map<String, dynamic>.from(res.data);
+
+      return Result(
+        data: UpdateSeatsAndPayResult.fromJson(data),
+        success: true,
+      );
+    } on FirebaseFunctionsException catch (e) {
+      return Result(
+        data: null,
+        success: false,
+        errorCode: e.code,
+      );
+    } catch (e) {
+      return Result(
+        data: null,
+        success: false,
+        errorCode: 'unknown-error',
       );
     }
   }

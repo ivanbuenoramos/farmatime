@@ -8,42 +8,49 @@ exports.stripe_createCustomerAndSubscription = onCall(async (request) => {
   assertAuth(request);
   const uid = request.auth.uid;
   const data = request.data || {};
-  const companyId = String(data.companyId || '');
-  const initialQuantity = Number(data.initialQuantity || 1);
+  const companyId = String(data.companyId || '').trim();
 
   if (!companyId) throw new HttpsError('invalid-argument', 'companyId requerido');
-  if (!Number.isInteger(initialQuantity) || initialQuantity <= 0) {
-    throw new HttpsError('invalid-argument', 'initialQuantity inválido');
-  }
 
   await assertCompanyAccount(uid, companyId);
-
-  const PRICE_ID = process.env.PRICE_ID;
-  if (!PRICE_ID) throw new HttpsError('failed-precondition', 'PRICE_ID no configurado');
 
   const companyRef = db.collection('companies').doc(companyId);
   const snap = await companyRef.get();
   if (!snap.exists) throw new HttpsError('not-found', 'Empresa no existe');
   const c = snap.data() || {};
 
+  // Si ya hay customer, no lo vuelvas a crear
+  if (c.stripeCustomerId) {
+    // Asegura defaults coherentes (por si venías del flujo viejo)
+    await updateCompanyMirror(companyId, {
+      stripeCustomerId: c.stripeCustomerId,
+      // Suscripción aún no creada en el nuevo flujo
+      stripeSubscriptionId: c.stripeSubscriptionId || null,
+      // En "sin suscripción" el mínimo es 1 asiento (gratis)
+      contractedSeats: typeof c.contractedSeats === 'number' && c.contractedSeats > 0 ? c.contractedSeats : 1,
+      billingStatus: c.billingStatus || 'none',
+      currentPeriodEnd: c.currentPeriodEnd || null,
+    });
+
+    return { ok: true, customerId: c.stripeCustomerId, alreadyExisted: true };
+  }
+
   const stripe = getStripe();
+
   const customer = await stripe.customers.create({
     email: c.email || undefined,
+    name: c.name || undefined,
     metadata: { companyId },
   });
-  const subscription = await stripe.subscriptions.create({
-    customer: customer.id,
-    items: [{ price: PRICE_ID, quantity: initialQuantity }],
-    collection_method: 'charge_automatically',
-  });
 
+  // Nuevo estado: customer creado, pero sin suscripción todavía
   await updateCompanyMirror(companyId, {
     stripeCustomerId: customer.id,
-    stripeSubscriptionId: subscription.id,
-    contractedSeats: initialQuantity,
-    billingStatus: subscription.status,
-    currentPeriodEnd: subscription.current_period_end,
+    stripeSubscriptionId: null,
+    contractedSeats: 1,
+    billingStatus: 'none',
+    currentPeriodEnd: null,
   });
 
-  return { ok: true, subscriptionId: subscription.id };
+  return { ok: true, customerId: customer.id, alreadyExisted: false };
 });

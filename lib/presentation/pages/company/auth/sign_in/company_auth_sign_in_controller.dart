@@ -131,7 +131,10 @@ class CompanyAuthSignInController extends GetxController {
     final repo = Get.find<ChatRepository>();
 
     // 1) Cargar empleados de la empresa vía usecase
-    final employeesRes = await getEmployeesByCompanyIdUseCase.call(companyId);
+    final employeesRes = await getEmployeesByCompanyIdUseCase.call(
+      companyId: companyId,
+      includeDeleted: false,
+    );
     final List<EmployeeModel> employees =
         (employeesRes.success)
             ? employeesRes.data
