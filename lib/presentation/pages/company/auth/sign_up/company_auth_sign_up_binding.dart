@@ -6,7 +6,7 @@ import 'package:farmatime/domain/repositories/firebase_auth_repository.dart';
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:farmatime/domain/usecases/company/create_company_usecase.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_up_with_email_usecase.dart';
-import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_and_subscription_usecase.dart';
+import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/pages/company/auth/sign_up/company_auth_sign_up_controller.dart';
@@ -29,14 +29,14 @@ class CompanyAuthSignUpBinding extends Bindings {
       () => CreateCompanyUseCase(Get.find<CompanyRepository>()),
     );
 
-    Get.lazyPut<CreateStripeCustomerAndSubscriptionUseCase>(
-      () => CreateStripeCustomerAndSubscriptionUseCase(Get.find()),
+    Get.lazyPut<CreateStripeCustomerUseCase>(
+      () => CreateStripeCustomerUseCase(Get.find()),
     );
 
     Get.lazyPut<CompanyAuthSignUpController>(() => CompanyAuthSignUpController(
       signUpWithEmailUseCase: Get.find<SignUpWithEmailUseCase>(),
       createCompanyUseCase: Get.find<CreateCompanyUseCase>(),
-      createStripeCustomerAndSubscriptionUseCase: Get.find<CreateStripeCustomerAndSubscriptionUseCase>(),
+      createStripeCustomerUseCase: Get.find<CreateStripeCustomerUseCase>(),
     ));
   }
 }

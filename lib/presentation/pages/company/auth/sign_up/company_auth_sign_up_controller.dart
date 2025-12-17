@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_up_with_email_usecase.dart';
+import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -12,20 +13,17 @@ import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/company_model.dart';
 import 'package:farmatime/domain/usecases/company/create_company_usecase.dart';
 
-// ⬇️ NUEVO: usecase para Stripe
-import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_and_subscription_usecase.dart';
-
 class CompanyAuthSignUpController extends GetxController {
   final SignUpWithEmailUseCase signUpWithEmailUseCase;
   final CreateCompanyUseCase createCompanyUseCase;
 
   // ⬇️ NUEVO: inyecta este usecase
-  final CreateStripeCustomerAndSubscriptionUseCase createStripeCustomerAndSubscriptionUseCase;
+  final CreateStripeCustomerUseCase createStripeCustomerUseCase;
 
   CompanyAuthSignUpController({
     required this.signUpWithEmailUseCase,
     required this.createCompanyUseCase,
-    required this.createStripeCustomerAndSubscriptionUseCase, // ⬅️ nuevo
+    required this.createStripeCustomerUseCase, // ⬅️ nuevo
   });
 
   final nameController = TextEditingController();
@@ -132,10 +130,7 @@ class CompanyAuthSignUpController extends GetxController {
       await FirebaseAuth.instance.currentUser?.getIdToken(true);
 
       //    initialQuantity: 1 para que encaje con tu precio por niveles (1º gratis).
-      final stripeRes = await createStripeCustomerAndSubscriptionUseCase.call(
-        company.id,
-        initialQuantity: 1,
-      );
+      final stripeRes = await createStripeCustomerUseCase.call(companyId: company.id);
 
       print(stripeRes.toJson());
 

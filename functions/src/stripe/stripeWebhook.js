@@ -1,3 +1,4 @@
+// src/stripe/stripeWebhook.js
 const { onRequest } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 
@@ -13,13 +14,19 @@ function getCustomerId(obj) {
   return typeof obj === 'string' ? obj : (obj.id || '');
 }
 
-function getPaidSeatsFromSub(sub) {
-  const q = sub?.items?.data?.[0]?.quantity;
-  return typeof q === 'number' ? q : 0;
+// ✅ Stripe quantity = PAID seats (total-1)
+function getPaidSeatsFromSub(sub, PRICE_ID) {
+  const items = sub?.items?.data || [];
+  const seatItem =
+    (PRICE_ID ? items.find((i) => i?.price?.id === PRICE_ID) : null) ||
+    (items.length === 1 ? items[0] : null);
+
+  const q = seatItem?.quantity;
+  return typeof q === 'number' && q >= 0 ? q : 0;
 }
 
-async function retrieveSubMinimal(stripe, subId) {
-  return stripe.subscriptions.retrieve(subId, { expand: ['items.data'] });
+async function retrieveSubExpanded(stripe, subId) {
+  return stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
 }
 
 exports.stripe_webhook = onRequest(async (req, res) => {
@@ -43,58 +50,9 @@ exports.stripe_webhook = onRequest(async (req, res) => {
 
   try {
     const stripe = getStripe();
+    const PRICE_ID = String(process.env.PRICE_ID || '').trim();
 
     switch (event.type) {
-      /* ───────────────────── INVOICE UPCOMING (aplicar downgrade antes de facturar) ───────────────────── */
-      case 'invoice.upcoming': {
-        const inv = event.data.object;
-
-        const stripeCustomerId = getCustomerId(inv.customer);
-        const companyId = await getCompanyIdFromCustomer(stripeCustomerId);
-        if (!companyId) break;
-
-        const companySnap = await db.collection('companies').doc(companyId).get();
-        const company = companySnap.data() || {};
-
-        const scheduledPaidSeats = typeof company.scheduledPaidSeats === 'number' ? company.scheduledPaidSeats : null;
-        const scheduledForPeriodEnd = company.scheduledForPeriodEnd instanceof admin.firestore.Timestamp ?
-          company.scheduledForPeriodEnd.toMillis() :
-          null;
-
-        // Solo si hay programación
-        if (scheduledPaidSeats == null || scheduledForPeriodEnd == null) break;
-
-        // Stripe invoice period_end viene en unix seconds
-        const invoicePeriodEndMs = (inv.period_end || 0) * 1000;
-
-        // Aplicamos el cambio justo para ese cierre de periodo (tolerancia 1h)
-        if (Math.abs(invoicePeriodEndMs - scheduledForPeriodEnd) > 60 * 60 * 1000) break;
-
-        const subId = typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id;
-        if (!subId) break;
-
-        const stripe = getStripe();
-        const sub = await stripe.subscriptions.retrieve(subId, { expand: ['items.data'] });
-        const item = sub?.items?.data?.[0];
-        if (!item?.id) break;
-
-        await stripe.subscriptions.update(subId, {
-          proration_behavior: 'none',
-          items: [{ id: item.id, quantity: scheduledPaidSeats }],
-        });
-
-        // Limpiamos programación (ya aplicada)
-        await updateCompanyMirror(companyId, {
-          scheduledSeats: null,
-          scheduledPaidSeats: null,
-          scheduledForPeriodEnd: null,
-        });
-
-        logger.info('[invoice.upcoming] applied scheduledPaidSeats', { companyId, subId, scheduledPaidSeats });
-        break;
-      }
-
-      /* ───────────────────── SUBSCRIPTION CREATED ───────────────────── */
       case 'customer.subscription.created': {
         const sub = event.data.object;
 
@@ -104,18 +62,22 @@ exports.stripe_webhook = onRequest(async (req, res) => {
 
         if (!companyId) break;
 
+        const fullSub = await retrieveSubExpanded(stripe, sub.id);
+        const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
+        const contractedSeats = paidSeats + 1;
+
         await updateCompanyMirror(companyId, {
           stripeCustomerId,
-          stripeSubscriptionId: sub.id,
-          billingStatus: sub.status,
-          currentPeriodEnd: sub.current_period_end,
+          stripeSubscriptionId: fullSub.id,
+          billingStatus: fullSub.status,
+          currentPeriodEnd: fullSub.current_period_end,
+          contractedSeats, // ✅ SIEMPRE
         });
 
         await updateEmployeesForBillingState(companyId);
         break;
       }
 
-      /* ───────────────────── SUBSCRIPTION UPDATED ───────────────────── */
       case 'customer.subscription.updated': {
         const sub = event.data.object;
 
@@ -125,18 +87,22 @@ exports.stripe_webhook = onRequest(async (req, res) => {
 
         if (!companyId) break;
 
+        const fullSub = await retrieveSubExpanded(stripe, sub.id);
+        const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
+        const contractedSeats = paidSeats + 1;
+
         await updateCompanyMirror(companyId, {
           stripeCustomerId,
-          stripeSubscriptionId: sub.id,
-          billingStatus: sub.status,
-          currentPeriodEnd: sub.current_period_end,
+          stripeSubscriptionId: fullSub.id,
+          billingStatus: fullSub.status,
+          currentPeriodEnd: fullSub.current_period_end,
+          contractedSeats, // ✅ SIEMPRE
         });
 
         await updateEmployeesForBillingState(companyId);
         break;
       }
 
-      /* ───────────────────── INVOICE PAID ───────────────────── */
       case 'invoice.paid': {
         const inv = event.data.object;
 
@@ -171,44 +137,29 @@ exports.stripe_webhook = onRequest(async (req, res) => {
               );
         }
 
-        const companySnap = await db.collection('companies').doc(companyId).get();
-        const company = companySnap.data() || {};
-
-        const pendingSeats =
-          typeof company.pendingSeats === 'number' && company.pendingSeats >= 1 ?
-            company.pendingSeats :
-            null;
-
+        // Si hay subscription en el invoice, sincroniza desde Stripe (FUENTE DE VERDAD)
         const subId =
           typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id;
 
         if (subId) {
-          const s = await retrieveSubMinimal(stripe, subId);
-
-          const paidSeats = getPaidSeatsFromSub(s);
-          const totalSeatsFromStripe = paidSeats + 1;
-
-          // ✅ Si había upgrade pendiente, aplicamos lo pedido.
-          // Si no, sincronizamos desde Stripe (incluye downgrades ya aplicados en invoice.upcoming)
-          const finalSeats = pendingSeats ?? totalSeatsFromStripe;
+          const fullSub = await retrieveSubExpanded(stripe, subId);
+          const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
+          const contractedSeats = paidSeats + 1;
 
           await updateCompanyMirror(companyId, {
             stripeCustomerId,
-            stripeSubscriptionId: s.id,
-            billingStatus: s.status,
-            currentPeriodEnd: s.current_period_end,
-            contractedSeats: finalSeats,
-            pendingSeats: null,
+            stripeSubscriptionId: fullSub.id,
+            billingStatus: fullSub.status,
+            currentPeriodEnd: fullSub.current_period_end,
+            contractedSeats,
           });
 
           await updateEmployeesForBillingState(companyId);
         } else {
-          // Invoice sin subscription: limpiamos pending
+          // Invoice sin subscription (raro aquí). Al menos marca active
           await updateCompanyMirror(companyId, {
             stripeCustomerId,
             billingStatus: 'active',
-            contractedSeats: pendingSeats ?? (company.contractedSeats ?? 1),
-            pendingSeats: null,
           });
           await updateEmployeesForBillingState(companyId);
         }
@@ -216,7 +167,6 @@ exports.stripe_webhook = onRequest(async (req, res) => {
         break;
       }
 
-      /* ───────────────────── INVOICE PAYMENT FAILED ───────────────────── */
       case 'invoice.payment_failed': {
         const inv = event.data.object;
 
@@ -232,12 +182,14 @@ exports.stripe_webhook = onRequest(async (req, res) => {
 
         if (!companyId) break;
 
+        // Aquí puedes implementar tu gracia de 30 días si quieres:
+        // - o guardas graceUntil = now + 30d
+        // - o graceUntil = currentPeriodEnd + 30d (si tienes sub)
         await updateCompanyMirror(companyId, { billingStatus: 'past_due' });
         await updateEmployeesForBillingState(companyId);
         break;
       }
 
-      /* ───────────────────── SUBSCRIPTION DELETED ───────────────────── */
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
 
@@ -259,10 +211,6 @@ exports.stripe_webhook = onRequest(async (req, res) => {
           stripeSubscriptionId: null,
           billingStatus: 'none',
           contractedSeats: 1,
-          pendingSeats: null,
-          scheduledSeats: null,
-          scheduledPaidSeats: null,
-          scheduledForPeriodEnd: null,
           currentPeriodEnd: null,
         });
 
@@ -271,7 +219,7 @@ exports.stripe_webhook = onRequest(async (req, res) => {
       }
 
       default:
-        logger.info(`Evento no manejado: ${event.type}`);
+        break;
     }
   } catch (e) {
     logger.error('❌ Error manejando webhook', { msg: e.message, stack: e.stack });

@@ -24,12 +24,16 @@ class PaymentIssueAlertCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: color != null 
             ? color!.withOpacity(0.1)
-            : Get.theme.colorScheme.error.withOpacity(0.1),
+            : billingStatus == 'active' 
+             ? Get.theme.colorScheme.primary.withOpacity(0.1)
+             : Get.theme.colorScheme.error.withOpacity(0.1),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: color != null 
               ? color!
-              : Get.theme.colorScheme.error,
+              : billingStatus == 'active' 
+                ? Get.theme.colorScheme.primary
+                : Get.theme.colorScheme.error,
             width: 1,
           ),
         ),
@@ -38,27 +42,38 @@ class PaymentIssueAlertCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.warning_amber_rounded,
-                  color: Get.theme.colorScheme.error,
+                  billingStatus == 'active' 
+                    ? Icons.check_circle_rounded
+                    : Icons.warning_amber_rounded,
+                  color: billingStatus == 'active' 
+                    ? Get.theme.colorScheme.primary
+                    : Get.theme.colorScheme.error,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    billingStatus == 'past_due'
-                    ? 'Tu suscripción tiene un pago pendiente. Algunas funciones pueden estar limitadas. '
-                      'Por favor, actualiza tu método de pago para restaurar el acceso completo.'
-                      : billingStatus == 'unpaid'
-                      ? 'Tu suscripción está impagada. Algunas funciones pueden estar limitadas. '
-                        'Por favor, actualiza tu método de pago para restaurar el acceso completo.'
-                        : billingStatus == 'canceled'
-                        ? 'Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas. '
-                          'Por favor, renueva tu suscripción para restaurar el acceso completo.'
-                            : 'Tu suscripción no está activa. Algunas funciones pueden estar limitadas. '
-                            'Por favor, actualiza tu método de pago para restaurar el acceso completo.',
+                    billingStatus == 'active' 
+                      ? 'Tu suscripción está activa.'
+                        : billingStatus == 'past_due'
+                        ? 'Tu suscripción tiene un pago pendiente. Algunas funciones pueden estar limitadas. '
+                          'Por favor, actualiza tu método de pago para restaurar el acceso completo.'
+                          : billingStatus == 'unpaid'
+                          ? 'Tu suscripción está impagada. Algunas funciones pueden estar limitadas. '
+                            'Por favor, actualiza tu método de pago para restaurar el acceso completo.'
+                            : billingStatus == 'canceled'
+                            ? 'Tu suscripción ha sido cancelada. Algunas funciones pueden estar limitadas. '
+                              'Por favor, renueva tu suscripción para restaurar el acceso completo.'
+                                : billingStatus == 'none'
+                                ? 'No tienes una suscripción activa. Algunas funciones pueden estar limitadas. '
+                                  'Puedes suscribirte para acceder a todas las funciones.'
+                                    : 'Tu suscripción no está activa. Algunas funciones pueden estar limitadas. '
+                                    'Por favor, actualiza tu método de pago para restaurar el acceso completo.',
                     style: Get.textTheme.bodyMedium?.copyWith(
                       color: color != null 
                         ? color!
-                        : Get.theme.colorScheme.error,
+                        : billingStatus == 'active' 
+                          ? Get.theme.colorScheme.primary
+                          : Get.theme.colorScheme.error,
                     ),
                   ),
                 ),
@@ -71,7 +86,9 @@ class PaymentIssueAlertCard extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: color != null 
                   ? color!
-                  : Get.theme.colorScheme.error,
+                  : billingStatus == 'active' 
+                    ? Get.theme.colorScheme.primary
+                    : Get.theme.colorScheme.error,
               ),
               onPressed: onTap ?? () {
                 if (billingStatus == 'canceled') {
@@ -83,15 +100,17 @@ class PaymentIssueAlertCard extends StatelessWidget {
                 }
               },
               child: Text(
-                onTap != null
-                  ? 'Gestionar'
-                    : billingStatus == 'past_due'
-                    ? 'Revisar pago pendiente'
-                      : billingStatus == 'unpaid'
-                      ? 'Actualizar método de pago'
-                        : billingStatus == 'canceled'
-                        ? 'Renovar suscripción'
-                          : '$billingStatus',
+                  billingStatus == 'active'
+                  ? 'Modificar suscripción'
+                  : billingStatus == 'past_due'
+                  ? 'Revisar pago pendiente'
+                    : billingStatus == 'unpaid'
+                    ? 'Actualizar método de pago'
+                      : billingStatus == 'canceled'
+                      ? 'Renovar suscripción'
+                      : billingStatus == 'none'
+                        ? 'Suscribirse'
+                        : '$billingStatus',
               ),
             ),
           ],

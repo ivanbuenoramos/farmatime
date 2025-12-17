@@ -4,16 +4,12 @@ import 'package:get/get.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:farmatime/core/app/brain.dart';
-import 'package:farmatime/data/models/result.dart';
-import 'package:farmatime/domain/usecases/stripe/get_incomplete_payment_usecase.dart';
+
 
 class IncompletePaymentController extends GetxController {
   final Brain brain = Get.find<Brain>();
-  final GetIncompletePaymentUseCase getIncompletePaymentUseCase;
+  // final GetIncompletePaymentUseCase getIncompletePaymentUseCase;
 
-  IncompletePaymentController({
-    required this.getIncompletePaymentUseCase,
-  });
 
   final RxBool isLoading = false.obs;
   final RxnString errorText = RxnString();
@@ -32,35 +28,34 @@ class IncompletePaymentController extends GetxController {
   // Cargar datos del PaymentIntent incompleto
   // ───────────────────────────────────────────────
   Future<void> load() async {
-    isLoading.value = true;
-    errorText.value = null;
+    // isLoading.value = true;
+    // errorText.value = null;
 
-    try {
-      final Result<StripeIncompletePaymentModel?> result =
-          await getIncompletePaymentUseCase(companyId);
+    // try {
+    //   final Result<StripeIncompletePaymentModel?> result = await getIncompletePaymentUseCase(companyId);
 
-      print('[IncompletePaymentController] result.success = ${result.success}');
-      print('[IncompletePaymentController] result.data = ${result.data}');
+    //   print('[IncompletePaymentController] result.success = ${result.success}');
+    //   print('[IncompletePaymentController] result.data = ${result.data}');
 
-      if (!result.success) {
-        errorText.value = result.data?.toString() ?? 'Error al cargar el pago';
-        return;
-      }
+    //   if (!result.success) {
+    //     errorText.value = result.data?.toString() ?? 'Error al cargar el pago';
+    //     return;
+    //   }
 
-      final StripeIncompletePaymentModel? model = result.data;
+    //   final StripeIncompletePaymentModel? model = result.data;
 
-      // Si no hay modelo o no hay pago incompleto → salir
-      if (model == null || !model.hasIncomplete) {
-        Get.back(result: 'no_incomplete');
-        return;
-      }
+    //   // Si no hay modelo o no hay pago incompleto → salir
+    //   if (model == null || !model.hasIncomplete) {
+    //     Get.back(result: 'no_incomplete');
+    //     return;
+    //   }
 
-      paymentInfo.value = model;
-    } catch (e) {
-      errorText.value = 'Error cargando el pago pendiente: $e';
-    } finally {
-      isLoading.value = false;
-    }
+    //   paymentInfo.value = model;
+    // } catch (e) {
+    //   errorText.value = 'Error cargando el pago pendiente: $e';
+    // } finally {
+    //   isLoading.value = false;
+    // }
   }
 
   // ───────────────────────────────────────────────

@@ -1,6 +1,4 @@
-import 'package:farmatime/presentation/presentation.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
 class SubscriptionPaymentIssueModalContent extends StatelessWidget {
   const SubscriptionPaymentIssueModalContent();
@@ -61,10 +59,10 @@ class SubscriptionPaymentIssueModalContent extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).pop(); // cerrar modal
 
-                Get.to(
-                  () => const SubscriptionPaymentIssuePage(),
-                  binding: SubscriptionPaymentIssueBinding(),
-                );
+                // Get.to(
+                //   () => const SubscriptionPaymentIssuePage(),
+                //   binding: SubscriptionPaymentIssueBinding(),
+                // );
               },
               child: const Text('Resolver ahora'),
             ),

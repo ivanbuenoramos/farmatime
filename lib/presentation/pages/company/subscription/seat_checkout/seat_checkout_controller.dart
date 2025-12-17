@@ -1,16 +1,16 @@
-import 'package:farmatime/domain/usecases/stripe/update_seats_and_pay_usecase.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:get/get.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/domain/usecases/stripe/prepare_seat_payment_sheet_usecase.dart';
 
 class SeatCheckoutController extends GetxController {
   SeatCheckoutController({
-    required this.updateSeatsAndPayUseCase,
+    required this.prepareSeatPaymentSheetUseCase,
   });
 
-  final UpdateSeatsAndPayUseCase updateSeatsAndPayUseCase;
+  final PrepareSeatPaymentSheetUseCase prepareSeatPaymentSheetUseCase;
 
   final Brain brain = Get.find<Brain>();
 
@@ -35,45 +35,62 @@ class SeatCheckoutController extends GetxController {
   void dec() => seats.value = seats.value <= 1 ? 1 : seats.value - 1;
 
   Future<void> onContinue() async {
-    if (!hasChanges) return;
+    if (!hasChanges || processing.value) return;
+    if (companyId.isEmpty) {
+      Get.snackbar('Error', 'Empresa no encontrada');
+      return;
+    }
 
     processing.value = true;
 
     try {
-      final res = await updateSeatsAndPayUseCase.call(
+      final res = await prepareSeatPaymentSheetUseCase.call(
         companyId: companyId,
         newTotalSeats: seats.value,
       );
 
-      if (!res.success) {
-        print(res.errorCode);
-        Get.snackbar('Error', 'No se pudo procesar el cambio');
+      if (!res.success || res.data == null) {
+        Get.snackbar('Error', res.errorCode ?? 'No se pudo iniciar el pago');
         return;
       }
 
-      final clientSecret = res.data?.clientSecret;
+      final data = res.data!;
 
-      // ⬇️ NO hay pago (bajar plazas o gratis)
-      if (clientSecret == null) {
+      if (data.noPayment) {
+        // Downgrade o sin cobro -> el webhook subscription.updated te sincroniza Firestore
         Get.back();
+        return;
+      }
+
+      final cs = data.paymentIntentClientSecret;
+      final cust = data.customerId;
+      final eph = data.ephemeralKey;
+
+      if (cs == null || cust == null || eph == null) {
+        Get.snackbar('Error', 'Faltan datos para PaymentSheet');
         return;
       }
 
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
           merchantDisplayName: 'FarmaTime',
+          paymentIntentClientSecret: cs,
+          customerId: cust,
+          customerEphemeralKeySecret: eph,
+          allowsDelayedPaymentMethods: false,
         ),
       );
 
       await Stripe.instance.presentPaymentSheet();
 
-      Get.back(); // ✅ cerrar al pagar
-
+      // NO actualices Firestore aquí. Webhook hará el update real.
+      Get.back();
+    } on StripeException catch (_) {
+      Get.snackbar('Pago cancelado', 'No se completó el pago');
     } catch (e, s) {
-      debugPrint('Stripe error: $e');
+      debugPrint('Seat payment error: $e');
       debugPrint('$s');
-      Get.snackbar('Error de pago', e.toString());
+      Get.snackbar('Error', 'No se pudo completar el pago');
     } finally {
       processing.value = false;
     }

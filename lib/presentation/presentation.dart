@@ -128,20 +128,10 @@ export 'package:farmatime/presentation/pages/company/subscription/select_employe
 export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_controller.dart';
 
-// COMPANY SUBSCRIPTION PAYMENT ISSUE
-export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_page.dart';
-export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_binding.dart';
-export 'package:farmatime/presentation/pages/company/subscription/subscription_payment_issue/subscription_payment_issue_controller.dart';
-
 // COMPANY SUBSCRIPTION INCOMPLETE PAYMENT
 export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_controller.dart';
-
-// COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
-export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_page.dart';
-export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_binding.dart';
-export 'package:farmatime/presentation/pages/company/subscription/confirm_seat_change/confirm_seat_change_controller.dart';
 
 // COMPANY PAYMENT METHODS
 export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_page.dart';

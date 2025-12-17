@@ -5,7 +5,6 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/billing/payment_method_model.dart';
-import 'package:farmatime/domain/usecases/stripe/create_setup_intent_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/list_payment_methods_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/detach_payment_method_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/set_default_payment_method_usecase.dart';
@@ -14,13 +13,13 @@ class PaymentMethodsController extends GetxController {
   final ListPaymentMethodsUseCase listPaymentMethodsUseCase;
   final SetDefaultPaymentMethodUseCase setDefaultPaymentMethodUseCase;
   final DetachPaymentMethodUseCase detachPaymentMethodUseCase;
-  final CreateSetupIntentUseCase createSetupIntentUseCase;
+  // final CreateSetupIntentUseCase createSetupIntentUseCase;
 
   PaymentMethodsController({
     required this.listPaymentMethodsUseCase,
     required this.setDefaultPaymentMethodUseCase,
     required this.detachPaymentMethodUseCase,
-    required this.createSetupIntentUseCase,
+    // required this.createSetupIntentUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -77,51 +76,51 @@ class PaymentMethodsController extends GetxController {
 
   /// Añadir una nueva tarjeta usando PaymentSheet (SetupIntent)
   Future<void> addCard(BuildContext context) async {
-    if (companyId.isEmpty) return;
-    loading.value = true;
+    // if (companyId.isEmpty) return;
+    // loading.value = true;
 
-    try {
-      final res = await createSetupIntentUseCase.call(companyId);
-      if (!res.success || res.data == null) {
-        loading.value = false;
-        Get.snackbar('Error', res.errorCode ?? 'No se pudo iniciar alta de tarjeta');
-        return;
-      }
+    // try {
+    //   final res = await createSetupIntentUseCase.call(companyId);
+    //   if (!res.success || res.data == null) {
+    //     loading.value = false;
+    //     Get.snackbar('Error', res.errorCode ?? 'No se pudo iniciar alta de tarjeta');
+    //     return;
+    //   }
 
-      final payload = res.data!;
+    //   final payload = res.data!;
 
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          merchantDisplayName: 'FarmaTime',
-          customerId: payload.customerId,
-          customerEphemeralKeySecret: payload.ephemeralKeySecret,
-          setupIntentClientSecret: payload.setupIntentClientSecret,
-          style: ThemeMode.system,
-          allowsDelayedPaymentMethods: false,
-          applePay: const PaymentSheetApplePay(merchantCountryCode: 'ES'),
-          googlePay: const PaymentSheetGooglePay(
-            merchantCountryCode: 'ES',
-            testEnv: false,
-          ),
-        ),
-      );
+    //   await Stripe.instance.initPaymentSheet(
+    //     paymentSheetParameters: SetupPaymentSheetParameters(
+    //       merchantDisplayName: 'FarmaTime',
+    //       customerId: payload.customerId,
+    //       customerEphemeralKeySecret: payload.ephemeralKeySecret,
+    //       setupIntentClientSecret: payload.setupIntentClientSecret,
+    //       style: ThemeMode.system,
+    //       allowsDelayedPaymentMethods: false,
+    //       applePay: const PaymentSheetApplePay(merchantCountryCode: 'ES'),
+    //       googlePay: const PaymentSheetGooglePay(
+    //         merchantCountryCode: 'ES',
+    //         testEnv: false,
+    //       ),
+    //     ),
+    //   );
 
-      await Stripe.instance.presentPaymentSheet(); // guarda la tarjeta
+    //   await Stripe.instance.presentPaymentSheet(); // guarda la tarjeta
 
-      Get.snackbar('Listo', 'Tarjeta añadida correctamente');
-      await fetchMethods();
-    } on StripeException catch (e) {
-      if (e.error.code == FailureCode.Canceled) {
-        Get.snackbar('Cancelado', 'No se ha añadido ninguna tarjeta');
-      } else {
-        Get.snackbar('Error', e.error.localizedMessage ?? 'Error de Stripe');
-      }
-    } catch (e) {
-      print(e);
-      Get.snackbar('Error', e.toString());
-    } finally {
-      loading.value = false;
-    }
+    //   Get.snackbar('Listo', 'Tarjeta añadida correctamente');
+    //   await fetchMethods();
+    // } on StripeException catch (e) {
+    //   if (e.error.code == FailureCode.Canceled) {
+    //     Get.snackbar('Cancelado', 'No se ha añadido ninguna tarjeta');
+    //   } else {
+    //     Get.snackbar('Error', e.error.localizedMessage ?? 'Error de Stripe');
+    //   }
+    // } catch (e) {
+    //   print(e);
+    //   Get.snackbar('Error', e.toString());
+    // } finally {
+    //   loading.value = false;
+    // }
   }
 
   IconData iconForBrand(String brand) {

@@ -20,12 +20,15 @@ class CompanyModel {
   final PhoneNumber? phoneNumber;
   final AuthMethod? authMethod;
 
+  /// (Legacy/auxiliar) plazas pagadas guardadas históricamente.
+  /// Si contractedSeats está null/0, hacemos fallback a 1 + purchasedEmployeeSlots.
   final int purchasedEmployeeSlots;
 
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
 
   /// Plazas confirmadas (billadas). Incluye la gratuita.
+  /// ✅ Fuente de verdad recomendada para la app.
   final int? contractedSeats;
 
   /// Estado de facturación (active, past_due, unpaid, none, etc.)
@@ -77,6 +80,30 @@ class CompanyModel {
     required this.updatedAt,
   });
 
+  // ─────────────────────────────────────────────────────────────
+  // Derivados útiles para UI / lógica
+  // ─────────────────────────────────────────────────────────────
+
+  /// Total seats disponibles (incluye la plaza gratuita)
+  int get totalSeats {
+    final cs = contractedSeats ?? 0;
+    if (cs >= 1) return cs;
+
+    final paid = purchasedEmployeeSlots < 0 ? 0 : purchasedEmployeeSlots;
+    return 1 + paid;
+  }
+
+  /// Seats de pago (sin la gratuita)
+  int get paidSeats => (totalSeats - 1).clamp(0, 999999);
+
+  bool get hasActiveSubscription =>
+      (stripeSubscriptionId ?? '').trim().isNotEmpty &&
+      (billingStatus ?? 'none') != 'none';
+
+  // ─────────────────────────────────────────────────────────────
+  // Parsing helpers
+  // ─────────────────────────────────────────────────────────────
+
   static DateTime? _parseDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
@@ -91,35 +118,52 @@ class CompanyModel {
     return null;
   }
 
-  factory CompanyModel.fromJson(Map<String, dynamic> json) => CompanyModel(
-        id: json['id'],
-        email: json['email'],
-        logoUrl: json['logoUrl'],
-        legalName: json['legalName'],
-        vatNumber: json['vatNumber'],
-        address: json['address'] != null ? Address.fromJson(json['address']) : null,
-        phoneNumber: json['phoneNumber'] != null ? PhoneNumber.fromJson(json['phoneNumber']) : null,
-        authMethod: json['authMethod'] != null
-            ? AuthMethod.values.firstWhere(
-                (e) => e.toString() == 'AuthMethod.${json['authMethod']}',
-                orElse: () => AuthMethod.emailPassword,
-              )
-            : AuthMethod.emailPassword,
-        purchasedEmployeeSlots: json['purchasedEmployeeSlots'] ?? 0,
-        stripeCustomerId: json['stripeCustomerId'],
-        stripeSubscriptionId: json['stripeSubscriptionId'],
-        contractedSeats: json['contractedSeats'],
-        billingStatus: json['billingStatus'],
-        currentPeriodEnd: _parseDate(json['currentPeriodEnd']),
-        pendingSeats: json['pendingSeats'],
-        scheduledSeats: json['scheduledSeats'],
-        scheduledPaidSeats: json['scheduledPaidSeats'],
-        scheduledForPeriodEnd: _parseDate(json['scheduledForPeriodEnd']),
-        verifiedEmail: json['verifiedEmail'] ?? false,
-        verifiedPhone: json['verifiedPhone'] ?? false,
-        createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
-        updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
-      );
+  // ─────────────────────────────────────────────────────────────
+  // JSON / Firestore
+  // ─────────────────────────────────────────────────────────────
+
+  factory CompanyModel.fromJson(Map<String, dynamic> json) {
+    final purchased = (json['purchasedEmployeeSlots'] as int?) ?? 0;
+
+    final rawContracted = json['contractedSeats'];
+    int? contracted;
+    if (rawContracted is int) contracted = rawContracted;
+
+    // ✅ Normalización: si contractedSeats viene null/0, derivamos de purchasedEmployeeSlots
+    if (contracted == null || contracted < 1) {
+      contracted = 1 + (purchased < 0 ? 0 : purchased);
+    }
+
+    return CompanyModel(
+      id: json['id'],
+      email: json['email'],
+      logoUrl: json['logoUrl'],
+      legalName: json['legalName'],
+      vatNumber: json['vatNumber'],
+      address: json['address'] != null ? Address.fromJson(json['address']) : null,
+      phoneNumber: json['phoneNumber'] != null ? PhoneNumber.fromJson(json['phoneNumber']) : null,
+      authMethod: json['authMethod'] != null
+          ? AuthMethod.values.firstWhere(
+              (e) => e.toString() == 'AuthMethod.${json['authMethod']}',
+              orElse: () => AuthMethod.emailPassword,
+            )
+          : AuthMethod.emailPassword,
+      purchasedEmployeeSlots: purchased,
+      stripeCustomerId: json['stripeCustomerId'],
+      stripeSubscriptionId: json['stripeSubscriptionId'],
+      contractedSeats: contracted,
+      billingStatus: json['billingStatus'],
+      currentPeriodEnd: _parseDate(json['currentPeriodEnd']),
+      pendingSeats: json['pendingSeats'],
+      scheduledSeats: json['scheduledSeats'],
+      scheduledPaidSeats: json['scheduledPaidSeats'],
+      scheduledForPeriodEnd: _parseDate(json['scheduledForPeriodEnd']),
+      verifiedEmail: json['verifiedEmail'] ?? false,
+      verifiedPhone: json['verifiedPhone'] ?? false,
+      createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,

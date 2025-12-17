@@ -1,24 +1,26 @@
-import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:flutter/material.dart';
+
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 import 'seat_checkout_controller.dart';
+import 'package:farmatime/presentation/widgets/card/base_card.dart';
+
+
 
 class SeatCheckoutPage extends StatelessWidget {
   const SeatCheckoutPage({super.key});
 
-  String _fmtCents(int cents) {
-    final fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
-    return fmt.format(cents / 100).replaceAll(' ', '');
-  }
+  // String _fmtCents(int cents) {
+  //   final fmt = NumberFormat.currency(locale: 'es_ES', symbol: '€');
+  //   return fmt.format(cents / 100).replaceAll(' ', '');
+  // }
 
   @override
   Widget build(BuildContext context) {
     final c = Get.find<SeatCheckoutController>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Actualizar plazas')),
+      appBar: AppBar(title: const Text('Modificar suscripción')),
       bottomNavigationBar:Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
@@ -183,16 +185,16 @@ class SeatCheckoutPage extends StatelessWidget {
     );
   }
 
-  Widget _kvBig(BuildContext ctx, String k, String v) {
-    final t = Theme.of(ctx);
-    return Row(
-      children: [
-        Expanded(child: Text(k, style: t.textTheme.headlineSmall)),
-        Text(
-          v,
-          style: t.textTheme.headlineSmall?.copyWith(color: t.colorScheme.primary),
-        ),
-      ],
-    );
-  }
+  // Widget _kvBig(BuildContext ctx, String k, String v) {
+  //   final t = Theme.of(ctx);
+  //   return Row(
+  //     children: [
+  //       Expanded(child: Text(k, style: t.textTheme.headlineSmall)),
+  //       Text(
+  //         v,
+  //         style: t.textTheme.headlineSmall?.copyWith(color: t.colorScheme.primary),
+  //       ),
+  //     ],
+  //   );
+  // }
 }

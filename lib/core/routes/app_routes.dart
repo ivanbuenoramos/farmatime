@@ -172,12 +172,6 @@ class AppRoutes {
       ),
 
       GetPage(
-        name: Routes.companySubscriptionPaymentIssue,
-        page: () => const SubscriptionPaymentIssuePage(),
-        binding: SubscriptionPaymentIssueBinding(),
-      ),
-
-      GetPage(
         name: Routes.companySubscriptionIncompletePayment,
         page: () => const IncompletePaymentPage(),
         binding: IncompletePaymentBinding(),
