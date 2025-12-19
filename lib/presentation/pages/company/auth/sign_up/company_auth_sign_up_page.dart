@@ -78,10 +78,11 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
               const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: BlockButton(
+                child: Obx(() => BlockButton(
+                  loading: controller.isLoading.value,
                   onPressed: controller.register,
                   label: 'Crear cuenta',
-                ),
+                )),
               ),
               Spacer(),
               Column(

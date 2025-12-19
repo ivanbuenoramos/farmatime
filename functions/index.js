@@ -6,8 +6,9 @@ setGlobalOptions({
 
 // --- STRIPE ---
 exports.stripe_createCustomer = require('./src/stripe/createCustomer').stripe_createCustomer;
-exports.stripe_prepareSeatPaymentSheet = require('./src/stripe/prepareSeatPaymentSheet').stripe_prepareSeatPaymentSheet;
+exports.stripe_createSeatCheckoutSession = require('./src/stripe/createSeatCheckoutSession').stripe_createSeatCheckoutSession;
 exports.stripe_createBillingPortalSession = require('./src/stripe/createBillingPortalSession').stripe_createBillingPortalSession;
+exports.stripe_previewSeatChange = require('./src/stripe/previewSeatChange').stripe_previewSeatChange;
 exports.stripe_listInvoices = require('./src/stripe/listInvoices').stripe_listInvoices;
 exports.stripe_webhook = require('./src/stripe/stripeWebhook').stripe_webhook;
 

@@ -74,8 +74,11 @@ class SubscriptionController extends GetxController {
 
       billingStatus.value = (data['billingStatus'] ?? '').toString();
 
+
       if (data['currentPeriodEnd'] is Timestamp) {
         currentPeriodEnd.value = (data['currentPeriodEnd'] as Timestamp).toDate();
+      } else if (data['currentPeriodEnd'] is int) {
+        currentPeriodEnd.value = DateTime.fromMillisecondsSinceEpoch((data['currentPeriodEnd'] as int) * 1000);
       } else {
         currentPeriodEnd.value = null;
       }

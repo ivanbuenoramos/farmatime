@@ -1,21 +1,24 @@
 // src/stripe/stripeWebhook.js
 const { onRequest } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
-
 const { db, admin } = require('../config/firebase');
 const { getStripe } = require('../config/stripe');
-const { updateCompanyMirror, getCompanyIdFromCustomer } = require('../helpers/companyMirror');
-const { updateEmployeesForBillingState } = require('../helpers/billingEmployees');
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const PRICE_ID = String(process.env.PRICE_ID || '').trim();
 
-function getCustomerId(obj) {
+function asId(obj) {
   if (!obj) return '';
   return typeof obj === 'string' ? obj : (obj.id || '');
 }
 
-// ✅ Stripe quantity = PAID seats (total-1)
-function getPaidSeatsFromSub(sub, PRICE_ID) {
+function tsFromUnixSeconds(s) {
+  if (!s || typeof s !== 'number') return null;
+  return admin.firestore.Timestamp.fromMillis(s * 1000);
+}
+
+// Stripe quantity = paid seats (totalSeats - 1)
+function getPaidSeatsFromSubscription(sub) {
   const items = sub?.items?.data || [];
   const seatItem =
     (PRICE_ID ? items.find((i) => i?.price?.id === PRICE_ID) : null) ||
@@ -25,206 +28,316 @@ function getPaidSeatsFromSub(sub, PRICE_ID) {
   return typeof q === 'number' && q >= 0 ? q : 0;
 }
 
-async function retrieveSubExpanded(stripe, subId) {
-  return stripe.subscriptions.retrieve(subId, { expand: ['items.data.price'] });
+async function retrieveSubscriptionExpanded(stripe, subId) {
+  return stripe.subscriptions.retrieve(subId, {
+    expand: ['items.data.price'],
+  });
 }
 
-exports.stripe_webhook = onRequest(async (req, res) => {
-  const sig = req.headers['stripe-signature'];
+async function findCompanyId({ companyId, customerId, subscriptionObj }) {
+  // 1) metadata en subscription (lo mejor)
+  const metaCompanyId = subscriptionObj?.metadata?.companyId;
+  if (metaCompanyId) return String(metaCompanyId);
 
-  if (!WEBHOOK_SECRET) {
-    logger.error('⚠️ Falta STRIPE_WEBHOOK_SECRET en secretos');
-    return res.status(500).send('Webhook secret no configurado');
+  // 2) companyId directo
+  if (companyId) return String(companyId);
+
+  // 3) lookup por stripeCustomerId
+  if (customerId) {
+    const snap = await db
+        .collection('companies')
+        .where('stripeCustomerId', '==', String(customerId))
+        .limit(1)
+        .get();
+    if (!snap.empty) return snap.docs[0].id;
   }
 
-  let event;
-  try {
-    const stripe = getStripe();
-    event = stripe.webhooks.constructEvent(req.rawBody, sig, WEBHOOK_SECRET);
-  } catch (err) {
-    logger.error('❌ Verificación de firma fallida', { msg: err.message });
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+  return '';
+}
 
-  logger.info('➡️ Stripe webhook recibido', { type: event.type, id: event.id });
+async function markEventProcessedGlobal(eventId) {
+  if (!eventId) return true;
 
-  try {
-    const stripe = getStripe();
-    const PRICE_ID = String(process.env.PRICE_ID || '').trim();
+  const ref = db.collection('_stripeEvents').doc(eventId);
+  const doc = await ref.get();
+  if (doc.exists) return false;
 
-    switch (event.type) {
-      case 'customer.subscription.created': {
-        const sub = event.data.object;
+  await ref.set({
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
-        const stripeCustomerId = getCustomerId(sub.customer);
-        const companyId =
-          sub.metadata?.companyId || (await getCompanyIdFromCustomer(stripeCustomerId));
+  return true;
+}
 
-        if (!companyId) break;
+async function markEventProcessedForCompany(companyId, eventId) {
+  if (!companyId || !eventId) return true;
 
-        const fullSub = await retrieveSubExpanded(stripe, sub.id);
-        const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
-        const contractedSeats = paidSeats + 1;
+  const ref = db.collection('companies').doc(companyId).collection('stripeEvents').doc(eventId);
+  const doc = await ref.get();
+  if (doc.exists) return false;
 
-        await updateCompanyMirror(companyId, {
-          stripeCustomerId,
-          stripeSubscriptionId: fullSub.id,
-          billingStatus: fullSub.status,
-          currentPeriodEnd: fullSub.current_period_end,
-          contractedSeats, // ✅ SIEMPRE
-        });
+  await ref.set({
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
-        await updateEmployeesForBillingState(companyId);
-        break;
+  return true;
+}
+
+async function updateCompany(companyId, patch) {
+  if (!companyId) return;
+  await db.collection('companies').doc(companyId).set(
+      {
+        ...patch,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+  );
+}
+
+async function syncFromSubscription({ stripe, companyId, customerId, subscriptionId }) {
+  if (!subscriptionId) return;
+
+  const fullSub = await retrieveSubscriptionExpanded(stripe, subscriptionId);
+
+  const paidSeats = getPaidSeatsFromSubscription(fullSub);
+  const contractedSeats = paidSeats + 1;
+
+  await updateCompany(companyId, {
+    stripeCustomerId: customerId || asId(fullSub.customer),
+    stripeSubscriptionId: fullSub.id,
+    billingStatus: fullSub.status, // active | past_due | incomplete | canceled...
+    // ✅ Guardar como Timestamp (no unix number)
+    currentPeriodStart: tsFromUnixSeconds(fullSub.current_period_start),
+    currentPeriodEnd: tsFromUnixSeconds(fullSub.current_period_end),
+    contractedSeats,
+  });
+}
+
+async function saveInvoice(companyId, inv) {
+  if (!companyId || !inv?.id) return;
+
+  await db
+      .collection('companies')
+      .doc(companyId)
+      .collection('invoices')
+      .doc(inv.id)
+      .set(
+          {
+            number: inv.number || inv.id,
+            status: inv.status || null,
+            currency: inv.currency || null,
+
+            amountPaidCents: inv.amount_paid ?? 0,
+            amountDueCents: inv.amount_due ?? 0,
+            subtotalCents: inv.subtotal ?? 0,
+            totalCents: inv.total ?? 0,
+
+            createdAt: tsFromUnixSeconds(inv.created),
+            periodStart: tsFromUnixSeconds(inv.period_start),
+            periodEnd: tsFromUnixSeconds(inv.period_end),
+
+            hostedInvoiceUrl: inv.hosted_invoice_url || null,
+            pdfUrl: inv.invoice_pdf || null,
+
+            stripeCustomerId: asId(inv.customer) || null,
+            stripeSubscriptionId: asId(inv.subscription) || null,
+
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+      );
+}
+
+exports.stripe_webhook = onRequest(
+    { region: 'europe-west1' },
+    async (req, res) => {
+      if (!WEBHOOK_SECRET) {
+        logger.error('Falta STRIPE_WEBHOOK_SECRET');
+        return res.status(500).send('Webhook secret no configurado');
+      }
+      if (!PRICE_ID) {
+        logger.error('Falta PRICE_ID');
+        return res.status(500).send('PRICE_ID no configurado');
       }
 
-      case 'customer.subscription.updated': {
-        const sub = event.data.object;
+      const sig = req.headers['stripe-signature'];
+      let event;
 
-        const stripeCustomerId = getCustomerId(sub.customer);
-        const companyId =
-          sub.metadata?.companyId || (await getCompanyIdFromCustomer(stripeCustomerId));
-
-        if (!companyId) break;
-
-        const fullSub = await retrieveSubExpanded(stripe, sub.id);
-        const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
-        const contractedSeats = paidSeats + 1;
-
-        await updateCompanyMirror(companyId, {
-          stripeCustomerId,
-          stripeSubscriptionId: fullSub.id,
-          billingStatus: fullSub.status,
-          currentPeriodEnd: fullSub.current_period_end,
-          contractedSeats, // ✅ SIEMPRE
-        });
-
-        await updateEmployeesForBillingState(companyId);
-        break;
+      try {
+        const stripe = getStripe();
+        event = stripe.webhooks.constructEvent(req.rawBody, sig, WEBHOOK_SECRET);
+      } catch (err) {
+        logger.error('Verificación de firma fallida', { msg: err?.message });
+        return res.status(400).send(`Webhook Error: ${err?.message}`);
       }
 
-      case 'invoice.paid': {
-        const inv = event.data.object;
+      const stripe = getStripe();
+      logger.info('Stripe webhook recibido', { type: event.type, id: event.id });
 
-        const stripeCustomerId = getCustomerId(inv.customer);
-        const companyId = await getCompanyIdFromCustomer(stripeCustomerId);
-
-        logger.info('[invoice.paid]', {
-          companyId,
-          stripeCustomerId,
-          amount_paid: inv.amount_paid,
-          invoiceId: inv.id,
-        });
-
-        if (!companyId) break;
-
-        // Guardar invoice (solo si importe > 0)
-        if ((inv.amount_paid ?? 0) > 0) {
-          await db
-              .collection('companies')
-              .doc(companyId)
-              .collection('invoices')
-              .doc(inv.id)
-              .set(
-                  {
-                    number: inv.number || inv.id,
-                    amountCents: inv.amount_paid || 0,
-                    date: admin.firestore.Timestamp.fromMillis((inv.created || 0) * 1000),
-                    pdfUrl: inv.invoice_pdf || null,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  },
-                  { merge: true },
-              );
+      try {
+        // Idempotencia global
+        const shouldProcessGlobal = await markEventProcessedGlobal(event.id);
+        if (!shouldProcessGlobal) {
+          return res.json({ received: true, skipped: true });
         }
 
-        // Si hay subscription en el invoice, sincroniza desde Stripe (FUENTE DE VERDAD)
-        const subId =
-          typeof inv.subscription === 'string' ? inv.subscription : inv.subscription?.id;
+        switch (event.type) {
+          // ─────────────────────────────────────────────
+          // CHECKOUT
+          // ─────────────────────────────────────────────
+          case 'checkout.session.completed':
+          case 'checkout.session.async_payment_succeeded':
+          case 'checkout.session.async_payment_failed': {
+            const session = event.data.object;
 
-        if (subId) {
-          const fullSub = await retrieveSubExpanded(stripe, subId);
-          const paidSeats = getPaidSeatsFromSub(fullSub, PRICE_ID);
-          const contractedSeats = paidSeats + 1;
+            const companyId = String(session.client_reference_id || session.metadata?.companyId || '');
+            const customerId = asId(session.customer);
+            const subId = asId(session.subscription);
 
-          await updateCompanyMirror(companyId, {
-            stripeCustomerId,
-            stripeSubscriptionId: fullSub.id,
-            billingStatus: fullSub.status,
-            currentPeriodEnd: fullSub.current_period_end,
-            contractedSeats,
-          });
+            if (!companyId) break;
 
-          await updateEmployeesForBillingState(companyId);
-        } else {
-          // Invoice sin subscription (raro aquí). Al menos marca active
-          await updateCompanyMirror(companyId, {
-            stripeCustomerId,
-            billingStatus: 'active',
-          });
-          await updateEmployeesForBillingState(companyId);
+            const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
+            if (!shouldProcess) break;
+
+            if (subId) {
+              await syncFromSubscription({
+                stripe,
+                companyId,
+                customerId,
+                subscriptionId: subId,
+              });
+            } else {
+              await updateCompany(companyId, { stripeCustomerId: customerId });
+            }
+
+            break;
+          }
+
+          // ─────────────────────────────────────────────
+          // SUBSCRIPTIONS
+          // ─────────────────────────────────────────────
+          case 'customer.subscription.created':
+          case 'customer.subscription.updated': {
+            const sub = event.data.object;
+            const customerId = asId(sub.customer);
+
+            const companyId = await findCompanyId({
+              companyId: sub.metadata?.companyId,
+              customerId,
+              subscriptionObj: sub,
+            });
+
+            if (!companyId) break;
+
+            const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
+            if (!shouldProcess) break;
+
+            await syncFromSubscription({
+              stripe,
+              companyId,
+              customerId,
+              subscriptionId: sub.id,
+            });
+
+            break;
+          }
+
+          case 'customer.subscription.deleted': {
+            const sub = event.data.object;
+            const customerId = asId(sub.customer);
+
+            const companyId = await findCompanyId({
+              companyId: sub.metadata?.companyId,
+              customerId,
+              subscriptionObj: sub,
+            });
+
+            if (!companyId) break;
+
+            const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
+            if (!shouldProcess) break;
+
+            // ✅ Reseteo limpio
+            await updateCompany(companyId, {
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: null,
+              billingStatus: 'none',
+              contractedSeats: 1,
+              currentPeriodStart: null,
+              currentPeriodEnd: null,
+            });
+
+            break;
+          }
+
+          // ─────────────────────────────────────────────
+          // INVOICES
+          // ─────────────────────────────────────────────
+          case 'invoice.paid': {
+            const inv = event.data.object;
+            const customerId = asId(inv.customer);
+
+            const companyId = await findCompanyId({ customerId });
+            if (!companyId) break;
+
+            const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
+            if (!shouldProcess) break;
+
+            await saveInvoice(companyId, inv);
+
+            const subId = asId(inv.subscription);
+            if (subId) {
+              await syncFromSubscription({
+                stripe,
+                companyId,
+                customerId,
+                subscriptionId: subId,
+              });
+            } else {
+              await updateCompany(companyId, { stripeCustomerId: customerId });
+            }
+
+            break;
+          }
+
+          case 'invoice.payment_failed': {
+            const inv = event.data.object;
+            const customerId = asId(inv.customer);
+
+            const companyId = await findCompanyId({ customerId });
+            if (!companyId) break;
+
+            const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
+            if (!shouldProcess) break;
+
+            await saveInvoice(companyId, inv);
+
+            await updateCompany(companyId, {
+              stripeCustomerId: customerId,
+              billingStatus: 'past_due',
+            });
+
+            const subId = asId(inv.subscription);
+            if (subId) {
+              await syncFromSubscription({
+                stripe,
+                companyId,
+                customerId,
+                subscriptionId: subId,
+              });
+            }
+
+            break;
+          }
+
+          default:
+            break;
         }
 
-        break;
+        return res.json({ received: true });
+      } catch (e) {
+        logger.error('Error manejando webhook', { msg: e?.message, stack: e?.stack });
+        return res.status(500).send('Internal error');
       }
-
-      case 'invoice.payment_failed': {
-        const inv = event.data.object;
-
-        const stripeCustomerId = getCustomerId(inv.customer);
-        const companyId = await getCompanyIdFromCustomer(stripeCustomerId);
-
-        logger.info('[invoice.payment_failed]', {
-          companyId,
-          stripeCustomerId,
-          amount_due: inv.amount_due,
-          invoiceId: inv.id,
-        });
-
-        if (!companyId) break;
-
-        // Aquí puedes implementar tu gracia de 30 días si quieres:
-        // - o guardas graceUntil = now + 30d
-        // - o graceUntil = currentPeriodEnd + 30d (si tienes sub)
-        await updateCompanyMirror(companyId, { billingStatus: 'past_due' });
-        await updateEmployeesForBillingState(companyId);
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-
-        const stripeCustomerId = getCustomerId(sub.customer);
-        const companyId =
-          sub.metadata?.companyId || (await getCompanyIdFromCustomer(stripeCustomerId));
-
-        logger.info('[subscription.deleted]', {
-          companyId,
-          stripeCustomerId,
-          subId: sub.id,
-          status: sub.status,
-        });
-
-        if (!companyId) break;
-
-        await updateCompanyMirror(companyId, {
-          stripeCustomerId,
-          stripeSubscriptionId: null,
-          billingStatus: 'none',
-          contractedSeats: 1,
-          currentPeriodEnd: null,
-        });
-
-        await updateEmployeesForBillingState(companyId);
-        break;
-      }
-
-      default:
-        break;
-    }
-  } catch (e) {
-    logger.error('❌ Error manejando webhook', { msg: e.message, stack: e.stack });
-    return res.status(500).send('Internal error');
-  }
-
-  return res.json({ received: true });
-});
+    },
+);

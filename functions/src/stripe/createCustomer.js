@@ -13,22 +13,43 @@ exports.stripe_createCustomer = onCall(
 
         const uid = request.auth.uid;
         const { companyId } = request.data || {};
+        if (!companyId) {
+          throw new HttpsError('invalid-argument', 'companyId requerido');
+        }
 
-        if (!companyId) throw new HttpsError('invalid-argument', 'companyId requerido');
         await assertCompanyAccount(uid, companyId);
 
         const ref = db.collection('companies').doc(companyId);
         const snap = await ref.get();
-        if (!snap.exists) throw new HttpsError('not-found', 'Empresa no encontrada');
+        if (!snap.exists) {
+          throw new HttpsError('not-found', 'Empresa no encontrada');
+        }
 
-        const company = snap.data() || {};
-        const existing = String(company.stripeCustomerId || '').trim();
-        if (existing) return { ok: true, customerId: existing };
+        const company = snap.data();
+
+        // Si ya existe, no recreamos
+        if (company.stripeCustomerId) {
+          return { ok: true, customerId: company.stripeCustomerId };
+        }
+
+        if (!company.email) {
+          throw new HttpsError(
+              'failed-precondition',
+              'La empresa no tiene email',
+          );
+        }
 
         const stripe = getStripe();
 
         const customer = await stripe.customers.create({
-          metadata: { companyId },
+          email: company.email,
+          name: company.legalName,
+          address: {
+            country: 'ES',
+          },
+          metadata: {
+            companyId,
+          },
         });
 
         await ref.update({
@@ -40,7 +61,11 @@ exports.stripe_createCustomer = onCall(
 
         return { ok: true, customerId: customer.id };
       } catch (err) {
-        logger.error('[stripe_createCustomer]', { msg: err?.message, stack: err?.stack });
+        logger.error('[stripe_createCustomer]', {
+          msg: err?.message,
+          stack: err?.stack,
+        });
+
         if (err instanceof HttpsError) throw err;
         throw new HttpsError('internal', err?.message || 'Error interno');
       }

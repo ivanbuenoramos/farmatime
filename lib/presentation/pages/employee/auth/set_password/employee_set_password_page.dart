@@ -15,6 +15,7 @@ class EmployeeSetPasswordPage extends GetView<EmployeeSetPasswordController> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Asignar contraseña'),
+        titleSpacing: 16,
       ),
       body: Obx(() => SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),

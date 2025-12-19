@@ -19,34 +19,34 @@ class CompanyEmployeesPage extends StatelessWidget {
         title: const Text('Lista de empleados'),
         titleSpacing: 16,
       ),
-      floatingActionButton:FloatingActionButton(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(100),
-        ),
-        onPressed: controller.onAddEmployeePressed,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: Obx(() {
+        final enabled = controller.canCreateEmployee;
+        return FloatingActionButton(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          onPressed: enabled ? controller.onAddEmployeePressed : null,
+          child: const Icon(Icons.add),
+        );
+      }),
       body: Obx(() {
         final employees = controller.employees;
-        final seats = controller.contractedSeats.value;
+        final seats = controller.effectiveSeats; // ✅ aquí está la gracia
 
         final totalCards = (seats > employees.length) ? seats : employees.length;
+
+        final billingStatus = controller.brain.company.value!.billingStatus;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             children: [
-              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
-                PaymentIssueAlertCard(
-                  billingStatus: controller.brain.company.value!.billingStatus,
-                ),
+              if (billingStatus != 'active' && billingStatus != 'none') ...[
+                PaymentIssueAlertCard(billingStatus: billingStatus),
                 const SizedBox(height: 12),
               ],
               BaseCard(
                 title: 'Empleados · ${employees.length}/$seats',
                 children: [
-              
                   if (controller.isLoading.value)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
@@ -59,16 +59,22 @@ class CompanyEmployeesPage extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     separatorBuilder: (_, __) => const SizedBox(height: 5),
                     itemBuilder: (context, index) {
-              
                       final isRealEmployee = index < employees.length;
-              
+
                       if (isRealEmployee) {
                         final employee = employees[index];
+
+                        // ✅ si hay problema de pago, solo el más antiguo es usable
+                        final allowedByBilling = controller.canAccessEmployee(employee);
+
+                        final isActive = employee.accountStatus == EmployeeAccountStatus.active || employee.accountStatus == EmployeeAccountStatus.pending;
+                        final canOpen = isActive && allowedByBilling;
+
                         return Opacity(
-                          opacity: (employee.accountStatus == EmployeeAccountStatus.active) ? 1.0 : 0.6,
+                          opacity: canOpen ? 1.0 : 0.6,
                           child: InkWell(
                             onTap: () {
-                              if (employee.accountStatus == EmployeeAccountStatus.active) {
+                              if (canOpen) {
                                 controller.reditectToEmployeeDetail(employee);
                               } else {
                                 showEmployeeInfoLockedDialog();
@@ -106,14 +112,20 @@ class CompanyEmployeesPage extends StatelessWidget {
                                         const SizedBox(height: 2),
                                         Row(
                                           children: [
-                                            // Text(
-                                            //   employee.position ?? 'Empleado',
-                                            //   style: Get.textTheme.bodySmall
-                                            // ),
                                             Text(
                                               employee.accountStatus?.name ?? 'Estado desconocido',
-                                              style: Get.textTheme.bodySmall
+                                              style: Get.textTheme.bodySmall,
                                             ),
+                                            if (!allowedByBilling) ...[
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                'Bloqueado por pago',
+                                                style: Get.textTheme.bodySmall?.copyWith(
+                                                  color: Get.theme.colorScheme.tertiary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
                                             if (employee.workdayType != null) ...[
                                               const SizedBox(width: 10),
                                               Text(
@@ -134,17 +146,19 @@ class CompanyEmployeesPage extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 10),
-                                  Icon(Icons.chevron_right_rounded, color: Get.theme.colorScheme.outline, size: 32),
+                                  Icon(Icons.chevron_right_rounded,
+                                      color: Get.theme.colorScheme.outline, size: 32),
                                 ],
                               ),
                             ),
                           ),
                         );
                       }
-                      // Tarjeta vacía (hueco libre contratado)
+
+                      // Slot vacío
                       return DottedSlotCard(
                         onTap: controller.onAddEmployeePressed,
-                        enabled: controller.brain.company.value!.billingStatus == 'active' || controller.brain.company.value!.billingStatus == 'none',
+                        enabled: controller.subscriptionIsOk,
                       );
                     },
                   ),
@@ -160,14 +174,13 @@ class CompanyEmployeesPage extends StatelessWidget {
 
 /// Tarjeta visual para un hueco contratado libre
 class DottedSlotCard extends StatelessWidget {
-
   final VoidCallback? onTap;
   final bool enabled;
 
   const DottedSlotCard({
     this.onTap,
     this.enabled = true,
-    super.key
+    super.key,
   });
 
   @override
@@ -201,8 +214,8 @@ class DottedSlotCard extends StatelessWidget {
                   ),
                   child: Icon(
                     Icons.person_add_alt_1,
-                    size: 20, 
-                    color: theme.colorScheme.primary
+                    size: 20,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -220,9 +233,8 @@ class DottedSlotCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Hueco libre',
-                        style:
-                            theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                        enabled ? 'Hueco libre' : 'Bloqueado por pago',
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                       ),
                     ],
                   ),

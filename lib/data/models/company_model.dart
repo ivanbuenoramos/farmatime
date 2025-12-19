@@ -34,6 +34,9 @@ class CompanyModel {
   /// Estado de facturación (active, past_due, unpaid, none, etc.)
   final String? billingStatus;
 
+  /// Inicio del periodo actual (según Stripe)
+  final DateTime? currentPeriodStart;
+
   /// Fin del periodo actual (según Stripe)
   final DateTime? currentPeriodEnd;
 
@@ -69,6 +72,7 @@ class CompanyModel {
     this.stripeSubscriptionId,
     this.contractedSeats,
     this.billingStatus,
+    this.currentPeriodStart,
     this.currentPeriodEnd,
     this.pendingSeats,
     this.scheduledSeats,
@@ -126,10 +130,14 @@ class CompanyModel {
     final purchased = (json['purchasedEmployeeSlots'] as int?) ?? 0;
 
     final rawContracted = json['contractedSeats'];
-    int? contracted;
-    if (rawContracted is int) contracted = rawContracted;
 
-    // ✅ Normalización: si contractedSeats viene null/0, derivamos de purchasedEmployeeSlots
+    int? contracted;
+    if (rawContracted is num) {
+      contracted = rawContracted.toInt();
+    } else if (rawContracted is String) {
+      contracted = int.tryParse(rawContracted);
+    }
+
     if (contracted == null || contracted < 1) {
       contracted = 1 + (purchased < 0 ? 0 : purchased);
     }
@@ -153,6 +161,7 @@ class CompanyModel {
       stripeSubscriptionId: json['stripeSubscriptionId'],
       contractedSeats: contracted,
       billingStatus: json['billingStatus'],
+      currentPeriodStart: _parseDate(json['currentPeriodStart']),
       currentPeriodEnd: _parseDate(json['currentPeriodEnd']),
       pendingSeats: json['pendingSeats'],
       scheduledSeats: json['scheduledSeats'],
@@ -179,6 +188,7 @@ class CompanyModel {
         'stripeSubscriptionId': stripeSubscriptionId,
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
+        'currentPeriodStart': currentPeriodStart?.toIso8601String(),
         'currentPeriodEnd': currentPeriodEnd?.toIso8601String(),
         'pendingSeats': pendingSeats,
         'scheduledSeats': scheduledSeats,
@@ -205,6 +215,7 @@ class CompanyModel {
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd,
+        'currentPeriodStart': currentPeriodStart,
         'pendingSeats': pendingSeats,
         'scheduledSeats': scheduledSeats,
         'scheduledPaidSeats': scheduledPaidSeats,
@@ -253,6 +264,7 @@ class CompanyModel {
       stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
       contractedSeats: contractedSeats ?? this.contractedSeats,
       billingStatus: billingStatus ?? this.billingStatus,
+      currentPeriodStart: currentPeriodStart ?? this.currentPeriodStart,
       currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
       pendingSeats: pendingSeats ?? this.pendingSeats,
       scheduledSeats: scheduledSeats ?? this.scheduledSeats,

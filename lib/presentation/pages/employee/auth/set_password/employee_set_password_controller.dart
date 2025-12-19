@@ -1,5 +1,6 @@
 // presentation/pages/account/change_password/change_password_controller.dart
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:flutter/material.dart';
@@ -124,7 +125,7 @@ class EmployeeSetPasswordController extends GetxController {
     );
     newCtrl.clear();
     confirmCtrl.clear();
-    Get.back();
+    Get.offNamed(Routes.employeeMain);
 
 
   }

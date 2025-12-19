@@ -379,10 +379,12 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                   // Lista de fichajes del día
                   BaseCard(
                     title: 'Fichajes',
+                    actions: [Text('Pulsa para editar un fichaje')],
                     children: [
                       const SizedBox(height: 8),
                       ListView.separated(
                         shrinkWrap: true,
+                        padding: EdgeInsets.zero,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: shifts.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -427,108 +429,119 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                                 ),
                               ),
                               padding: const EdgeInsets.all(12),
-                              child: Column(
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.access_time_filled,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        '$inTxt  –  $outTxt',
-                                        style: textTheme.bodyMedium?.copyWith(
-                                          fontWeight: FontWeight.w600,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.access_time_filled,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '$inTxt  –  $outTxt',
+                                              style: textTheme.bodyMedium?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            if (s.isEdited)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.withOpacity(0.12),
+                                                  borderRadius: BorderRadius.circular(999),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.edit,
+                                                      size: 14,
+                                                      color: Colors.orange,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Editado',
+                                                      style: textTheme.bodySmall?.copyWith(
+                                                        color: Colors.orange,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      if (s.isEdited)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.orange.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(999),
-                                          ),
-                                          child: Row(
+                                    
+                                        const SizedBox(height: 6),
+                                    
+                                        // Duración
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.timer_outlined,
+                                              size: 18,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              _formatDuration(worked),
+                                              style: textTheme.bodyMedium,
+                                            ),
+                                          ],
+                                        ),
+                                    
+                                        // Motivo de edición
+                                        if (s.isEdited && (s.editReason?.isNotEmpty ?? false)) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Icon(
-                                                Icons.edit,
-                                                size: 14,
+                                                Icons.notes_rounded,
+                                                size: 18,
                                                 color: Colors.orange,
                                               ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Editado',
-                                                style: textTheme.bodySmall?.copyWith(
-                                                  color: Colors.orange,
-                                                  fontWeight: FontWeight.w600,
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  s.editReason!,
+                                                  style: textTheme.bodySmall?.copyWith(
+                                                    color:
+                                                        textTheme.bodySmall?.color?.withOpacity(0.9),
+                                                  ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 6),
-
-                                  // Duración
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.timer_outlined,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _formatDuration(worked),
-                                        style: textTheme.bodyMedium,
-                                      ),
-                                    ],
-                                  ),
-
-                                  // Motivo de edición
-                                  if (s.isEdited && (s.editReason?.isNotEmpty ?? false)) ...[
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.notes_rounded,
-                                          size: 18,
-                                          color: Colors.orange,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(
-                                            s.editReason!,
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Editado por ${
+                                              s.editedBy == 'company' 
+                                                ? 'farmacia' 
+                                                : s.editedBy == 'employee'
+                                                    ? 'empleado' 
+                                                    : s.editedBy ?? 'desconocido' 
+                                            } el ${s.editedAt != null ? DateFormat('d/M/y - HH:mm').format(s.editedAt!) : 'desconocida'}',
                                             style: textTheme.bodySmall?.copyWith(
-                                              color:
-                                                  textTheme.bodySmall?.color?.withOpacity(0.9),
-                                            ),
-                                          ),
-                                        ),
+                                              fontStyle: FontStyle.italic,
+                                            ),  
+                                          )
+                                        ],
                                       ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Editado por ${
-                                        s.editedBy == 'company' 
-                                          ? 'farmacia' 
-                                          : s.editedBy == 'employee'
-                                              ? 'empleado' 
-                                              : s.editedBy ?? 'desconocido' 
-                                      } el ${s.editedAt != null ? DateFormat('d/M/y - HH:mm').format(s.editedAt!) : 'desconocida'}',
-                                      style: textTheme.bodySmall?.copyWith(
-                                        fontStyle: FontStyle.italic,
-                                      ),  
-                                    )
-                                  ],
+                                  ),
+                                  Icon(
+                                    Icons.edit,
+                                    color: Get.theme.colorScheme.primary,
+                                  ),
                                 ],
                               ),
                             ),
