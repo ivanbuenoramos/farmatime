@@ -34,15 +34,18 @@ class SeatCheckoutPage extends StatelessWidget {
               children: [
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
-                    onPressed: controller.processing.value ? null : controller.onContinue,
-                    child: controller.processing.value
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Continuar'),
+                  child: Opacity(
+                    opacity: hasChanges ? 1.0 : 0.4,
+                    child: FilledButton(
+                      onPressed: controller.processing.value ? null : controller.onContinue,
+                      child: controller.processing.value
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Continuar'),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -50,7 +53,7 @@ class SeatCheckoutPage extends StatelessWidget {
                   _helperText(hasChanges: hasChanges, isIncrease: isIncrease),
                   style: Get.textTheme.bodySmall?.copyWith(
                     color: isIncrease
-                        ? Get.theme.colorScheme.primary
+                        ? Get.theme.colorScheme.secondary
                         : (hasChanges ? Get.theme.colorScheme.secondary : Colors.grey),
                   ),
                   textAlign: TextAlign.center,
@@ -141,21 +144,29 @@ class SeatCheckoutPage extends StatelessWidget {
               BaseCard(
                 title: 'Resumen',
                 children: [
-                  // ✅ nota de estimación
-                  Text(
-                    'Importes estimados. El cobro final puede variar ligeramente por prorrateo y redondeos.',
-                    style: Get.textTheme.bodySmall?.copyWith(
-                      color: Get.theme.colorScheme.onSurface.withAlpha(150),
+
+                  if (controller.brain.company.value!.billingStatus == 'active' && newSeats > (controller.brain.company.value!.contractedSeats ?? 0)) ... [
+                    Text(
+                      'Se te cobrará ahora la parte proporcional correspondiente al resto del ciclo actual de las nuevas plazas.',
+                      style: Get.textTheme.bodySmall
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                  ],
+
+                  _kv(context, 'Tipo de suscripción', 'Mensual'),
+                  const SizedBox(height: 8),
+                  _kv(context, 'Actualmente contratadas', '$currentSeats'),
+                  const SizedBox(height: 8),
+                  _kv(context, 'Nueva cantidad', '$newSeats'),
+
+                  const SizedBox(height: 16),
 
                   Obx(() {
                     final cur = controller.currency.value;
 
-                    final nowSub = controller.nowSubtotalCents.value;
-                    final nowTax = controller.nowTaxCents.value;
-                    final nowTot = controller.nowTotalCents.value;
+                    // final nowSub = controller.nowSubtotalCents.value;
+                    // final nowTax = controller.nowTaxCents.value;
+                    // final nowTot = controller.nowTotalCents.value;
 
                     final nextSub = controller.nextSubtotalCents.value;
                     final nextTax = controller.nextTaxCents.value;
@@ -175,16 +186,18 @@ class SeatCheckoutPage extends StatelessWidget {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _sectionTitle(context, 'Pagarás hoy'),
-                        _kvCustom(context, 'Subtotal', moneyOrDash(nowSub)),
-                        const SizedBox(height: 6),
-                        _kvCustom(context, 'IVA', moneyOrDash(nowTax)),
-                        const SizedBox(height: 6),
-                        _kvCustom(context, 'Total', moneyOrDash(nowTot, strong: true), isStrong: true),
+                        // _sectionTitle(context, 'Pagarás hoy'),
+                        // _kvCustom(context, 'Subtotal', moneyOrDash(nowSub)),
+                        // const SizedBox(height: 6),
+                        // _kvCustom(context, 'IVA', moneyOrDash(nowTax)),
+                        // const SizedBox(height: 6),
+                        // _kvCustom(context, 'Total', moneyOrDash(nowTot, strong: true), isStrong: true),
 
-                        const SizedBox(height: 14),
+                        // const SizedBox(height: 14),
 
                         _sectionTitle(context, 'Próxima mensualidad'),
+                        Divider(height: 8),
+                        SizedBox(height: 5),
                         _kvCustom(context, 'Subtotal', moneyOrDash(nextSub)),
                         const SizedBox(height: 6),
                         _kvCustom(context, 'IVA', moneyOrDash(nextTax)),
@@ -193,13 +206,6 @@ class SeatCheckoutPage extends StatelessWidget {
                       ],
                     );
                   }),
-
-                  const SizedBox(height: 12),
-                  _kv(context, 'Tipo de suscripción', 'Mensual'),
-                  const SizedBox(height: 8),
-                  _kv(context, 'Actualmente contratadas', '$currentSeats'),
-                  const SizedBox(height: 8),
-                  _kv(context, 'Nueva cantidad', '$newSeats'),
                 ],
               ),
             ],
@@ -211,14 +217,11 @@ class SeatCheckoutPage extends StatelessWidget {
 
   Widget _sectionTitle(BuildContext ctx, String text) {
     final t = Theme.of(ctx);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: t.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: t.colorScheme.onSurface,
-        ),
+    return Text(
+      text,
+      style: t.textTheme.bodyMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: t.colorScheme.secondary,
       ),
     );
   }
@@ -254,8 +257,9 @@ class SeatCheckoutPage extends StatelessWidget {
 
   Widget _kvCustom(BuildContext ctx, String k, Widget trailing, {bool isStrong = false}) {
     final t = Theme.of(ctx);
-    final style = (isStrong ? t.textTheme.bodyLarge : t.textTheme.bodyMedium)?.copyWith(
-      fontWeight: isStrong ? FontWeight.w800 : FontWeight.w500,
+    final style = t.textTheme.bodyMedium?.copyWith(
+      fontWeight: isStrong ? FontWeight.w600 : FontWeight.w500,
+      color: isStrong ? t.colorScheme.secondary : t.colorScheme.tertiary,
     );
 
     return Row(

@@ -93,21 +93,21 @@ class CompanyAccountPage extends StatelessWidget {
                           onTap: controller.redirectToProfile,
                         ),
                         Divider(height: 0),
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                          leading: const Icon(Icons.payment),
-                          title: const Text('Métodos de pago'),
-                          subtitle: Text(
-                            'Gestionar las tarjetas de pago',
-                            style: Get.theme.textTheme.bodySmall,
-                          ),
-                          trailing: Icon(
-                            Icons.chevron_right_rounded,
-                            color: Get.theme.colorScheme.outline,
-                          ),
-                          onTap: controller.redirectToPaymentMethods,
-                        ),
-                        Divider(height: 0),
+                        // ListTile(
+                        //   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        //   leading: const Icon(Icons.payment),
+                        //   title: const Text('Métodos de pago'),
+                        //   subtitle: Text(
+                        //     'Gestionar las tarjetas de pago',
+                        //     style: Get.theme.textTheme.bodySmall,
+                        //   ),
+                        //   trailing: Icon(
+                        //     Icons.chevron_right_rounded,
+                        //     color: Get.theme.colorScheme.outline,
+                        //   ),
+                        //   onTap: controller.redirectToPaymentMethods,
+                        // ),
+                        // Divider(height: 0),
                         ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                           leading: const Icon(Icons.subscriptions_rounded),

@@ -82,7 +82,6 @@ exports.stripe_createSeatCheckoutSession = onCall(
         // ─────────────────────────────────────────────
         if (!subscriptionId) {
           if (newPaidSeats === 0) {
-            // Solo el gratis y no existe sub: nada que hacer
             return { ok: true, noPayment: true };
           }
 
@@ -112,6 +111,24 @@ exports.stripe_createSeatCheckoutSession = onCall(
         // CASO 2: YA HAY SUSCRIPCIÓN → actualizar quantity
         // ─────────────────────────────────────────────
         const sub = await retrieveSubExpanded(stripe, subscriptionId);
+
+        if (newPaidSeats === 0) {
+          await stripe.subscriptions.cancel(subscriptionId);
+
+          await ref.set(
+              {
+                stripeSubscriptionId: null,
+                billingStatus: 'none',
+                contractedSeats: 1,
+                currentPeriodStart: null,
+                currentPeriodEnd: null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              },
+              { merge: true },
+          );
+
+          return { ok: true, noPayment: true };
+        }
 
         // Si está “muerta”, limpia y vuelve a CASO 1
         if (sub.status === 'incomplete_expired' || sub.status === 'canceled') {
@@ -166,6 +183,11 @@ exports.stripe_createSeatCheckoutSession = onCall(
             items: [{ id: seatItem.id, quantity: newPaidSeats }],
           });
 
+          return { ok: true, noPayment: true };
+        }
+
+        if (newPaidSeats === 0) {
+          await stripe.subscriptions.cancel(subscriptionId);
           return { ok: true, noPayment: true };
         }
 

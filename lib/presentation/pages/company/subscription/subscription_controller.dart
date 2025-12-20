@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:farmatime/domain/usecases/stripe/create_billing_portal_session_usecase.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,15 +9,19 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/billing/billing_models.dart';
 import 'package:farmatime/domain/usecases/stripe/list_invoices_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_usecase.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 
 class SubscriptionController extends GetxController {
   final ListInvoicesUseCase listInvoicesUseCase;
   final CreateStripeCustomerUseCase createStripeCustomerUseCase;
+  final CreateBillingPortalSessionUseCase createBillingPortalSessionUseCase;
+
   SubscriptionController({
     required this.listInvoicesUseCase,
     required this.createStripeCustomerUseCase,
+    required this.createBillingPortalSessionUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -143,6 +148,32 @@ class SubscriptionController extends GetxController {
       return;
     }
     Get.toNamed('/company/subscription/seat-checkout');
+  }
+
+  //abrir portal de facturación
+  Future<void> openBillingPortal() async {
+    if (!isCompanyAccount) {
+      Get.snackbar('Permisos insuficientes',
+          'Solo la cuenta de empresa puede gestionar la suscripción.');
+      return;
+    }
+
+    isLoading.value = true;
+    try {
+      final res = await createBillingPortalSessionUseCase.call(
+        companyId: companyId,
+      );
+      if (res.success && res.data!.isNotEmpty) {
+        final url = res.data;
+        final uri = Uri.parse(url!);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        Get.snackbar('Error',
+            'No se pudo abrir el portal de facturación. Inténtalo de nuevo.');
+      }
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   @override

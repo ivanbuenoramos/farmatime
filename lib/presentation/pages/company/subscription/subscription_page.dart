@@ -60,57 +60,12 @@ class SubscriptionPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 _AmountRow(label: 'Importe', value: _formatMoneyCents(monthlyCents)),
+                const SizedBox(height: 10),
+                _ManagePaymentButton(onTap: c.openBillingPortal),
               ],
             ),
 
             const SizedBox(height: 12),
-
-            // ===== Selector de plazas + prorrateo =====
-            // BaseCard(
-            //   title: 'Plazas contratadas',
-            //   children: [
-            //     Row(
-            //       children: [
-            //         const Text('Prorratear cambios'),
-            //         const Spacer(),
-            //         Switch(
-            //           value: c.prorationBehavior.value == 'create_prorations',
-            //           onChanged: (v) => c.prorationBehavior.value =
-            //               v ? 'create_prorations' : 'none',
-            //         ),
-            //       ],
-            //     ),
-            //     const SizedBox(height: 8),
-            //     Row(
-            //       children: [
-            //         IconButton(
-            //           onPressed: c.decrement,
-            //           icon: const Icon(Icons.remove_circle_outline),
-            //         ),
-            //         Text(
-            //           '${c.contractedSeats.value}',
-            //           style: Theme.of(context).textTheme.headlineSmall,
-            //         ),
-            //         IconButton(
-            //           onPressed: c.increment,
-            //           icon: const Icon(Icons.add_circle_outline),
-            //         ),
-            //         const Spacer(),
-            //         Text(
-            //           'Total: ${_formatMoneyCents(monthlyCents)} / mes',
-            //           style: Theme.of(context).textTheme.titleMedium,
-            //         ),
-            //       ],
-            //     ),
-            //   ],
-            // ),
-
-            // const SizedBox(height: 12),
-
-            // ===== Botón Billing Portal =====
-            // _ManagePaymentButton(onTap: c.openBillingPortal),
-
-            // const SizedBox(height: 16),
 
             // ===== Historial de facturas (desde controller.invoices) =====
             BaseCard(

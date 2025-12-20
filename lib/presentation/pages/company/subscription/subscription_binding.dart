@@ -1,3 +1,4 @@
+import 'package:farmatime/domain/usecases/stripe/create_billing_portal_session_usecase.dart';
 import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_usecase.dart';
 import 'package:get/get.dart';
 
@@ -22,9 +23,14 @@ class SubscriptionBinding extends Bindings {
       () => CreateStripeCustomerUseCase(Get.find<StripeRepository>()),
     );
 
+    Get.lazyPut<CreateBillingPortalSessionUseCase>(
+      () => CreateBillingPortalSessionUseCase(Get.find<StripeRepository>()),
+    );
+
     Get.lazyPut<SubscriptionController>(() => SubscriptionController(
       listInvoicesUseCase: Get.find<ListInvoicesUseCase>(),
       createStripeCustomerUseCase: Get.find<CreateStripeCustomerUseCase>(),
+      createBillingPortalSessionUseCase: Get.find<CreateBillingPortalSessionUseCase>(),
     ));
   }
 }
