@@ -41,6 +41,7 @@ class CompanyProfileController extends GetxController {
 
   final RxString logoUrl = ''.obs;
   final RxBool isUploadingLogo = false.obs;
+  final RxBool isLoading = false.obs;
 
   late final CompanyModel originalCompany;
 
@@ -91,6 +92,8 @@ class CompanyProfileController extends GetxController {
 
   Future<void> saveChanges() async {
 
+    isLoading.value = true;
+
     final Address updatedAddress = Address(
       address: addressController.text.trim(),
       city: cityController.text.trim(),
@@ -121,6 +124,8 @@ class CompanyProfileController extends GetxController {
       message: 'Datos actualizados correctamente',
       type: ToastType.success,
     );
+
+    isLoading.value = false;
   }
 
   void logOut() async {

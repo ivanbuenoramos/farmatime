@@ -65,9 +65,15 @@ class CompanyProfilePage extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: SafeArea(
-          child: FilledButton(
-            onPressed: controller.saveChanges,
-            child: const Text('Guardar'),
+          child: Obx(() => FilledButton(
+              onPressed: controller.isLoading.value ? null : controller.saveChanges,
+              child: controller.isLoading.value
+                  ? SizedBox(
+                      height: 20,
+                      child: const CircularProgressIndicator.adaptive()
+                    )
+                  : const Text('Guardar'),
+            ),
           ),
         ),
       ),
