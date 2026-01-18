@@ -5,36 +5,44 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/get_employee_year_schedule_usecase.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_year_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_employee_month_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_month_schedule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:farmatime/domain/usecases/shift_template/list_shift_templates_usecase.dart';
 
 class EmployeeScheduleController extends GetxController {
   final Brain brain = Get.find<Brain>();
-  final GetEmployeeYearScheduleUseCase getYearUC;
-  final UpsertEmployeeYearScheduleUseCase upsertYearUC;
+
+  final GetEmployeeMonthScheduleUseCase getMonthUC;
+  final UpsertEmployeeMonthScheduleUseCase upsertMonthUC;
   final ListRecurringRulesUseCase listRulesUC;
 
   EmployeeScheduleController({
-    required this.getYearUC,
-    required this.upsertYearUC,
+    required this.getMonthUC,
+    required this.upsertMonthUC,
     required this.listRulesUC,
   });
 
   // Parámetro de navegación
   final String employeeId = Get.arguments['employeeId'] ?? '';
 
-  // Estado calendario (overrides)
+  // Estado calendario
   final Rx<DateTime> focusedDay = DateTime.now().obs;
   final Rx<DateTime?> selectedDay = Rx<DateTime?>(DateTime.now());
+
+  // ⚠️ Este map representa SIEMPRE el mes actualmente visible en UI
   final RxMap<DateTime, DayEntry> entries = <DateTime, DayEntry>{}.obs;
+
+  // Cache por mes: 'yyyy-MM' -> (dateOnly -> DayEntry)
+  final Map<String, Map<DateTime, DayEntry>> _cacheByMonth = {};
+  final RxSet<String> dirtyMonths = <String>{}.obs;
 
   // Selección por rango
   final Rx<DateTime?> rangeStart = Rx<DateTime?>(null);
   final Rx<DateTime?> rangeEnd = Rx<DateTime?>(null);
-  final Rx<RangeSelectionMode> rangeSelectionMode = RangeSelectionMode.toggledOff.obs;
+  final Rx<RangeSelectionMode> rangeSelectionMode =
+      RangeSelectionMode.toggledOff.obs;
 
   // Reglas recurrentes
   final RxList<RecurringShiftRule> rules = <RecurringShiftRule>[].obs;
@@ -48,7 +56,16 @@ class EmployeeScheduleController extends GetxController {
   final RxnString error = RxnString();
 
   String get _companyId => brain.company.value!.id;
-  int get _year => focusedDay.value.year;
+
+  String _monthKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}';
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  String _yMd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String get _currentMonthKey => _monthKey(focusedDay.value);
 
   @override
   void onInit() {
@@ -58,27 +75,47 @@ class EmployeeScheduleController extends GetxController {
 
   Future<void> loadAll() async {
     isLoading.value = true;
+
     await Future.wait([
-      loadYear(_year),
+      loadMonth(focusedDay.value.year, focusedDay.value.month),
       loadRules(),
       loadShiftTemplates(),
     ]);
+
     isLoading.value = false;
   }
 
-  // ── Horario por año (overrides) ─────────────────────────────────────────────
-  Future<void> loadYear(int year) async {
+  // ── Horario por mes (overrides) ────────────────────────────────────────────
+  Future<void> loadMonth(int year, int month) async {
     error.value = null;
-    final Result<Map<String, DayEntry>> res = await getYearUC.call(
+
+    final monthKey = '${year}-${month.toString().padLeft(2, '0')}';
+
+    final Result<Map<String, DayEntry>> res = await getMonthUC.call(
       companyId: _companyId,
       employeeId: employeeId,
       year: year,
+      month: month,
     );
-    entries.clear();
+
+    final mapped = <DateTime, DayEntry>{};
     if (res.success) {
-      res.data.forEach((k, v) => entries[DateTime.parse(k)] = v);
+      res.data.forEach((k, v) {
+        final d = DateTime.parse(k);
+        mapped[_dateOnly(d)] = v;
+      });
+      _cacheByMonth[monthKey] = mapped;
+      // si el mes cargado es el visible, reflejamos en entries
+      if (monthKey == _currentMonthKey) {
+        entries.assignAll(mapped);
+      }
     } else {
       error.value = 'Error al cargar el horario';
+      // Aun así inicializamos cache vacío para no romper UI
+      _cacheByMonth.putIfAbsent(monthKey, () => <DateTime, DayEntry>{});
+      if (monthKey == _currentMonthKey) {
+        entries.clear();
+      }
     }
   }
 
@@ -92,14 +129,12 @@ class EmployeeScheduleController extends GetxController {
   Future<void> loadShiftTemplates() async {
     final uc = Get.find<ListShiftTemplatesUseCase>();
     final res = await uc.call(_companyId);
-    if (res.success) {
-      shiftTemplates.assignAll(res.data);
-    }
+    if (res.success) shiftTemplates.assignAll(res.data);
   }
 
   // ── Interacción calendario ─────────────────────────────────────────────────
   void onDaySelected(DateTime selected, DateTime focused) {
-    selectedDay.value = dateOnly(selected);
+    selectedDay.value = _dateOnly(selected);
     focusedDay.value = focused;
     rangeStart.value = null;
     rangeEnd.value = null;
@@ -109,12 +144,18 @@ class EmployeeScheduleController extends GetxController {
   void onRangeSelected(DateTime? start, DateTime? end, DateTime focused) {
     selectedDay.value = null;
     focusedDay.value = focused;
-    rangeStart.value = start != null ? dateOnly(start) : null;
-    rangeEnd.value = end != null ? dateOnly(end) : null;
+    rangeStart.value = start != null ? _dateOnly(start) : null;
+    rangeEnd.value = end != null ? _dateOnly(end) : null;
     rangeSelectionMode.value = RangeSelectionMode.toggledOn;
   }
 
-  DayEntry? entryFor(DateTime day) => entries[dateOnly(day)];
+  // --- Lectura override (usa cache por mes) ---
+  DayEntry? entryFor(DateTime day) {
+    final d = _dateOnly(day);
+    final key = _monthKey(d);
+    final map = _cacheByMonth[key];
+    return map?[d];
+  }
 
   Color colorFor(DateTime day, ThemeData theme) {
     final e = entryFor(day);
@@ -133,20 +174,34 @@ class EmployeeScheduleController extends GetxController {
 
   // ── Mutaciones de selección ────────────────────────────────────────────────
   Future<void> setForSelection(DayEntry entry) async {
-    final Map<DateTime, DayEntry> newMap = Map.of(entries);
+    // Rango
     if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
         rangeStart.value != null &&
         rangeEnd.value != null) {
       DateTime d = rangeStart.value!;
       while (!d.isAfter(rangeEnd.value!)) {
-        newMap[dateOnly(d)] = entry;
+        _setEntryForDate(d, entry);
         d = d.add(const Duration(days: 1));
       }
-    } else if (selectedDay.value != null) {
-      newMap[dateOnly(selectedDay.value!)] = entry;
     }
-    entries.assignAll(newMap);
+    // Día suelto
+    else if (selectedDay.value != null) {
+      _setEntryForDate(selectedDay.value!, entry);
+    }
+
+    // Refrescamos map visible (mes actual)
+    entries.assignAll(_cacheByMonth[_currentMonthKey] ?? {});
     update();
+  }
+
+  void _setEntryForDate(DateTime date, DayEntry entry) {
+    final d = _dateOnly(date);
+    final mk = _monthKey(d);
+
+    final map = _cacheByMonth.putIfAbsent(mk, () => <DateTime, DayEntry>{});
+    map[d] = entry;
+
+    dirtyMonths.add(mk);
   }
 
   Future<void> clearSelection() async {
@@ -155,50 +210,97 @@ class EmployeeScheduleController extends GetxController {
         rangeEnd.value != null) {
       DateTime d = rangeStart.value!;
       while (!d.isAfter(rangeEnd.value!)) {
-        entries.remove(dateOnly(d));
+        _removeEntryForDate(d);
         d = d.add(const Duration(days: 1));
       }
     } else if (selectedDay.value != null) {
-      entries.remove(dateOnly(selectedDay.value!));
+      _removeEntryForDate(selectedDay.value!);
     }
+
+    entries.assignAll(_cacheByMonth[_currentMonthKey] ?? {});
     update();
   }
 
+  void _removeEntryForDate(DateTime date) {
+    final d = _dateOnly(date);
+    final mk = _monthKey(d);
+
+    final map = _cacheByMonth.putIfAbsent(mk, () => <DateTime, DayEntry>{});
+    if (map.remove(d) != null) {
+      dirtyMonths.add(mk);
+    }
+  }
+
+  // ── Guardar ────────────────────────────────────────────────────────────────
   Future<void> save() async {
+    if (dirtyMonths.isEmpty) {
+      Get.snackbar('Sin cambios', 'No hay nada que guardar',
+          snackPosition: SnackPosition.BOTTOM);
+      return;
+    }
+
     isSaving.value = true;
     error.value = null;
 
-    final out = <String, DayEntry>{};
-    entries.forEach((date, entry) {
-      if (date.year == _year) out[yMd(date)] = entry;
-    });
+    // Guardamos cada mes tocado
+    final monthsToSave = dirtyMonths.toList()..sort();
 
-    final res = await upsertYearUC.call(
-      companyId: _companyId,
-      employeeId: employeeId,
-      year: _year,
-      entries: out,
-    );
+    for (final mk in monthsToSave) {
+      final parts = mk.split('-');
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
 
+      final map = _cacheByMonth[mk] ?? {};
+      final out = <String, DayEntry>{};
+      map.forEach((date, entry) {
+        out[_yMd(date)] = entry;
+      });
+
+      final res = await upsertMonthUC.call(
+        companyId: _companyId,
+        employeeId: employeeId,
+        year: year,
+        month: month,
+        entries: out,
+      );
+
+      if (!res.success) {
+        isSaving.value = false;
+        error.value = 'No se pudo guardar ($mk)';
+        Get.snackbar('Error', error.value!,
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.red.withOpacity(0.1));
+        return;
+      }
+    }
+
+    dirtyMonths.clear();
     isSaving.value = false;
 
-    if (!res.success) {
-      error.value = 'No se pudo guardar';
-      Get.snackbar('Error', error.value!,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.1));
-      return;
-    }
     Get.snackbar('Guardado', 'Horario actualizado',
         snackPosition: SnackPosition.BOTTOM);
   }
 
-  // Entrada calculada (override > regla)
+  // ── Entrada calculada (override > regla) ───────────────────────────────────
   DayEntry? computedEntryFor(DateTime day) {
     final override = entryFor(day);
     if (override != null) return override;
+
     final r = rules.firstWhereOrNull((r) => r.matchesDate(day));
     if (r == null) return null;
+
     return DayEntry(type: DayType.work, start: r.startTime, end: r.endTime);
+  }
+
+  // ── Page changed ───────────────────────────────────────────────────────────
+  Future<void> onPageChanged(DateTime focused) async {
+    focusedDay.value = focused;
+
+    final mk = _monthKey(focused);
+    if (!_cacheByMonth.containsKey(mk)) {
+      await loadMonth(focused.year, focused.month);
+    } else {
+      entries.assignAll(_cacheByMonth[mk] ?? {});
+    }
   }
 }

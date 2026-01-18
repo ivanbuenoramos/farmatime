@@ -84,34 +84,35 @@ class _EmployeesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return BaseCard(
-      children: [
-        _SectionHeader('Empleados', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
-        const SizedBox(height: 8),
-        Text('Trabajando', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-        Divider(height: 16),
-        if (controller.working.isNotEmpty) ...[
-          ...controller.working.map((e) => _EmployeeTile(row: e, warn: false)),
+    return Obx(() => BaseCard(
+        children: [
+          _SectionHeader('Empleados', trailing: Icon(Icons.edit, size: 18, color: theme.colorScheme.outline)),
           const SizedBox(height: 8),
+          Text('Trabajando', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
           Divider(height: 16),
+          if (controller.working.isNotEmpty) ...[
+            ...controller.working.map((e) => _EmployeeTile(row: e, warn: false)),
+            const SizedBox(height: 8),
+            Divider(height: 16),
+          ],
+      
+          Text('Ausentes', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+          Divider(height: 16),
+          if (controller.absent.isNotEmpty) ...[
+            ...controller.absent.map((e) => _EmployeeTile(row: e, warn: true)),
+            const SizedBox(height: 8),
+          ],
+          Text('Sin trabajar', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
+          Divider(height: 16),
+          if (controller.off.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('—', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            )
+          else
+            ...controller.off.map((e) => _EmployeeTile(row: e, muted: true)),
         ],
-    
-        Text('Ausentes', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-        Divider(height: 16),
-        if (controller.absent.isNotEmpty) ...[
-          ...controller.absent.map((e) => _EmployeeTile(row: e, warn: true)),
-          const SizedBox(height: 8),
-        ],
-        Text('Sin trabajar', style: theme.textTheme.headlineSmall?.copyWith(fontSize: 14)),
-        Divider(height: 16),
-        if (controller.off.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text('—', style: theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          )
-        else
-          ...controller.off.map((e) => _EmployeeTile(row: e, muted: true)),
-      ],
+      ),
     );
   }
 }
@@ -135,10 +136,10 @@ class _EmployeeTile extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           row.lastClockIn != null
-              ? controller.relTimeFrom(row.lastClockIn!) // not used; Hack avoided by manual text:
-              : (row.expected != null && DateTime.now().isAfter(row.expected!.start)
-                  ? 'Hace ${DateTime.now().difference(row.expected!.start).inMinutes}m'
-                  : 'Sin fichar'),
+          ? controller.relTimeFrom(row.lastClockIn!)
+          : (row.expected != null && controller.now.value.isAfter(row.expected!.start)
+              ? 'Hace ${controller.now.value.difference(row.expected!.start).inMinutes}m'
+              : 'Sin fichar'),
           style: (warn
               ? theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.error)
               : theme.textTheme.bodyMedium!.copyWith(color: theme.colorScheme.primary)),
@@ -262,7 +263,7 @@ class _SubscriptionCard extends StatelessWidget {
         billingStatus != 'none' && company.stripeSubscriptionId != null;
 
     final totalSeats = company.contractedSeats ?? 1;
-    final usedSeats = controller.companyEmployeesController.employees.length;
+    final usedSeats = controller.brain.companyEmployees.length;
 
     return GestureDetector(
       onTap: () => Get.toNamed(Routes.companySubscription),

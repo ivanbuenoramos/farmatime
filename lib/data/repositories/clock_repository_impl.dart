@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/data/models/clock_in_out_model.dart';
 import 'package:farmatime/data/models/result.dart';
@@ -159,5 +161,176 @@ class ClockRepositoryImpl implements ClockRepository {
           ),
         )
         .toList();
+  }
+
+  @override
+  Stream<List<ClockInOutModel>> streamClockRecords({
+    required String companyId,
+    required DateTime from,
+    required DateTime to,
+    String? employeeId,
+  }) {
+    // 🔧 Cambia 'clockRecords' por tu colección real
+    Query<Map<String, dynamic>> q = firestore
+        .collection('clockRecords')
+        .where('companyId', isEqualTo: companyId)
+        // asumo que guardas clockIn como Timestamp
+        .where('clockIn', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
+        .where('clockIn', isLessThanOrEqualTo: Timestamp.fromDate(to))
+        .orderBy('clockIn', descending: false);
+
+    if (employeeId != null && employeeId.isNotEmpty) {
+      q = q.where('employeeId', isEqualTo: employeeId);
+    }
+
+    return q.snapshots().map((snap) {
+      return snap.docs.map((d) {
+        final data = d.data();
+
+        // Ideal: forzar uid = id doc
+        // Si tu ClockInOutModel no tiene copyWith(uid:), ajusta tu model.
+        final model = ClockInOutModel.fromJson(data);
+        try {
+          return model.copyWith(id: d.id); // o uid: d.id según tu modelo
+        } catch (_) {
+          return model;
+        }
+      }).toList();
+    });
+  }
+
+  @override
+  Stream<Map<String, (DateTime? lastClockIn, bool isActive)>> streamTodayLastClocks(
+    String companyId,
+    DateTime from,
+    DateTime to, {
+    List<String>? employeeIds, // si >10 se ignora (como tú querías)
+  }) {
+    // Query de HOY (por clockIn)
+    Query<Map<String, dynamic>> qToday = firestore
+        .collection('clockRecords')
+        .where('companyId', isEqualTo: companyId)
+        .where('clockIn', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
+        .where('clockIn', isLessThanOrEqualTo: Timestamp.fromDate(to))
+        .orderBy('clockIn', descending: false);
+
+    // Query de ABIERTOS (clockOut == null) => incluye los de ayer
+    // Ojo: isNull existe en Firestore y es lo que quieres.
+    Query<Map<String, dynamic>> qOpen = firestore
+        .collection('clockRecords')
+        .where('companyId', isEqualTo: companyId)
+        .where('clockOut', isNull: true);
+
+    // Si quieres acotar un poco (recomendado): solo abiertos “recientes”
+    // qOpen = qOpen.where('clockIn', isLessThanOrEqualTo: Timestamp.fromDate(to));
+
+    // whereIn máx 10: si te pasan <=10, filtra. Si >10, se ignora.
+    if (employeeIds != null && employeeIds.isNotEmpty && employeeIds.length <= 10) {
+      qToday = qToday.where('employeeId', whereIn: employeeIds);
+      qOpen = qOpen.where('employeeId', whereIn: employeeIds);
+    }
+
+    final controller = StreamController<Map<String, (DateTime?, bool)>>.broadcast();
+
+    Map<String, (DateTime?, bool)> lastToday = {};
+    Map<String, (DateTime?, bool)> lastOpen = {};
+
+    StreamSubscription? subToday;
+    StreamSubscription? subOpen;
+
+    void emitMerged() {
+      // merge: abiertos pisan a hoy (porque si está abierto, es working sí o sí)
+      final merged = <String, (DateTime?, bool)>{};
+      merged.addAll(lastToday);
+      merged.addAll(lastOpen);
+      if (!controller.isClosed) controller.add(merged);
+    }
+
+    void attach() {
+      subToday = qToday.snapshots().listen((snap) {
+        final lastByEmployee = <String, Map<String, dynamic>>{};
+
+        for (final d in snap.docs) {
+          final data = d.data();
+          final empId = (data['employeeId'] ?? '').toString();
+          if (empId.isEmpty) continue;
+
+          // Como viene ordenado por clockIn ASC, el último pisa al anterior
+          lastByEmployee[empId] = data;
+        }
+
+        final out = <String, (DateTime?, bool)>{};
+        for (final e in lastByEmployee.entries) {
+          final data = e.value;
+
+          final ci = data['clockIn'];
+          DateTime? clockIn;
+          if (ci is Timestamp) clockIn = ci.toDate();
+          else if (ci is DateTime) clockIn = ci;
+
+          // 🔥 isActive basado en RAW: si no hay clockOut o es null
+          final isActive = data['clockOut'] == null;
+
+          out[e.key] = (clockIn, isActive);
+        }
+
+        lastToday = out;
+        emitMerged();
+      }, onError: (e) {
+        // si falla uno, no rompas el otro
+        if (!controller.isClosed) controller.addError(e);
+      });
+
+      subOpen = qOpen.snapshots().listen((snap) {
+        // En abiertos puede haber 1 por empleado (ideal).
+        // Si hay varios (incoherencia), nos quedamos con el último por clockIn.
+        final best = <String, Map<String, dynamic>>{};
+        final bestMillis = <String, int>{};
+
+        for (final d in snap.docs) {
+          final data = d.data();
+          final empId = (data['employeeId'] ?? '').toString();
+          if (empId.isEmpty) continue;
+
+          final ci = data['clockIn'];
+          int millis = 0;
+          if (ci is Timestamp) millis = ci.millisecondsSinceEpoch;
+          else if (ci is DateTime) millis = ci.millisecondsSinceEpoch;
+
+          final prev = bestMillis[empId] ?? -1;
+          if (millis >= prev) {
+            bestMillis[empId] = millis;
+            best[empId] = data;
+          }
+        }
+
+        final out = <String, (DateTime?, bool)>{};
+        for (final e in best.entries) {
+          final data = e.value;
+
+          final ci = data['clockIn'];
+          DateTime? clockIn;
+          if (ci is Timestamp) clockIn = ci.toDate();
+          else if (ci is DateTime) clockIn = ci;
+
+          // abiertos => activo sí o sí (y además raw clockOut null)
+          out[e.key] = (clockIn, true);
+        }
+
+        lastOpen = out;
+        emitMerged();
+      }, onError: (e) {
+        if (!controller.isClosed) controller.addError(e);
+      });
+
+      controller.onCancel = () async {
+        await subToday?.cancel();
+        await subOpen?.cancel();
+        await controller.close();
+      };
+    }
+
+    attach();
+    return controller.stream;
   }
 }

@@ -9,4 +9,7 @@ abstract class EmployeeRepository {
     required String companyId,
     bool? includeDeleted = false,
   });
+
+  Stream<List<EmployeeModel>> streamEmployeesByCompanyId(String companyId);
+  
 }

@@ -1,87 +1,95 @@
-// lib/data/repositories/employee_schedule_repository_impl.dart
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:farmatime/data/models/schedule/schedule_day_modelo.dart';
+import 'package:intl/intl.dart';
 
-import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/services/toast_service.dart';
-import 'package:farmatime/data/models/employee_shift_model.dart';
 import 'package:farmatime/data/models/result.dart';
-import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
+import 'package:farmatime/data/models/employee_shift_model.dart';
 import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
-import 'package:intl/intl.dart';
+import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
 
 class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
   final FirebaseFirestore _fs = FirebaseFirestore.instance;
-  final Brain brain = Brain();
   final ToastService toastService = ToastService();
 
-  // ── Colecciones TOP-LEVEL
-  CollectionReference<Map<String, dynamic>> _schedulesCol() =>
-      _fs.collection('employee_schedules');
+  CollectionReference<Map<String, dynamic>> _monthsCol() =>
+      _fs.collection('employee_schedule_months');
+
   CollectionReference<Map<String, dynamic>> _rulesCol() =>
       _fs.collection('employee_schedule_rules');
 
-  // DocID único por (companyId, employeeId, year)
-  String _yearDocId(String companyId, String employeeId, int year) =>
-      '${companyId}__${employeeId}__$year';
+  String _monthStr(int year, int month) =>
+      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
 
+  String _monthDocId(String companyId, String employeeId, String monthStr) =>
+      '${companyId}__${employeeId}__${monthStr}';
+
+  String _monthFromDateKey(String yyyyMmDd) => yyyyMmDd.substring(0, 7); // yyyy-MM
+
+  // ─────────────────────────────────────────────
+  // Overrides: MES
+  // ─────────────────────────────────────────────
   @override
-  Future<Result<Map<String, DayEntry>>> getYear({
+  Future<Result<Map<String, DayEntry>>> getMonth({
     required String companyId,
     required String employeeId,
     required int year,
+    required int month,
   }) async {
     try {
-      final id = _yearDocId(companyId, employeeId, year);
-      final doc = await _schedulesCol()
-          .doc(id)
+      final mStr = _monthStr(year, month);
+      final doc = await _monthsCol()
+          .doc(_monthDocId(companyId, employeeId, mStr))
           .get()
           .timeout(const Duration(seconds: 10));
 
-      if (!doc.exists) {
-        return Result(success: true, data: <String, DayEntry>{});
-      }
+      if (!doc.exists) return Result(success: true, data: {});
 
-      final data = doc.data();
-      final raw = (data?['entries'] as Map<String, dynamic>? ?? {});
-      final mapped = <String, DayEntry>{};
+      final raw = (doc.data()?['entries'] as Map<String, dynamic>? ?? {});
+      final out = <String, DayEntry>{};
+
       raw.forEach((k, v) {
-        mapped[k] = DayEntry.fromJson(Map<String, dynamic>.from(v as Map));
+        out[k] = DayEntry.fromJson(Map<String, dynamic>.from(v as Map));
       });
-      return Result(success: true, data: mapped);
+
+      return Result(success: true, data: out);
     } on TimeoutException {
       toastService.showParsedErrorCode('time-exceeded');
-      return Result(success: false, data: const {}, errorCode: 'time-exceeded');
+      return Result(success: false, data: {}, errorCode: 'time-exceeded');
     } on FirebaseException catch (e) {
       toastService.showParsedErrorCode(e.code);
-      return Result(success: false, data: const {}, errorCode: e.code);
+      return Result(success: false, data: {}, errorCode: e.code);
     } catch (_) {
       toastService.showParsedErrorCode('firestore-error');
-      return Result(success: false, data: const {}, errorCode: 'firestore-error');
+      return Result(success: false, data: {}, errorCode: 'firestore-error');
     }
   }
 
   @override
-  Future<Result<bool>> upsertYear({
+  Future<Result<bool>> upsertMonth({
     required String companyId,
     required String employeeId,
     required int year,
+    required int month,
     required Map<String, DayEntry> entries,
   }) async {
     try {
+      final mStr = _monthStr(year, month);
+
       final payload = <String, dynamic>{};
       entries.forEach((k, v) => payload[k] = v.toJson());
 
-      final id = _yearDocId(companyId, employeeId, year);
-      await _schedulesCol()
-          .doc(id)
+      await _monthsCol()
+          .doc(_monthDocId(companyId, employeeId, mStr))
           .set({
             'companyId': companyId,
             'employeeId': employeeId,
-            'year': year,
+            'month': mStr,
             'entries': payload,
             'updatedAt': FieldValue.serverTimestamp(),
+            'createdAt': FieldValue.serverTimestamp(), // merge => solo crea si no existe
           }, SetOptions(merge: true))
           .timeout(const Duration(seconds: 10));
 
@@ -99,7 +107,110 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
   }
 
   // ─────────────────────────────────────────────
-  // Reglas recurrentes (colección independiente)
+  // Overrides: CRUD por día (sin leer/escribir todo el mes)
+  // ─────────────────────────────────────────────
+  @override
+  Future<Result<ScheduleDayModel?>> getDayOverride({
+    required String companyId,
+    required String employeeId,
+    required String date, // yyyy-MM-dd
+  }) async {
+    try {
+      final mStr = _monthFromDateKey(date);
+      final doc = await _monthsCol()
+          .doc(_monthDocId(companyId, employeeId, mStr))
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      if (!doc.exists) return Result(success: true, data: null);
+
+      final entries = (doc.data()?['entries'] as Map<String, dynamic>? ?? {});
+      final raw = entries[date];
+      if (raw == null) return Result(success: true, data: null);
+
+      final entry = DayEntry.fromJson(Map<String, dynamic>.from(raw as Map));
+      return Result(
+        success: true,
+        data: ScheduleDayModel(
+          companyId: companyId,
+          employeeId: employeeId,
+          date: date,
+          entry: entry,
+        ),
+      );
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: null, errorCode: 'time-exceeded');
+    } on FirebaseException catch (e) {
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: null, errorCode: e.code);
+    } catch (_) {
+      toastService.showParsedErrorCode('firestore-error');
+      return Result(success: false, data: null, errorCode: 'firestore-error');
+    }
+  }
+
+  @override
+  Future<Result<bool>> upsertDayOverride({
+    required ScheduleDayModel day,
+  }) async {
+    try {
+      final mStr = _monthFromDateKey(day.date);
+      final docId = _monthDocId(day.companyId, day.employeeId, mStr);
+
+      await _monthsCol().doc(docId).set({
+        'companyId': day.companyId,
+        'employeeId': day.employeeId,
+        'month': mStr,
+        'entries': { day.date: day.entry.toJson() },
+        'updatedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+
+      return Result(success: true, data: true);
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: false, errorCode: 'time-exceeded');
+    } on FirebaseException catch (e) {
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: false, errorCode: e.code);
+    } catch (_) {
+      toastService.showParsedErrorCode('firestore-error');
+      return Result(success: false, data: false, errorCode: 'firestore-error');
+    }
+  }
+
+  @override
+  Future<Result<bool>> deleteDayOverride({
+    required String companyId,
+    required String employeeId,
+    required String date, // yyyy-MM-dd
+  }) async {
+    try {
+      final mStr = _monthFromDateKey(date);
+      final docId = _monthDocId(companyId, employeeId, mStr);
+
+      // Borra solo la key entries.<date>
+      await _monthsCol().doc(docId).set({
+        'entries': { date: FieldValue.delete() },
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+
+      return Result(success: true, data: true);
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: false, errorCode: 'time-exceeded');
+    } on FirebaseException catch (e) {
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: false, errorCode: e.code);
+    } catch (_) {
+      toastService.showParsedErrorCode('firestore-error');
+      return Result(success: false, data: false, errorCode: 'firestore-error');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Reglas recurrentes
   // ─────────────────────────────────────────────
   @override
   Future<Result<List<RecurringShiftRule>>> listRecurringRules({
@@ -111,14 +222,13 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
           .where('companyId', isEqualTo: companyId)
           .where('employeeId', isEqualTo: employeeId)
           .where('active', isEqualTo: true)
-          // .orderBy('startsOn') // <- si quieres ordenar aquí, crea índice compuesto
           .get()
           .timeout(const Duration(seconds: 10));
 
       final list = snap.docs
           .map((d) => RecurringShiftRule.fromDoc(d.id, d.data()))
           .toList()
-        ..sort((a, b) => a.startsOn.compareTo(b.startsOn)); // orden local
+        ..sort((a, b) => b.startsOn.compareTo(a.startsOn)); // prioridad estable
 
       return Result(success: true, data: list);
     } on TimeoutException {
@@ -140,22 +250,15 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     required RecurringShiftRule rule,
   }) async {
     try {
-      final data = {
+      final ref = rule.id.isEmpty ? _rulesCol().doc() : _rulesCol().doc(rule.id);
+
+      await ref.set({
         ...rule.toJson(),
         'companyId': companyId,
         'employeeId': employeeId,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
-      final ref = rule.id.isEmpty ? _rulesCol().doc() : _rulesCol().doc(rule.id);
-      await ref.set(data, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
-
-      // Verificación (opcional)
-      final check = await ref.get().timeout(const Duration(seconds: 10));
-      if (!check.exists) {
-        toastService.showParsedErrorCode('write-not-visible');
-        return Result(success: false, data: '', errorCode: 'write-not-visible');
-      }
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (rule.id.isEmpty) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
 
       return Result(success: true, data: ref.id);
     } on TimeoutException {
@@ -177,7 +280,12 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     required String ruleId,
   }) async {
     try {
-      await _rulesCol().doc(ruleId).delete().timeout(const Duration(seconds: 10));
+      // Soft delete
+      await _rulesCol().doc(ruleId).set({
+        'active': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
+
       return Result(success: true, data: true);
     } on TimeoutException {
       toastService.showParsedErrorCode('time-exceeded');
@@ -191,6 +299,9 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     }
   }
 
+  // ─────────────────────────────────────────────
+  // Expected shifts (optimizado: overrides por mes con whereIn)
+  // ─────────────────────────────────────────────
   @override
   Future<Result<Map<String, ExpectedShiftModel?>>> getExpectedShiftsForDay({
     required String companyId,
@@ -198,115 +309,120 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     required DateTime dayDate,
     String? dayKey,
   }) async {
-    if (employeeIds.isEmpty) {
-      return Result(success: true, data: <String, ExpectedShiftModel?>{});
-    }
+    if (employeeIds.isEmpty) return Result(success: true, data: {});
 
     final key = dayKey ?? DateFormat('yyyy-MM-dd').format(dayDate);
-    final int year = dayDate.year;
+    final monthStr = DateFormat('yyyy-MM').format(dayDate);
 
-    // Resultado final
-    final Map<String, ExpectedShiftModel?> out = {};
+    final out = <String, ExpectedShiftModel?>{};
 
     try {
-      // 1) Overrides del año (employee_schedules): 1 lectura por empleado (doc ID conocido).
-      //    Para no saturar, limitamos concurrencia en lotes de 10.
-      const int kBatch = 10;
-      for (int i = 0; i < employeeIds.length; i += kBatch) {
-        final slice = employeeIds.sublist(i, (i + kBatch > employeeIds.length) ? employeeIds.length : i + kBatch);
-
-        final futures = slice.map((empId) async {
-          try {
-            final id = _yearDocId(companyId, empId, year);
-            final doc = await _schedulesCol().doc(id).get().timeout(const Duration(seconds: 10));
-            if (!doc.exists) {
-              out[empId] = null; // de momento null, quizá reglas
-              return;
-            }
-            final data = doc.data();
-            final raw = (data?['entries'] as Map<String, dynamic>? ?? {});
-            if (raw.containsKey(key)) {
-              final entry = DayEntry.fromJson(Map<String, dynamic>.from(raw[key] as Map));
-              out[empId] = _shiftFromDayEntry(entry, dayDate);
-            } else {
-              out[empId] = null;
-            }
-          } on TimeoutException {
-            toastService.showParsedErrorCode('time-exceeded');
-            out[slice.first] = null; // degradación suave
-          } on FirebaseException catch (e) {
-            toastService.showParsedErrorCode(e.code);
-            out[slice.first] = null;
-          } catch (_) {
-            toastService.showParsedErrorCode('firestore-error');
-            out[slice.first] = null;
-          }
-        }).toList();
-
-        await Future.wait(futures);
+      // 0) init
+      for (final e in employeeIds) {
+        out[e] = null;
       }
 
-      // 2) Para los que sigan null, aplicamos reglas recurrentes
-      final List<String> pending = out.entries
-          .where((e) => e.value == null)
-          .map((e) => e.key)
-          .toList();
+      // 1) Overrides: query por mes + whereIn (10 max)
+      const int kBatch = 10;
+      for (int i = 0; i < employeeIds.length; i += kBatch) {
+        final slice = employeeIds.sublist(
+          i,
+          (i + kBatch > employeeIds.length) ? employeeIds.length : i + kBatch,
+        );
 
-      // Reglas: una query por empleado (filtrada por companyId + employeeId + active)
-      // También podemos limitar concurrencia
-      for (int i = 0; i < pending.length; i += kBatch) {
-        final slice = pending.sublist(i, (i + kBatch > pending.length) ? pending.length : i + kBatch);
+        final snap = await _monthsCol()
+            .where('companyId', isEqualTo: companyId)
+            .where('month', isEqualTo: monthStr)
+            .where('employeeId', whereIn: slice)
+            .get()
+            .timeout(const Duration(seconds: 10));
 
-        final futures = slice.map((empId) async {
-          try {
-            final snap = await _rulesCol()
-                .where('companyId', isEqualTo: companyId)
-                .where('employeeId', isEqualTo: empId)
-                .where('active', isEqualTo: true)
-                .get()
-                .timeout(const Duration(seconds: 10));
+        for (final d in snap.docs) {
+          final data = d.data();
+          final empId = data['employeeId'] as String?;
+          if (empId == null) continue;
 
-            final rules = snap.docs
-                .map((d) => RecurringShiftRule.fromDoc(d.id, d.data()))
-                .toList();
+          final entries = (data['entries'] as Map<String, dynamic>? ?? {});
+          final raw = entries[key];
+          if (raw == null) continue;
 
-            final rule = _pickRuleForDate(rules, dayDate);
-            out[empId] = _shiftFromRule(rule, dayDate);
-          } on TimeoutException {
-            toastService.showParsedErrorCode('time-exceeded');
-            out[empId] = null;
-          } on FirebaseException catch (e) {
-            toastService.showParsedErrorCode(e.code);
-            out[empId] = null;
-          } catch (_) {
-            toastService.showParsedErrorCode('firestore-error');
+          final entry = DayEntry.fromJson(Map<String, dynamic>.from(raw as Map));
+          // Solo si es work con horas
+          if (entry.type == DayType.work && entry.start != null && entry.end != null) {
+            out[empId] = _shiftFromDayEntry(entry, dayDate);
+          } else {
             out[empId] = null;
           }
-        }).toList();
+        }
+      }
 
-        await Future.wait(futures);
+      // 2) Reglas: para los que siguen null, query por whereIn (10 max)
+      final pending = out.entries.where((e) => e.value == null).map((e) => e.key).toList();
+
+      for (int i = 0; i < pending.length; i += kBatch) {
+        final slice = pending.sublist(
+          i,
+          (i + kBatch > pending.length) ? pending.length : i + kBatch,
+        );
+
+        final snap = await _rulesCol()
+            .where('companyId', isEqualTo: companyId)
+            .where('employeeId', whereIn: slice)
+            .where('active', isEqualTo: true)
+            .get()
+            .timeout(const Duration(seconds: 10));
+
+        final rulesByEmployee = <String, List<RecurringShiftRule>>{};
+        for (final d in snap.docs) {
+          final data = d.data();
+          final empId = data['employeeId'] as String?;
+          if (empId == null) continue;
+
+          final rule = RecurringShiftRule.fromDoc(d.id, data);
+          rulesByEmployee.putIfAbsent(empId, () => []).add(rule);
+        }
+
+        for (final empId in slice) {
+          final rules = rulesByEmployee[empId] ?? const <RecurringShiftRule>[];
+          final rule = _pickRuleForDate(rules, dayDate);
+          out[empId] = _shiftFromRule(rule, dayDate);
+        }
       }
 
       return Result(success: true, data: out);
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: {}, errorCode: 'time-exceeded');
+    } on FirebaseException catch (e) {
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: {}, errorCode: e.code);
     } catch (_) {
       toastService.showParsedErrorCode('firestore-error');
       return Result(success: false, data: {}, errorCode: 'firestore-error');
     }
   }
 
-  // ── Helpers privados (mismos que ya tenías, reutilizados) ──
-
+  // ─────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────
   ExpectedShiftModel _shiftFromDayEntry(DayEntry entry, DateTime dayDate) {
     final baseDay = DateTime(dayDate.year, dayDate.month, dayDate.day);
 
-    final startTOD = entry.start;
-    final endTOD   = entry.end;
+    final start = DateTime(
+      baseDay.year,
+      baseDay.month,
+      baseDay.day,
+      entry.start!.hour,
+      entry.start!.minute,
+    );
 
-    final start = DateTime(baseDay.year, baseDay.month, baseDay.day,
-        startTOD!.hour, startTOD.minute);
-
-    var end = DateTime(baseDay.year, baseDay.month, baseDay.day,
-        endTOD!.hour, endTOD.minute);
+    var end = DateTime(
+      baseDay.year,
+      baseDay.month,
+      baseDay.day,
+      entry.end!.hour,
+      entry.end!.minute,
+    );
 
     if (end.isBefore(start)) {
       end = end.add(const Duration(days: 1));
@@ -315,48 +431,99 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     return ExpectedShiftModel(start: start, end: end);
   }
 
-
   RecurringShiftRule? _pickRuleForDate(List<RecurringShiftRule> rules, DateTime day) {
-    final wd = day.weekday; // 1..7
-    for (final r in rules) {
-      final m = r.toJson();
-      final active = (m['active'] ?? true) == true;
-      if (!active) continue;
+    final d = DateTime(day.year, day.month, day.day);
 
-      final startsOn = DateTime.tryParse(m['startsOn'] ?? '') ?? DateTime(2000);
-      final endsOn   = DateTime.tryParse(m['endsOn'] ?? '') ?? DateTime(2100);
-      final inside = !day.isBefore(DateTime(startsOn.year, startsOn.month, startsOn.day)) &&
-                     !day.isAfter(DateTime(endsOn.year, endsOn.month, endsOn.day));
-      if (!inside) continue;
+    final matches = rules.where((r) {
+      if (!r.active) return false;
+      if (!r.weekdays.contains(d.weekday)) return false;
 
-      final rWd = (m['weekday'] as int?) ?? DateTime.monday;
-      if (rWd == wd) return r;
-    }
-    return null;
+      final s = DateTime(r.startsOn.year, r.startsOn.month, r.startsOn.day);
+      if (d.isBefore(s)) return false;
+
+      if (r.endsOn != null) {
+        final e = DateTime(r.endsOn!.year, r.endsOn!.month, r.endsOn!.day);
+        if (d.isAfter(e)) return false;
+      }
+
+      return true;
+    }).toList();
+
+    if (matches.isEmpty) return null;
+
+    // regla ganadora: más reciente (startsOn desc)
+    matches.sort((a, b) => b.startsOn.compareTo(a.startsOn));
+    return matches.first;
   }
 
   ExpectedShiftModel? _shiftFromRule(RecurringShiftRule? rule, DateTime dayDate) {
     if (rule == null) return null;
 
-    // Día base (00:00 de ese día)
     final baseDay = DateTime(dayDate.year, dayDate.month, dayDate.day);
 
-    // HH:mm -> TimeOfDay
-    final startTOD = rule.startTime;
-    final endTOD   = rule.endTime;
+    final start = DateTime(
+      baseDay.year,
+      baseDay.month,
+      baseDay.day,
+      rule.startTime.hour,
+      rule.startTime.minute,
+    );
 
-    // Creamos DateTime reales
-    final start = DateTime(baseDay.year, baseDay.month, baseDay.day,
-        startTOD.hour, startTOD.minute);
+    var end = DateTime(
+      baseDay.year,
+      baseDay.month,
+      baseDay.day,
+      rule.endTime.hour,
+      rule.endTime.minute,
+    );
 
-    var end = DateTime(baseDay.year, baseDay.month, baseDay.day,
-        endTOD.hour, endTOD.minute);
-
-    // 👇 Si end < start => turno cruza medianoche, ajustamos sumando un día
     if (end.isBefore(start)) {
       end = end.add(const Duration(days: 1));
     }
 
     return ExpectedShiftModel(start: start, end: end);
+  }
+
+  @override
+  Stream<Map<String, DayEntry>> streamMonth({
+    required String companyId,
+    required String employeeId,
+    required int year,
+    required int month,
+  }) {
+    final mStr = _monthStr(year, month);
+    final docId = _monthDocId(companyId, employeeId, mStr);
+
+    return _monthsCol().doc(docId).snapshots().map((doc) {
+      if (!doc.exists) return <String, DayEntry>{};
+
+      final raw = (doc.data()?['entries'] as Map<String, dynamic>? ?? {});
+      final out = <String, DayEntry>{};
+
+      raw.forEach((k, v) {
+        out[k] = DayEntry.fromJson(Map<String, dynamic>.from(v as Map));
+      });
+
+      return out;
+    });
+  }
+
+  @override
+  Stream<List<RecurringShiftRule>> streamRecurringRules({
+    required String companyId,
+    required String employeeId,
+  }) {
+    return _rulesCol()
+        .where('companyId', isEqualTo: companyId)
+        .where('employeeId', isEqualTo: employeeId)
+        .where('active', isEqualTo: true)
+        .snapshots()
+        .map((snap) {
+          final list = snap.docs
+              .map((d) => RecurringShiftRule.fromDoc(d.id, d.data()))
+              .toList()
+            ..sort((a, b) => b.startsOn.compareTo(a.startsOn));
+          return list;
+        });
   }
 }

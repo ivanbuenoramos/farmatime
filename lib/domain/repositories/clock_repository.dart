@@ -26,4 +26,18 @@ abstract class ClockRepository {
     required String employeeId,
     required DateTime day,
   });
+
+  Stream<List<ClockInOutModel>> streamClockRecords({
+    required String companyId,
+    required DateTime from,
+    required DateTime to,
+    String? employeeId,
+  });
+
+  Stream<Map<String, (DateTime? lastClockIn, bool isActive)>> streamTodayLastClocks(
+    String companyId,
+    DateTime from,
+    DateTime to, {
+    List<String>? employeeIds,
+  });
 }

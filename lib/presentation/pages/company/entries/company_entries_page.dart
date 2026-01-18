@@ -25,31 +25,28 @@ class CompanyEntriesPage extends GetView<CompanyEntriesController> {
         ],
       ),
       body: Obx(() {
-        return RefreshIndicator(
-          onRefresh: controller.fetchRecords,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            children: [
-              if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
-                PaymentIssueAlertCard(
-                  billingStatus: controller.brain.company.value!.billingStatus,
-                ),
-                const SizedBox(height: 12),
-              ],
-              _FiltersCard(controller: controller),
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          children: [
+            if (controller.brain.company.value!.billingStatus != 'active' && controller.brain.company.value!.billingStatus != 'none') ... [
+              PaymentIssueAlertCard(
+                billingStatus: controller.brain.company.value!.billingStatus,
+              ),
               const SizedBox(height: 12),
-              _RecordsCard(controller: controller),
-              if (controller.errorText.value != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  controller.errorText.value!,
-                  style: theme.textTheme.bodyMedium!.copyWith(
-                    color: theme.colorScheme.error
-                  ),
-                ),
-              ],
             ],
-          ),
+            _FiltersCard(controller: controller),
+            const SizedBox(height: 12),
+            _RecordsCard(controller: controller),
+            if (controller.errorText.value != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                controller.errorText.value!,
+                style: theme.textTheme.bodyMedium!.copyWith(
+                  color: theme.colorScheme.error
+                ),
+              ),
+            ],
+          ],
         );
       }),
     );

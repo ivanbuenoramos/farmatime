@@ -36,7 +36,7 @@ class EmployeeCalendarPage extends GetView<EmployeeCalendarController> {
         ],
       ),
       body: Obx(() {
-        if (controller.isLoading.value && controller.overridesByDay.isEmpty) {
+        if (controller.isLoading.value && controller.overridesByDay.isEmpty && controller.errorText.value == null) {
           return const Center(child: CircularProgressIndicator());
         }
         final day = controller.selectedDay.value;

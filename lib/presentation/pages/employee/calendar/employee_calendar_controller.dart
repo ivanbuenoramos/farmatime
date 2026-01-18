@@ -3,36 +3,49 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
-import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
 import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
 
-class EmployeeCalendarController extends GetxController {
-  EmployeeCalendarController(this.scheduleRepo);
+import 'package:farmatime/domain/usecases/employee_schedule/get_employee_month_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
 
-  final EmployeeScheduleRepository scheduleRepo;
+class EmployeeCalendarController extends GetxController {
+  EmployeeCalendarController({
+    required this.getMonthScheduleUseCase,
+    required this.listRecurringRulesUseCase,
+  });
+
+  final GetEmployeeMonthScheduleUseCase getMonthScheduleUseCase;
+  final ListRecurringRulesUseCase listRecurringRulesUseCase;
+
   final Brain brain = Get.find<Brain>();
 
   // Estado del calendario
   final Rx<DateTime> selectedDay = DateTime.now().obs;
-  final Rx<DateTime> focusedDay  = DateTime.now().obs;
+  final Rx<DateTime> focusedDay = DateTime.now().obs;
 
   // Rango visible
-  late final Rx<DateTime> firstDay = DateTime(DateTime.now().year - 1, 1, 1).obs;
-  late final Rx<DateTime> lastDay  = DateTime(DateTime.now().year + 1, 12, 31).obs;
+  late final Rx<DateTime> firstDay =
+      DateTime(DateTime.now().year - 1, 1, 1).obs;
+  late final Rx<DateTime> lastDay =
+      DateTime(DateTime.now().year + 1, 12, 31).obs;
 
-  // Datos para el widget
-  final overridesByDay = <DateTime, DayEntry>{}.obs;     // ahora DateTime → DayEntry
+  // Datos para el widget (solo overrides cargados)
+  final overridesByDay = <DateTime, DayEntry>{}.obs;
   final rules = <RecurringShiftRule>[].obs;
 
   // Estado
   final isLoading = false.obs;
   final errorText = RxnString();
 
-  // Cache por año
-  final Map<int, Map<DateTime, DayEntry>> _yearCache = {};
+  // Cache por mes: 'yyyy-MM' -> { DateTime(day) : DayEntry }
+  final Map<String, Map<DateTime, DayEntry>> _monthCache = {};
   bool _rulesLoaded = false;
+
+  String get _companyId => brain.employee.value!.companyId;
+  String get _employeeId => brain.employee.value!.uid;
 
   @override
   void onInit() {
@@ -41,104 +54,181 @@ class EmployeeCalendarController extends GetxController {
   }
 
   Future<void> _bootstrap() async {
-    await _ensureDataForYear(focusedDay.value.year);
+    // Carga el mes actual + reglas + precarga del siguiente mes
+    await _ensureDataForMonth(focusedDay.value);
+    await _ensureRulesLoaded();
+    await _ensureDataForMonth(_addMonths(focusedDay.value, 1), prefetch: true);
+    _rebuildOverrides();
   }
 
   void onDaySelected(DateTime selected, DateTime focused) async {
-    selectedDay.value = DateTime(selected.year, selected.month, selected.day);
-    if (focused.year != focusedDay.value.year) {
-      await _ensureDataForYear(focused.year);
+    selectedDay.value = _dateOnly(selected);
+
+    final changedMonth = focused.year != focusedDay.value.year ||
+        focused.month != focusedDay.value.month;
+
+    if (changedMonth) {
+      await _ensureDataForMonth(focused);
+      await _ensureDataForMonth(_addMonths(focused, 1), prefetch: true);
+      _rebuildOverrides();
     }
-    focusedDay.value = DateTime(focused.year, focused.month, focused.day);
+
+    focusedDay.value = _dateOnly(focused);
   }
 
   Future<void> onCalendarPageChanged(DateTime newFocusedDay) async {
-    if (newFocusedDay.year != focusedDay.value.year) {
-      await _ensureDataForYear(newFocusedDay.year);
+    final changedMonth = newFocusedDay.year != focusedDay.value.year ||
+        newFocusedDay.month != focusedDay.value.month;
+
+    if (changedMonth) {
+      await _ensureDataForMonth(newFocusedDay);
+      await _ensureDataForMonth(_addMonths(newFocusedDay, 1), prefetch: true);
+      _rebuildOverrides();
     }
-    focusedDay.value = DateTime(newFocusedDay.year, newFocusedDay.month, newFocusedDay.day);
+
+    focusedDay.value = _dateOnly(newFocusedDay);
   }
 
-  Future<void> _ensureDataForYear(int year) async {
-    isLoading.value = true;
-    errorText.value = null;
+  // ─────────────────────────────────────────────────────────────
+  // Carga mensual (overrides del mes)
+  // ─────────────────────────────────────────────────────────────
+
+  Future<void> _ensureDataForMonth(DateTime anyDayInMonth,
+      {bool prefetch = false}) async {
+    final monthKey = _monthKey(anyDayInMonth);
+    if (_monthCache.containsKey(monthKey)) return;
+
+    if (!prefetch) {
+      isLoading.value = true;
+      errorText.value = null;
+    }
+
     try {
-      final companyId = brain.employee.value!.companyId;
-      final employeeId = brain.employee.value!.uid; // ajusta según tu modelo
+      final res = await getMonthScheduleUseCase.call(
+        companyId: _companyId,
+        employeeId: _employeeId,
+        year: anyDayInMonth.year,
+        month: anyDayInMonth.month, // 1..12
+      );
 
-      if (!_yearCache.containsKey(year)) {
-        final res = await scheduleRepo.getYear(
-          companyId: companyId,
-          employeeId: employeeId,
-          year: year,
-        );
-        if (!res.success) {
-          errorText.value = 'No se pudo cargar el calendario ($year): ${res.errorCode}';
-          _yearCache[year] = {};
-        } else {
-          // 🔑 Convertimos claves yyyy-MM-dd a DateTime
-          final mapped = <DateTime, DayEntry>{};
-          res.data.forEach((key, entry) {
-            final dt = DateFormat('yyyy-MM-dd').parse(key);
-            mapped[dt] = entry;
-          });
-          _yearCache[year] = mapped;
+      if (!res.success) {
+        if (!prefetch) {
+          errorText.value = 'No se pudo cargar el calendario ($monthKey)';
         }
+        _monthCache[monthKey] = {};
+        return;
       }
 
-      if (!_rulesLoaded) {
-        final r = await scheduleRepo.listRecurringRules(
-          companyId: companyId,
-          employeeId: employeeId,
-        );
-        if (r.success) {
-          rules.assignAll(r.data); 
-        } else {
-          errorText.value = 'No se pudieron cargar las reglas: ${r.errorCode}';
-        }
-        _rulesLoaded = true;
-      }
+      // res.data: Map<String(yyyy-MM-dd), DayEntry>
+      final mapped = <DateTime, DayEntry>{};
+      res.data.forEach((k, entry) {
+        final d = DateTime.parse(k);
+        mapped[_dateOnly(d)] = entry;
+      });
 
-      overridesByDay
-        ..clear()
-        ..addAll(_yearCache[year] ?? {});
+      _monthCache[monthKey] = mapped;
     } catch (e) {
-      errorText.value = 'Error al cargar calendario: $e';
+      if (!prefetch) {
+        errorText.value = 'Error al cargar calendario: $e';
+      }
+      _monthCache[monthKey] = {};
     } finally {
-      isLoading.value = false;
+      if (!prefetch) isLoading.value = false;
     }
   }
 
-  // Helpers
+  Future<void> _ensureRulesLoaded() async {
+    if (_rulesLoaded) return;
+
+    try {
+      final res = await listRecurringRulesUseCase.call(
+        companyId: _companyId,
+        employeeId: _employeeId,
+      );
+
+      if (res.success) {
+        rules.assignAll(res.data);
+      } else {
+        errorText.value = 'No se pudieron cargar las reglas';
+      }
+    } catch (e) {
+      errorText.value = 'Error al cargar reglas: $e';
+    } finally {
+      _rulesLoaded = true;
+    }
+  }
+
+  void _rebuildOverrides() {
+    // Mostramos lo cacheado (mes actual + lo precargado)
+    final out = <DateTime, DayEntry>{};
+    for (final m in _monthCache.values) {
+      out.addAll(m);
+    }
+    overridesByDay
+      ..clear()
+      ..addAll(out);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Helpers para pintar el día
+  // ─────────────────────────────────────────────────────────────
+
   DayEntry? entryFor(DateTime day) {
-    final normalized = DateTime(day.year, day.month, day.day);
+    final normalized = _dateOnly(day);
     return overridesByDay[normalized];
+  }
+
+  // Si no hay override, intenta regla recurrente
+  RecurringShiftRule? ruleFor(DateTime day) {
+    for (final r in rules) {
+      if (r.matchesDate(day)) return r;
+    }
+    return null;
   }
 
   bool isVacation(DateTime day) {
     final e = entryFor(day);
-    if (e == null) return false;
-    final map = e.toJson();
-    final type = (map['type'] ?? map['kind'] ?? 'work') as String;
-    return type == 'vacation' || type == 'holiday' || type == 'off';
+    if (e != null) return e.type == DayType.vacation;
+
+    // sin override: una regla recurrente implica "laboral"
+    return false;
   }
 
   List<String> shiftsFor(DateTime day) {
     final e = entryFor(day);
-    if (e == null) return const [];
-    final map = e.toJson();
-    final raw = (map['shifts'] as List?) ?? (map['periods'] as List?) ?? const [];
-    final out = <String>[];
-    for (final s in raw) {
-      final m = Map<String, dynamic>.from(s as Map);
-      final start = (m['start'] ?? m['open']) as String?;
-      final end   = (m['end']   ?? m['close']) as String?;
-      if (start != null && end != null) out.add('• De $start a $end');
+    if (e != null) {
+      if (e.type != DayType.work) return const [];
+      if (e.start == null || e.end == null) return const [];
+      return ['• De ${_fmtTod(e.start!)} a ${_fmtTod(e.end!)}'];
     }
-    return out;
+
+    // sin override → regla
+    final r = ruleFor(day);
+    if (r == null) return const [];
+    return ['• De ${_fmtTod(r.startTime)} a ${_fmtTod(r.endTime)}'];
   }
+
+  String _fmtTod(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  // ─────────────────────────────────────────────────────────────
+  // Navegación
+  // ─────────────────────────────────────────────────────────────
 
   void redirectToRequestLeave() {
     Get.toNamed(Routes.employeeRequestLeave);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Utils
+  // ─────────────────────────────────────────────────────────────
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
+
+  DateTime _addMonths(DateTime d, int months) {
+    // DateTime normaliza automáticamente year/mes (ej: month 13)
+    return DateTime(d.year, d.month + months, 15);
   }
 }

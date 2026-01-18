@@ -94,4 +94,34 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
       return Result(success: false, data: [], errorCode: e.toString());
     }
   }
+
+  @override
+  Stream<List<EmployeeModel>> streamEmployeesByCompanyId(String companyId) {
+    return firestore
+    .collection('employees')
+    .where('companyId', isEqualTo: companyId)
+    .snapshots()
+    .map((snap) {
+      return snap.docs.map((d) {
+        final data = d.data();
+
+        // Ajusta si tu fromJson ya mete el uid, si no:
+        final employee = EmployeeModel.fromJson(data);
+
+        // Si tu modelo necesita uid del doc:
+        // return employee.copyWith(uid: d.id);
+
+        // Si fromJson ya trae uid, devuelve tal cual:
+        // (yo prefiero forzar uid del doc siempre)
+        try {
+          return employee.copyWith(uid: d.id);
+        } catch (_) {
+          // si no tienes copyWith(uid:), al menos asegúrate en tu model
+          // de que uid venga en el json o modifica el model
+          return employee;
+        }
+      }).toList();
+    });
+  }
+
 }

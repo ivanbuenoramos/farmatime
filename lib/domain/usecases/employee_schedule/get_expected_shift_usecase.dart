@@ -1,23 +1,22 @@
-// lib/domain/usecases/schedule/get_expected_shift_usecase.dart
 import 'package:farmatime/data/models/employee_shift_model.dart';
+import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
 
-class GetExpectedShiftUseCase {
+class GetExpectedShiftsForDayUseCase {
   final EmployeeScheduleRepository repo;
-  GetExpectedShiftUseCase(this.repo);
+  GetExpectedShiftsForDayUseCase(this.repo);
 
-  /// Devuelve mapa: employeeId -> ExpectedShiftModel? (null = no trabaja hoy)
-  Future<Map<String, ExpectedShiftModel?>> call({
+  Future<Result<Map<String, ExpectedShiftModel?>>> call({
     required String companyId,
     required List<String> employeeIds,
     required DateTime dayDate,
-  }) async {
-    final res = await repo.getExpectedShiftsForDay(
+    String? dayKey, // yyyy-MM-dd (opcional)
+  }) {
+    return repo.getExpectedShiftsForDay(
       companyId: companyId,
       employeeIds: employeeIds,
       dayDate: dayDate,
+      dayKey: dayKey,
     );
-    if (!res.success) return {};
-    return res.data;
   }
 }

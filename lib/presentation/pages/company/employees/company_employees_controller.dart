@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
-import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/stream_employees_by_company_id_usecase.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
@@ -14,9 +14,13 @@ class CompanyEmployeesController extends GetxController {
   final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
   final UpdateEmployeeUseCase updateEmployeeUseCase;
 
+  // ✅ nuevo
+  final StreamEmployeesByCompanyIdUseCase streamEmployeesByCompanyIdUseCase;
+
   CompanyEmployeesController({
     required this.getEmployeesByCompanyIdUseCase,
     required this.updateEmployeeUseCase,
+    required this.streamEmployeesByCompanyIdUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -30,27 +34,24 @@ class CompanyEmployeesController extends GetxController {
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _companySub;
 
+  // ✅ nuevo
+  StreamSubscription<List<EmployeeModel>>? _employeesSub;
+
   String get companyId => brain.company.value?.id ?? '';
 
   // ---------------------------
-  //  ✅ NUEVO: billing gating
+  //  ✅ billing gating
   // ---------------------------
 
   String get billingStatus => (brain.company.value?.billingStatus ?? 'none').toString();
 
-  bool get subscriptionIsOk {
-    return billingStatus == 'active' || billingStatus == 'none';
-  }
+  bool get subscriptionIsOk => billingStatus == 'active' || billingStatus == 'none';
 
-  /// Plazas efectivas: si hay problema de pago => solo 1
   int get effectiveSeats => subscriptionIsOk ? contractedSeats.value : 1;
 
-  /// ID del empleado más antiguo (según createdAt si existe; fallback estable)
   String? get oldestEmployeeId {
     if (employees.isEmpty) return null;
 
-    // Intenta ordenar por createdAt si tu modelo lo tiene (DateTime o Timestamp o int).
-    // Como no tengo tu EmployeeModel, lo hago defensivo.
     int safeMillis(EmployeeModel e) {
       try {
         final dynamic v = (e as dynamic).createdAt;
@@ -71,26 +72,20 @@ class CompanyEmployeesController extends GetxController {
       final ma = safeMillis(a);
       final mb = safeMillis(b);
       if (ma != mb) return ma.compareTo(mb);
-
-      // fallback: id para que sea determinista
-      final ida = (a.uid).toString();
-      final idb = (b.uid).toString();
-      return ida.compareTo(idb);
+      return a.uid.toString().compareTo(b.uid.toString());
     });
 
-    return (sorted.first.uid).toString();
+    return sorted.first.uid.toString();
   }
 
-  /// Solo el más antiguo puede “usar” la app si hay problema de pago
   bool canAccessEmployee(EmployeeModel employee) {
     if (subscriptionIsOk) return true;
     final oid = oldestEmployeeId;
     if (oid == null) return false;
-    return (employee.uid).toString() == oid;
+    return employee.uid.toString() == oid;
   }
 
   bool get canCreateEmployee {
-    // Si hay problema de pago: no se puede crear NUNCA
     if (!subscriptionIsOk) return false;
     return employees.length < effectiveSeats;
   }
@@ -102,72 +97,58 @@ class CompanyEmployeesController extends GetxController {
     contractedSeats.value = brain.company.value?.contractedSeats ?? 1;
 
     final id = companyId;
-    if (id.isNotEmpty) {
-      _companySub = FirebaseFirestore.instance
-          .collection('companies')
-          .doc(id)
-          .snapshots()
-          .listen((doc) {
-        if (!doc.exists) return;
-
-        final data = doc.data()!;
-        final seats = data['contractedSeats'];
-        if (seats is int) {
-          contractedSeats.value = seats;
-        } else if (seats != null) {
-          final parsed = int.tryParse('$seats');
-          if (parsed != null) contractedSeats.value = parsed;
-        }
-
-        // Si tu Brain se actualiza por otro lado ok.
-        // Si no, aquí también podrías actualizar brain.company.billingStatus, etc.
-      });
-    }
-
-    fetchEmployees();
-  }
-
-  Future<void> fetchEmployees() async {
-    if (companyId.isEmpty) {
+    if (id.isEmpty) {
       Get.snackbar('Error', 'Falta el ID de empresa');
       return;
     }
 
-    try {
-      isLoading.value = true;
+    // Listener seats/empresa (tu código)
+    _companySub = FirebaseFirestore.instance
+        .collection('companies')
+        .doc(id)
+        .snapshots()
+        .listen((doc) {
+      if (!doc.exists) return;
 
-      final Result result = await getEmployeesByCompanyIdUseCase.call(
-        companyId: companyId,
-      );
-
-      if (result.success) {
-        final list = (result.data as List<EmployeeModel>)
-            .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
-            .toList();
-
-        employees.value = list;
-
-        // Evita duplicar si fetch se llama más veces
-        brain.companyEmployees
-          ..clear()
-          ..addAll(list);
-
-        // Orden “bonito”: activos primero, luego resto.
-        employees.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
-      } else {
-        Get.snackbar('Error', 'No se pudieron cargar los empleados: ${result.errorCode}');
+      final data = doc.data()!;
+      final seats = data['contractedSeats'];
+      if (seats is int) {
+        contractedSeats.value = seats;
+      } else if (seats != null) {
+        final parsed = int.tryParse('$seats');
+        if (parsed != null) contractedSeats.value = parsed;
       }
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch employees: $e');
-    } finally {
-      isLoading.value = false;
-    }
+    });
+
+    // ✅ Listener empleados (single source of truth para toda la app)
+    _employeesSub = streamEmployeesByCompanyIdUseCase(companyId: id).listen((list) {
+      // filtra soft-delete si lo necesitas aquí (o en el repo)
+      final filtered = list
+          .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
+          .toList();
+
+      // orden “bonito”
+      filtered.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
+
+      employees.value = filtered;
+
+      // ✅ global para el resto de pantallas
+      brain.companyEmployees
+        ..clear()
+        ..addAll(filtered);
+    }, onError: (e) {
+      Get.snackbar('Error', 'Stream empleados falló: $e');
+    });
+
+    // Si quieres mantener también la carga inicial por fetch (opcional):
+    // fetchEmployees();
   }
 
-  /// FAB o tarjeta vacía → crear empleado (si hay hueco), sino modal
+  // Puedes dejar fetchEmployees() si te sirve para “forzar refresh” manual,
+  // pero ya NO es necesaria para mantener el estado global.
+
   void onAddEmployeePressed() {
     if (!subscriptionIsOk) {
-      // aquí puedes mandar a suscripción o mostrar modal específico
       reditectToSubscription();
       return;
     }
@@ -236,18 +217,13 @@ class CompanyEmployeesController extends GetxController {
               ),
               Text('¡Ups!', style: Get.textTheme.headlineMedium, textAlign: TextAlign.center),
               const SizedBox(height: 8),
-              if (employeesCount == 1)
-                Text(
-                  'Has alcanzado el límite de 1 empleado gratuito. Para añadir más empleados, por favor actualiza tu suscripción.',
-                  style: Get.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                )
-              else
-                Text(
-                  'Has alcanzado el límite de $employeesCount empleados para tu suscripción actual. Para añadir más empleados, por favor actualiza tu suscripción.',
-                  style: Get.textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
+              Text(
+                employeesCount == 1
+                    ? 'Has alcanzado el límite de 1 empleado gratuito. Para añadir más empleados, por favor actualiza tu suscripción.'
+                    : 'Has alcanzado el límite de $employeesCount empleados para tu suscripción actual. Para añadir más empleados, por favor actualiza tu suscripción.',
+                style: Get.textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 30),
               SizedBox(
                 width: double.infinity,
@@ -268,21 +244,15 @@ class CompanyEmployeesController extends GetxController {
     );
   }
 
-  void reditectToSubscription() {
-    Get.toNamed(Routes.companySubscription);
-  }
-
-  void reditectToUpsertEmployee() {
-    Get.toNamed(Routes.companyUpsertEmployee);
-  }
-
-  void reditectToEmployeeDetail(EmployeeModel employee) {
-    Get.toNamed(Routes.companyEmployeeDetail, arguments: employee);
-  }
+  void reditectToSubscription() => Get.toNamed(Routes.companySubscription);
+  void reditectToUpsertEmployee() => Get.toNamed(Routes.companyUpsertEmployee);
+  void reditectToEmployeeDetail(EmployeeModel employee) =>
+      Get.toNamed(Routes.companyEmployeeDetail, arguments: employee);
 
   @override
   void onClose() {
     _companySub?.cancel();
+    _employeesSub?.cancel(); // ✅ importante
     super.onClose();
   }
 }

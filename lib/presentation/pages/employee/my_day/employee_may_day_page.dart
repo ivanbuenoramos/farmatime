@@ -128,11 +128,52 @@ class EmployeeMyDayPage extends GetView<EmployeeMyDayController> {
                     const SizedBox(height: 12),
               
                     /// Horario
+                    /// Horario
                     BaseCard(
                       title: 'Horario de hoy',
                       children: [
-                        Text('De 8:00 a 13:00'),
-                        Text('De 16:00 a 19:00'),
+                        Obx(() {
+                          final expected = controller.todayExpected.value;
+
+                          if (expected == null) {
+                            return Text(
+                              'No hay horario asignado para hoy.',
+                              style: TextStyle(color: Colors.grey),
+                            );
+                          }
+
+                          final startStr = DateFormat.Hm().format(expected.start);
+                          final endStr = DateFormat.Hm().format(expected.end);
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text('De $startStr a $endStr'),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              // 👇 Obx independiente SOLO para el contador
+                              Obx(() {
+                                final counter = controller.scheduleCounterText.value;
+                                if (counter == null || counter.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                final late = controller.isLateForShift;
+
+                                return Text(
+                                  late ? '+$counter' : counter,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: late ? Colors.red : Colors.grey,
+                                  ),
+                                );
+                              }),
+                            ],
+                          );
+                        }),
                       ],
                     ),
               

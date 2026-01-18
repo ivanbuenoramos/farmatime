@@ -1,3 +1,5 @@
+import 'package:farmatime/data/models/employee_shift_model.dart';
+
 class Result<T> {
   bool success;
   T data;
@@ -16,4 +18,6 @@ class Result<T> {
       'errorCode': errorCode,
     };
   }
+
+  ExpectedShiftModel? operator [](String other) {}
 }

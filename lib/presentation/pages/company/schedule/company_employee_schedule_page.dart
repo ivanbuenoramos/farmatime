@@ -9,8 +9,6 @@ import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
 
-
-
 class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
   const EmployeeSchedulePage({super.key});
 
@@ -39,11 +37,11 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
+
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             children: [
-
               // CRUD de turnos preestablecidos
               const ShiftTemplatesCard(),
               const SizedBox(height: 12),
@@ -91,18 +89,16 @@ class EmployeeSchedulePage extends GetView<EmployeeScheduleController> {
   }
 
   Widget _legendItem(Color c, String t) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 16,
-        height: 16,
-        decoration:BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))
-      ),
-      const SizedBox(width: 4),
-      Text(t),
-    ]
-  );
-
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(width: 4),
+          Text(t),
+        ],
+      );
 }
 
 class _Calendar extends GetView<EmployeeScheduleController> {
@@ -124,10 +120,7 @@ class _Calendar extends GetView<EmployeeScheduleController> {
         availableCalendarFormats: const {CalendarFormat.month: 'Mes'},
         onDaySelected: controller.onDaySelected,
         onRangeSelected: controller.onRangeSelected,
-        onPageChanged: (focused) async {
-          controller.focusedDay.value = focused;
-          await controller.loadYear(focused.year);
-        },
+        onPageChanged: controller.onPageChanged,
         calendarBuilders: CalendarBuilders(
           defaultBuilder: (context, day, focused) => _dayCell(day, theme),
           outsideBuilder: (context, day, focused) =>
@@ -151,9 +144,10 @@ class _Calendar extends GetView<EmployeeScheduleController> {
         border: outline != null ? Border.all(color: outline, width: 1.5) : null,
       ),
       alignment: Alignment.center,
-      child: Text('${day.day}',
-          style:
-              TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500)),
+      child: Text(
+        '${day.day}',
+        style: TextStyle(fontWeight: bold ? FontWeight.w700 : FontWeight.w500),
+      ),
     );
   }
 }
@@ -168,7 +162,6 @@ class _Actions extends GetView<EmployeeScheduleController> {
       spacing: 8,
       runSpacing: 4,
       children: [
-        // Al pulsar, abre BottomSheet de turnos (con edición rápida) y aplica
         FilledButton.icon(
           onPressed: () => _applyWorkWithTemplate(context),
           icon: const Icon(Icons.work_history_rounded),
@@ -201,13 +194,19 @@ class _Actions extends GetView<EmployeeScheduleController> {
   }
 
   Future<void> _applyWorkWithTemplate(BuildContext context) async {
-    // Si no hay turnos todavía, ofrece crear manual
     if (controller.shiftTemplates.isEmpty) {
       final from = await showTimePicker(
-          context: context, initialTime: const TimeOfDay(hour: 8, minute: 0));
+        context: context,
+        initialTime: const TimeOfDay(hour: 8, minute: 0),
+      );
       if (from == null) return;
-      final to = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 16, minute: 0));
+
+      final to = await showTimePicker(
+        context: context,
+        initialTime: const TimeOfDay(hour: 16, minute: 0),
+      );
       if (to == null) return;
+
       await controller.setForSelection(DayEntry(type: DayType.work, start: from, end: to));
       return;
     }
@@ -218,8 +217,7 @@ class _Actions extends GetView<EmployeeScheduleController> {
       builder: (_) => PickShiftBottomSheet(
         templates: controller.shiftTemplates,
         onApply: (start, end) async {
-          await controller
-              .setForSelection(DayEntry(type: DayType.work, start: start, end: end));
+          await controller.setForSelection(DayEntry(type: DayType.work, start: start, end: end));
         },
       ),
     );

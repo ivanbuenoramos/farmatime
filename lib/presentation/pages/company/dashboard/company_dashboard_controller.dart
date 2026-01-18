@@ -1,16 +1,14 @@
+// lib/presentation/pages/company/dashboard/company_dashboard_controller.dart
+import 'dart:async';
+import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
-import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/employee_shift_model.dart';
-import 'package:farmatime/domain/usecases/clock/get_today_last_clocks_usecase.dart';
-import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
-import 'package:farmatime/presentation/pages/company/employees/company_employees_controller.dart';
-
-
+import 'package:farmatime/data/models/result.dart';
+import 'package:farmatime/domain/usecases/clock/stream_today_last_clocks_usecase.dart';
 
 enum TodayStatus { working, absent, off }
 
@@ -47,37 +45,45 @@ typedef ClockSnap = ({bool isActive, DateTime? lastClockIn});
 
 class CompanyDashboardController extends GetxController {
   CompanyDashboardController({
-    required this.getEmployeesByCompany,
-    required this.getTodayLastClocks,
-    required this.getExpectedShiftsToday,
+    required this.streamTodayLastClocksUseCase,
+    required this.getExpectedShiftsForDayUseCase,
   });
 
-  // Use cases
-  final GetEmployeesByCompanyIdUseCase getEmployeesByCompany;
-  final GetTodayLastClocksUseCase getTodayLastClocks;
-  final GetExpectedShiftUseCase getExpectedShiftsToday;
-
-  final CompanyEmployeesController companyEmployeesController = Get.find<CompanyEmployeesController>();
-
   final Brain brain = Get.find<Brain>();
+
+  /// ✅ Fichajes en tiempo real (sin whereIn => soporta >10 empleados)
+  final StreamTodayLastClocksUseCase streamTodayLastClocksUseCase;
+
+  /// Turno esperado (fetch). No es real-time.
+  final GetExpectedShiftsForDayUseCase getExpectedShiftsForDayUseCase;
 
   // Estado UI
   final isLoading = false.obs;
   final errorText = RxnString();
 
+  // “tick” para que el UI se actualice en tiempo real (cada 30s)
+  final Rx<DateTime> now = DateTime.now().obs;
+  Timer? _nowTimer;
+
   // Secciones
   final working = <EmployeeRow>[].obs;
-  final absent  = <EmployeeRow>[].obs;
-  final off     = <EmployeeRow>[].obs;
-
+  final absent = <EmployeeRow>[].obs;
+  final off = <EmployeeRow>[].obs;
   final incoherent = <IncoherentAlert>[].obs;
 
   // Config
   final Duration incoherentThreshold = const Duration(minutes: 30);
 
+  // cache interno
+  Map<String, ExpectedShiftModel?> _expectedMap = {};
+  Map<String, ClockSnap> _clocks = {};
+
+  StreamSubscription<Map<String, (DateTime?, bool)>>? _clocksSub;
+  Worker? _employeesWorker;
+
   DateTime get _todayStart {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
+    final d = DateTime.now();
+    return DateTime(d.year, d.month, d.day, 0, 0, 0);
   }
 
   DateTime get _todayEnd =>
@@ -86,133 +92,200 @@ class CompanyDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadAll();
+    _startNowTick();
+    _initRealtime();
   }
 
-  Future<void> refreshAll() => _loadAll();
-
-  Future<void> _loadAll() async {
-    isLoading.value = true;
-    errorText.value = null;
-
-    try {
-      // 1) Empleados activos de la empresa
-      final Result<List<EmployeeModel>> employeesResult = await getEmployeesByCompany.call(
-        companyId: brain.company.value!.id,
-      );
-
-      if (!employeesResult.success) {
-        errorText.value = 'Error al cargar empleados: ${employeesResult.errorCode}';
-        return;
-      }
-
-      final List<EmployeeModel> employees = employeesResult.data;
-
-      // 2) Turno esperado de HOY por empleado (override + reglas)
-      final Map<String, ExpectedShiftModel?> expectedMap =
-          await getExpectedShiftsToday.call(
-            companyId: brain.company.value!.id,
-            employeeIds: employees.map((e) => e.uid).toList(),
-            dayDate: _todayStart,
-          );
-
-      // 3) Último fichaje de HOY + indicador de actividad
-      //    El use case devuelve (DateTime? lastClockIn, bool isActive)
-      //    isActive debe significar: "tiene entrada abierta (clockOut == null)".
-      final Map<String, (DateTime?, bool)> rawClocks =
-          await getTodayLastClocks(brain.company.value!.id, _todayStart, _todayEnd);
-
-      // Normalizamos a record con nombres
-      final Map<String, ClockSnap> clocks = {
-        for (final e in rawClocks.entries)
-          e.key: (isActive: e.value.$2, lastClockIn: e.value.$1)
-      };
-
-      // 4) Clasificación según tus reglas
-      working.clear();
-      absent.clear();
-      off.clear();
-      incoherent.clear();
-
-      for (final emp in employees) {
-        final exp = expectedMap[emp.uid];
-        final snap = clocks[emp.uid];
-        final isActive = snap?.isActive == true;
-        final lastClockIn = snap?.lastClockIn;
-
-        // 👇 nuevo: si está con entrada abierta, es Working aunque exp sea null
-        if (isActive && lastClockIn != null) {
-          working.add(EmployeeRow(
-            emp: emp,
-            status: TodayStatus.working,
-            lastClockIn: lastClockIn,
-            expected: exp,
-          ));
-          continue;
-        }
-
-        if (exp == null) {
-          off.add(EmployeeRow(emp: emp, status: TodayStatus.off));
-          continue;
-        }
-
-        final now = DateTime.now();
-        final dentroDeTurno = _isNowWithinShift(exp.start, exp.end, now: now);
-
-        if (dentroDeTurno) {
-          absent.add(EmployeeRow(emp: emp, status: TodayStatus.absent, expected: exp));
-          final delay = now.difference(exp.start);
-          if (delay >= incoherentThreshold) {
-            incoherent.add(IncoherentAlert(
-              emp: emp,
-              reason: 'Ausencia',
-              deltaMinutes: delay.inMinutes,
-              date: now,
-            ));
-          }
-        } else {
-          off.add(EmployeeRow(emp: emp, status: TodayStatus.off, expected: exp));
-        }
-}
-      print(working.length);
-      print(absent.length);
-      print(off.length);
-      print(incoherent.length);
-    } catch (e) {
-      errorText.value = 'Error al cargar el dashboard: $e';
-    } finally {
-      isLoading.value = false;
-    }
+  @override
+  void onClose() {
+    _clocksSub?.cancel();
+    _employeesWorker?.dispose();
+    _nowTimer?.cancel();
+    super.onClose();
   }
 
-  // ─────────────── Helpers UI ───────────────
+  // ─────────────────────────────────────────────────────────────
+  // Public helpers para la UI
+  // ─────────────────────────────────────────────────────────────
+
   String relTimeFrom(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
+    final diff = now.value.difference(dt);
     if (diff.inHours >= 1) {
-      final h = diff.inHours, m = diff.inMinutes % 60;
+      final h = diff.inHours;
+      final m = diff.inMinutes % 60;
       return 'Hace ${h}h ${m}m';
     }
     return 'Hace ${diff.inMinutes}m';
   }
 
+  Future<void> refreshAll() async {
+    await _reloadExpected();
+    _recompute();
+  }
+
+  void redirectToComapnyProfile() {
+    Get.toNamed(Routes.companyProfile);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Internals
+  // ─────────────────────────────────────────────────────────────
+
+  void _startNowTick() {
+    _nowTimer?.cancel();
+
+    _nowTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      now.value = DateTime.now();
+      _recompute();
+    });
+  }
+
+  void _initRealtime() {
+    isLoading.value = true;
+    errorText.value = null;
+
+    _employeesWorker = ever<List<EmployeeModel>>(brain.companyEmployees, (_) async {
+      await _reloadExpected(); // fetch
+      _bindClocksStream();     // realtime
+      _recompute();
+      isLoading.value = false;
+    });
+
+    if (brain.companyEmployees.isNotEmpty) {
+      _reloadExpected().then((_) {
+        _bindClocksStream();
+        _recompute();
+        isLoading.value = false;
+      });
+    }
+  }
+
+  Future<void> _reloadExpected() async {
+    final companyId = brain.company.value?.id;
+    if (companyId == null || companyId.isEmpty) return;
+
+    final employees = brain.companyEmployees
+        .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
+        .toList();
+
+    if (employees.isEmpty) {
+      _expectedMap = {};
+      return;
+    }
+
+    errorText.value = null;
+
+    final Result<Map<String, ExpectedShiftModel?>> res =
+        await getExpectedShiftsForDayUseCase.call(
+      companyId: companyId,
+      employeeIds: employees.map((e) => e.uid).toList(),
+      dayDate: _todayStart,
+    );
+
+    if (!res.success) {
+      _expectedMap = {};
+      errorText.value = 'Error al cargar turnos esperados';
+      return;
+    }
+
+    _expectedMap = res.data;
+  }
+
+  void _bindClocksStream() {
+    final companyId = brain.company.value?.id;
+    if (companyId == null || companyId.isEmpty) return;
+
+    _clocksSub?.cancel();
+
+    _clocksSub = streamTodayLastClocksUseCase(
+      companyId,
+      _todayStart,
+      _todayEnd,
+    ).listen((raw) {
+      _clocks = {
+        for (final e in raw.entries)
+          e.key: (isActive: e.value.$2, lastClockIn: e.value.$1),
+      };
+      _recompute();
+    }, onError: (e) {
+      errorText.value = 'Error al escuchar fichajes: $e';
+    });
+  }
+
+  void _recompute() {
+    final employees = brain.companyEmployees
+        .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
+        .toList();
+
+    working.clear();
+    absent.clear();
+    off.clear();
+    incoherent.clear();
+
+    if (employees.isEmpty) return;
+
+    final n = now.value;
+
+    for (final emp in employees) {
+      final exp = _expectedMap[emp.uid];
+      final snap = _clocks[emp.uid];
+      final isActive = snap?.isActive == true;
+      final lastClockIn = snap?.lastClockIn;
+
+      // Si tiene entrada abierta => working
+      if (isActive && lastClockIn != null) {
+        working.add(EmployeeRow(
+          emp: emp,
+          status: TodayStatus.working,
+          lastClockIn: lastClockIn,
+          expected: exp,
+        ));
+        continue;
+      }
+
+      // Sin turno esperado => off
+      if (exp == null) {
+        off.add(EmployeeRow(emp: emp, status: TodayStatus.off));
+        continue;
+      }
+
+      final dentroDeTurno = _isNowWithinShift(exp.start, exp.end, now: n);
+
+      if (dentroDeTurno) {
+        absent.add(EmployeeRow(emp: emp, status: TodayStatus.absent, expected: exp));
+
+        final delay = n.difference(exp.start);
+        if (delay >= incoherentThreshold) {
+          incoherent.add(IncoherentAlert(
+            emp: emp,
+            reason: 'Ausencia',
+            deltaMinutes: delay.inMinutes,
+            date: n,
+          ));
+        }
+      } else {
+        off.add(EmployeeRow(emp: emp, status: TodayStatus.off, expected: exp));
+      }
+    }
+
+    // Orden consistente
+    working.sort((a, b) => a.emp.name.compareTo(b.emp.name));
+    absent.sort((a, b) => a.emp.name.compareTo(b.emp.name));
+    off.sort((a, b) => a.emp.name.compareTo(b.emp.name));
+  }
+
   bool _isNowWithinShift(DateTime start, DateTime end, {DateTime? now}) {
-    // Normaliza todo a UTC para evitar desfases TZ
     final n = (now ?? DateTime.now()).toUtc();
     final s = start.toUtc();
     final e = end.toUtc();
 
     if (!e.isBefore(s)) {
-      // Turno normal mismo día: [start, end] (incluimos 1 min de margen)
       return (n.isAtSameMomentAs(s) || n.isAfter(s)) &&
-            (n.isBefore(e.add(const Duration(minutes: 1))));
+          n.isBefore(e.add(const Duration(minutes: 1)));
     } else {
-      // Turno nocturno: start -> 23:59... y 00:00 -> end (día siguiente)
-      // Dentro si: n >= start  (hoy)  OR  n <= end (mañana)
-      return n.isAtSameMomentAs(s) || n.isAfter(s) || n.isBefore(e.add(const Duration(minutes: 1)));
+      return n.isAtSameMomentAs(s) ||
+          n.isAfter(s) ||
+          n.isBefore(e.add(const Duration(minutes: 1)));
     }
-  }
-
-  void redirectToComapnyProfile() {
-    Get.toNamed(Routes.companyProfile);
   }
 }

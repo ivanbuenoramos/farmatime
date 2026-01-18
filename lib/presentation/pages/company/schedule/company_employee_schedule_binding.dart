@@ -9,8 +9,8 @@ import 'package:get/get.dart';
 import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
 import 'package:farmatime/data/repositories/employee_schedule_repository_impl.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/get_employee_year_schedule_usecase.dart';
-import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_year_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_employee_month_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_month_schedule_usecase.dart';
 import 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_controller.dart';
 
 class EmployeeScheduleBinding extends Bindings {
@@ -23,20 +23,20 @@ class EmployeeScheduleBinding extends Bindings {
     Get.lazyPut<ShiftTemplateRepository>(() => ShiftTemplateRepositoryImpl());
 
     // UseCases
-    Get.lazyPut<GetEmployeeYearScheduleUseCase>(
-      () => GetEmployeeYearScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
+    Get.lazyPut<GetEmployeeMonthScheduleUseCase>(
+      () => GetEmployeeMonthScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
     );
-    Get.lazyPut<UpsertEmployeeYearScheduleUseCase>(
-      () => UpsertEmployeeYearScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
+    Get.lazyPut<UpsertEmployeeMonthScheduleUseCase>(
+      () => UpsertEmployeeMonthScheduleUseCase(Get.find<EmployeeScheduleRepository>()),
     );
     Get.lazyPut<ListRecurringRulesUseCase>(
       () => ListRecurringRulesUseCase(Get.find<EmployeeScheduleRepository>()),
     );
-    Get.lazyPut<UpsertRecurringRuleUseCase>(
-      () => UpsertRecurringRuleUseCase(Get.find<EmployeeScheduleRepository>()),
+    Get.lazyPut<UpsertRecurringShiftRuleUseCase>(
+      () => UpsertRecurringShiftRuleUseCase(Get.find<EmployeeScheduleRepository>()),
     );
-    Get.lazyPut<DeleteRecurringRuleUseCase>(
-      () => DeleteRecurringRuleUseCase(Get.find<EmployeeScheduleRepository>()),
+    Get.lazyPut<DeleteRecurringShiftRuleUseCase>(
+      () => DeleteRecurringShiftRuleUseCase(Get.find<EmployeeScheduleRepository>()),
     );
     Get.lazyPut<ListShiftTemplatesUseCase>(
       () => ListShiftTemplatesUseCase(Get.find<ShiftTemplateRepository>()),
@@ -48,8 +48,8 @@ class EmployeeScheduleBinding extends Bindings {
 
     // Controller
     Get.lazyPut<EmployeeScheduleController>(() => EmployeeScheduleController(
-          getYearUC: Get.find<GetEmployeeYearScheduleUseCase>(),
-          upsertYearUC: Get.find<UpsertEmployeeYearScheduleUseCase>(),
+          getMonthUC: Get.find<GetEmployeeMonthScheduleUseCase>(),
+          upsertMonthUC: Get.find<UpsertEmployeeMonthScheduleUseCase>(),
           listRulesUC: Get.find<ListRecurringRulesUseCase>(),
         ));
   }
