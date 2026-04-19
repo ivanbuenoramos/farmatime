@@ -214,14 +214,14 @@ class _EmployeeDropdown extends StatelessWidget {
                           color: theme.colorScheme.secondary,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          parseAccountStatus(e),
-                          style: theme.textTheme.bodySmall
-                        ),
-                      ),
+                      // const SizedBox(width: 8),
+                    //   Padding(
+                    //     padding: const EdgeInsets.only(top: 3),
+                    //     child: Text(
+                    //       parseAccountStatus(e),
+                    //       style: theme.textTheme.bodySmall
+                    //     ),
+                    //   ),
                     ],
                   ),
                 ),
@@ -245,10 +245,10 @@ class _EmployeeDropdown extends StatelessWidget {
                       Column(
                         children: [
                           Text(first.name),
-                          Text(first.accountStatus?.name ?? '-',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.secondary,
-                              )),
+                          // Text(first.accountStatus?.name ?? '-',
+                          //     style: theme.textTheme.bodySmall?.copyWith(
+                          //       color: theme.colorScheme.secondary,
+                          //     )),
                         ],
                       ),
                     ],
@@ -268,7 +268,7 @@ class _EmployeeDropdown extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String?>(
-                value: value,
+                initialValue: value,
                 items: items,
                 onChanged: isBillingActive
                     ? (val) => controller.setEmployee(val)

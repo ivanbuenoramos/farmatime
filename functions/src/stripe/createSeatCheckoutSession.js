@@ -192,33 +192,75 @@ exports.stripe_createSeatCheckoutSession = onCall(
         }
 
         // ── UPGRADE (cobrar diferencia con prorrateo)
-        // 1) Actualiza sub con prorrateo
+        // Actualizamos con payment_behavior: 'default_incomplete' para que Stripe
+        // cree la invoice de prorrateo automáticamente y la exponga en latest_invoice.
         const updated = await stripe.subscriptions.update(subscriptionId, {
+          payment_behavior: 'default_incomplete',
           proration_behavior: 'create_prorations',
           items: [{ id: seatItem.id, quantity: newPaidSeats }],
+          expand: ['latest_invoice.payment_intent'],
         });
 
-        // 2) Genera invoice inmediata por los prorations
-        const inv = await stripe.invoices.create({
-          customer: customerId,
-          subscription: updated.id,
-          auto_advance: true,
-          metadata: { companyId, reason: 'seat_upgrade_proration' },
-        });
+        const inv = typeof updated.latest_invoice === 'string' ?
+          await stripe.invoices.retrieve(updated.latest_invoice) :
+          updated.latest_invoice;
 
-        // 3) Intenta cobrar automáticamente (si hay método por defecto)
-        try {
-          await stripe.invoices.pay(inv.id);
+        if (!inv?.id) {
+          // Sin invoice: el prorrateo se aplicó sin coste adicional
           return { ok: true, noPayment: true };
-        } catch (e) {
-          // Si requiere acción / no se puede cobrar, devolvemos URL Stripe-hosted
-          const hostedUrl = await finalizeAndGetHostedUrl(stripe, inv.id);
-          if (!hostedUrl) {
-            throw new HttpsError('failed-precondition', 'No se pudo obtener hosted invoice URL');
-          }
-          return { ok: true, noPayment: false, url: hostedUrl };
         }
+
+        // Intenta cobrar automáticamente (si hay método por defecto)
+        try {
+          const paid = await stripe.invoices.pay(inv.id, { off_session: true });
+          if (paid.status === 'paid') {
+            return { ok: true, noPayment: true };
+          }
+        } catch (_) {
+          // Requiere acción / sin método de pago → URL Stripe-hosted
+        }
+
+        const hostedUrl = await finalizeAndGetHostedUrl(stripe, inv.id);
+        if (!hostedUrl) {
+          throw new HttpsError('failed-precondition', 'No se pudo obtener hosted invoice URL');
+        }
+        return { ok: true, noPayment: false, url: hostedUrl };
       } catch (err) {
+        // Cliente Stripe no existe en esta cuenta/modo → limpiar mirror y pedir recreación
+        const isNoSuchCustomer =
+          err?.type === 'StripeInvalidRequestError' &&
+          (err?.code === 'resource_missing' || String(err?.message || '').includes('No such customer'));
+
+        if (isNoSuchCustomer) {
+          logger.warn('[stripe_createSeatCheckoutSession] stripeCustomerId inválido, limpiando mirror', {
+            companyId: request?.data?.companyId,
+            msg: err.message,
+          });
+
+          try {
+            const companyId = String(request?.data?.companyId || '').trim();
+            if (companyId) {
+              await db.collection('companies').doc(companyId).set(
+                  {
+                    stripeCustomerId: null,
+                    stripeSubscriptionId: null,
+                    billingStatus: 'none',
+                    contractedSeats: 1,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  },
+                  { merge: true },
+              );
+            }
+          } catch (cleanupErr) {
+            logger.error('[stripe_createSeatCheckoutSession] error en limpieza', { msg: cleanupErr?.message });
+          }
+
+          throw new HttpsError(
+              'failed-precondition',
+              'El cliente de pago no existe. Vuelve a configurar la facturación.',
+          );
+        }
+
         logger.error('[stripe_createSeatCheckoutSession]', {
           msg: err?.message,
           stack: err?.stack,

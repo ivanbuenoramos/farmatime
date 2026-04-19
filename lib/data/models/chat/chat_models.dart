@@ -28,8 +28,10 @@ class Conversation {
   final String? imageUrl;
   final List<String> memberIds;
   final String? lastMessageText;
+  final String? lastMessageSenderId;
   final DateTime? lastMessageAt;
   final DateTime updatedAt;
+  final Map<String, int> unreadCounts;
 
   Conversation({
     required this.id,
@@ -41,7 +43,11 @@ class Conversation {
     required this.updatedAt,
     this.lastMessageAt,
     this.lastMessageText,
+    this.lastMessageSenderId,
+    this.unreadCounts = const {},
   });
+
+  int unreadFor(String userId) => unreadCounts[userId] ?? 0;
 
   Map<String, dynamic> toMap() => {
         'companyId': companyId,
@@ -50,12 +56,21 @@ class Conversation {
         if (imageUrl != null) 'imageUrl': imageUrl,
         'memberIds': memberIds,
         'lastMessageText': lastMessageText,
+        'lastMessageSenderId': lastMessageSenderId,
         'updatedAt': Timestamp.fromDate(updatedAt),
         if (lastMessageAt != null) 'lastMessageAt': Timestamp.fromDate(lastMessageAt!),
+        'unreadCounts': unreadCounts,
       };
 
   factory Conversation.fromSnapshot(DocumentSnapshot snap) {
     final m = snap.data() as Map<String, dynamic>;
+    final rawUnread = m['unreadCounts'];
+    final unreadCounts = <String, int>{};
+    if (rawUnread is Map) {
+      rawUnread.forEach((k, v) {
+        if (v is int) unreadCounts[k.toString()] = v;
+      });
+    }
     return Conversation(
       id: snap.id,
       companyId: m['companyId'] as String,
@@ -66,8 +81,10 @@ class Conversation {
           .map((e) => e.toString())
           .toList(),
       lastMessageText: m['lastMessageText'] as String?,
+      lastMessageSenderId: m['lastMessageSenderId'] as String?,
       updatedAt: (m['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastMessageAt: (m['lastMessageAt'] as Timestamp?)?.toDate(),
+      unreadCounts: unreadCounts,
     );
   }
 }

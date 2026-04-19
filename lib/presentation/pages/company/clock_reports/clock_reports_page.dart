@@ -63,7 +63,7 @@ class ClockReportsPage extends GetView<ClockReportsController> {
       children: [
         Expanded(
           child: DropdownButtonFormField<int>(
-            value: controller.selectedMonth.value,
+            initialValue: controller.selectedMonth.value,
             decoration: const InputDecoration(
               labelText: 'Mes',
               border: OutlineInputBorder(),
@@ -92,7 +92,7 @@ class ClockReportsPage extends GetView<ClockReportsController> {
         const SizedBox(width: 12),
         Expanded(
           child: DropdownButtonFormField<int>(
-            value: controller.selectedYear.value,
+            initialValue: controller.selectedYear.value,
             decoration: const InputDecoration(
               labelText: 'Año',
               border: OutlineInputBorder(),

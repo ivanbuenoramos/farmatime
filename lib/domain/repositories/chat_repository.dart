@@ -16,6 +16,10 @@ abstract class ChatRepository {
     String? titleOverride,
   });
 
+  /// Devuelve un mapa userId → displayName con todos los miembros de la empresa.
+  /// Incluye la farmacia (companyId → legalName) y todos los empleados.
+  Future<Map<String, String>> getMemberNames(String companyId);
+
   Stream<List<Conversation>> streamInbox(String userId, String companyId);
   Stream<List<ChatMessage>> streamMessages(String conversationId);
 

@@ -59,14 +59,20 @@ async function markEventProcessedGlobal(eventId) {
   if (!eventId) return true;
 
   const ref = db.collection('_stripeEvents').doc(eventId);
-  const doc = await ref.get();
-  if (doc.exists) return false;
 
-  await ref.set({
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  return true;
+  // Transacción atómica: evita doble procesamiento si Stripe reintenta en paralelo
+  try {
+    const shouldProcess = await db.runTransaction(async (txn) => {
+      const doc = await txn.get(ref);
+      if (doc.exists) return false;
+      txn.set(ref, { createdAt: admin.firestore.FieldValue.serverTimestamp() });
+      return true;
+    });
+    return shouldProcess;
+  } catch (_) {
+    // Si la transacción falla, procesamos de todos modos (mejor duplicar que perder)
+    return true;
+  }
 }
 
 async function markEventProcessedForCompany(companyId, eventId) {
@@ -157,7 +163,8 @@ exports.stripe_webhook = onRequest(
       }
       if (!PRICE_ID) {
         logger.error('Falta PRICE_ID');
-        return res.status(500).send('PRICE_ID no configurado');
+        // 400 (no 500): Stripe no reintenta errores de cliente permanentes
+        return res.status(400).send('PRICE_ID no configurado');
       }
 
       const sig = req.headers['stripe-signature'];
@@ -278,7 +285,10 @@ exports.stripe_webhook = onRequest(
             const customerId = asId(inv.customer);
 
             const companyId = await findCompanyId({ customerId });
-            if (!companyId) break;
+            if (!companyId) {
+              logger.warn('invoice.paid: no se encontró companyId', { customerId, eventId: event.id });
+              break;
+            }
 
             const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
             if (!shouldProcess) break;
@@ -305,27 +315,26 @@ exports.stripe_webhook = onRequest(
             const customerId = asId(inv.customer);
 
             const companyId = await findCompanyId({ customerId });
-            if (!companyId) break;
+            if (!companyId) {
+              logger.warn('invoice.payment_failed: no se encontró companyId', { customerId, eventId: event.id });
+              break;
+            }
 
             const shouldProcess = await markEventProcessedForCompany(companyId, event.id);
             if (!shouldProcess) break;
 
             await saveInvoice(companyId, inv);
 
-            await updateCompany(companyId, {
-              stripeCustomerId: customerId,
-              billingStatus: 'past_due',
-            });
-
+            // Sincronizamos desde Stripe PRIMERO (puede que sub todavía diga 'active')
             const subId = asId(inv.subscription);
             if (subId) {
-              await syncFromSubscription({
-                stripe,
-                companyId,
-                customerId,
-                subscriptionId: subId,
-              });
+              await syncFromSubscription({ stripe, companyId, customerId, subscriptionId: subId });
+            } else {
+              await updateCompany(companyId, { stripeCustomerId: customerId });
             }
+
+            // Forzamos past_due DESPUÉS: así nunca queda sobreescrito por syncFromSubscription
+            await updateCompany(companyId, { billingStatus: 'past_due' });
 
             break;
           }

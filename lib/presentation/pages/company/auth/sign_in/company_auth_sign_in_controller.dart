@@ -18,6 +18,7 @@ import 'package:farmatime/data/models/employee_model.dart';
 // Usecases
 import 'package:farmatime/domain/usecases/company/get_company_by_id_usecase.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_in_with_email_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/get_employee_by_id_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 
 // Chat
@@ -25,12 +26,14 @@ import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_u
 class CompanyAuthSignInController extends GetxController {
   final SignInWithEmailUseCase signInWithEmailUseCase;
   final GetCompanyByIdUseCase getCompanyByIdUseCase;
-  final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase; // ⬅️ NUEVO
+  final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
+  final GetEmployeeByIdUseCase getEmployeeByIdUseCase;
 
   CompanyAuthSignInController({
     required this.signInWithEmailUseCase,
     required this.getCompanyByIdUseCase,
-    required this.getEmployeesByCompanyIdUseCase, // ⬅️ NUEVO
+    required this.getEmployeesByCompanyIdUseCase,
+    required this.getEmployeeByIdUseCase,
   });
 
   final emailController = TextEditingController();
@@ -71,32 +74,40 @@ class CompanyAuthSignInController extends GetxController {
       return;
     }
 
-    // En tu modelo: companyId == uid de la farmacia
     final Result<CompanyModel?> companyResult = await getCompanyByIdUseCase.call(user.uid);
 
-    if (!companyResult.success || companyResult.data == null) {
-      Get.snackbar('Error', 'No se encontró una empresa asociada a esta cuenta');
+    if (companyResult.success && companyResult.data != null) {
+      final company = companyResult.data!;
+      brain.company.value = company;
+      await GetStorage().write('company', json.encode(company.toJson()));
+
+      try {
+        await _seedChatForExistingCompany(
+          companyId: company.id,
+          pharmacyUserId: user.uid,
+          pharmacyDisplayName: company.legalName,
+        );
+      } catch (e, st) {
+        debugPrint('Seed chat error: $e\n$st');
+      }
+
+      Get.offAllNamed(Routes.companyMain);
+      notifyLogin(company.email, company.legalName);
       return;
     }
 
-    final company = companyResult.data!;
-    brain.company.value = company;
-    await GetStorage().write('company', json.encode(company.toJson()));
+    // Puede que sea un empleado que entró en el formulario de farmacia
+    final Result<EmployeeModel?> employeeResult =
+        await getEmployeeByIdUseCase.call(user.uid);
 
-    // 🧩 Seed del chat (idempotente)
-    try {
-      await _seedChatForExistingCompany(
-        companyId: company.id,
-        pharmacyUserId: user.uid,
-        pharmacyDisplayName: company.legalName,
-      );
-    } catch (e, st) {
-      debugPrint('Seed chat error: $e\n$st');
+    if (employeeResult.success && employeeResult.data != null) {
+      brain.employee.value = employeeResult.data;
+      await GetStorage().write('employee', json.encode(employeeResult.data!.toJson()));
+      Get.offAllNamed(Routes.employeeMain);
+      return;
     }
 
-    Get.offAllNamed(Routes.companyMain);
-
-    notifyLogin(company.email, company.legalName);
+    Get.snackbar('Error', 'No se encontró ninguna cuenta asociada a este email');
   }
 
   void recoverPassword() => Get.toNamed(Routes.recoverPassword);

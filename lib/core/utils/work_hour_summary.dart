@@ -1,4 +1,3 @@
-import 'package:meta/meta.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/models/clock_in_out_model.dart';

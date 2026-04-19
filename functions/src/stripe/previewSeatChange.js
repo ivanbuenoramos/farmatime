@@ -178,12 +178,14 @@ exports.stripe_previewSeatChange = onCall(
         const currentTotalSeats = currentPaidSeats + 1;
         const deltaPaid = newPaidSeats - currentPaidSeats;
 
-        // PREVIEW PRÓXIMO CICLO (SIEMPRE que haya suscripción):
-        // ✅ NO mandes subscription_proration_date (si no hay prorrateo, Stripe peta)
+        // PREVIEW PRÓXIMO CICLO: sin prorrateo para ver solo el importe base del ciclo
+        // subscription_proration_behavior: 'none' evita que prorateos pendientes
+        // de cambios anteriores inflen el total mostrado al usuario
         const previewNext = await retrieveUpcomingViaRaw(stripe, {
           customer: customerId,
           subscription: subscriptionId,
           subscription_items: [{ id: seatItem.id, quantity: newPaidSeats }],
+          subscription_proration_behavior: 'none',
           expand: ['lines'],
         });
         const next = pickInvoiceTotals(previewNext);

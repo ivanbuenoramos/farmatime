@@ -1,7 +1,6 @@
 // lib/presentation/pages/company/payment_methods/payment_methods_controller.dart
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/billing/payment_method_model.dart';

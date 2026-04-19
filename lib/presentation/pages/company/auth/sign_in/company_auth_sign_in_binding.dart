@@ -5,6 +5,7 @@ import 'package:farmatime/domain/repositories/company_repository.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
 import 'package:farmatime/domain/repositories/firebase_auth_repository.dart';
 import 'package:farmatime/domain/usecases/company/get_company_by_id_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/get_employee_by_id_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_in_with_email_usecase.dart';
 import 'package:get/get.dart';
@@ -31,14 +32,19 @@ class CompanyAuthSignInBinding extends Bindings {
       () => GetCompanyByIdUseCase(Get.find<CompanyRepository>()),
     );
 
+    Get.lazyPut<GetEmployeeByIdUseCase>(
+      () => GetEmployeeByIdUseCase(Get.find<EmployeeRepository>()),
+    );
+
     Get.lazyPut<GetEmployeesByCompanyIdUseCase>(
       () => GetEmployeesByCompanyIdUseCase(Get.find<EmployeeRepository>()),
     );
-    
+
     Get.lazyPut<CompanyAuthSignInController>(() => CompanyAuthSignInController(
       signInWithEmailUseCase: Get.find<SignInWithEmailUseCase>(),
       getCompanyByIdUseCase: Get.find<GetCompanyByIdUseCase>(),
-      getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>()
+      getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>(),
+      getEmployeeByIdUseCase: Get.find<GetEmployeeByIdUseCase>(),
     ));
   }
 }

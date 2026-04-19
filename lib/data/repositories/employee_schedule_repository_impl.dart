@@ -24,7 +24,7 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
       '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
 
   String _monthDocId(String companyId, String employeeId, String monthStr) =>
-      '${companyId}__${employeeId}__${monthStr}';
+      '${companyId}__${employeeId}__$monthStr';
 
   String _monthFromDateKey(String yyyyMmDd) => yyyyMmDd.substring(0, 7); // yyyy-MM
 

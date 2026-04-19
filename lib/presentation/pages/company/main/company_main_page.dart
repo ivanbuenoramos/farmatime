@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:flutter_svg/svg.dart';
 
 import 'package:farmatime/presentation/presentation.dart';
+import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/company/entries/company_entries_page.dart';
 import 'package:farmatime/presentation/pages/company/dashboard/company_dashboard_page.dart';
 import 'package:farmatime/presentation/pages/company/employees/company_employees_page.dart';
@@ -29,7 +30,7 @@ class CompanyMainPage extends StatelessWidget {
             children: [
               CompanyDashboardPage(),
               CompanyEntriesPage(),
-              // InboxPage(),
+              const InboxPage(),
               CompanyEmployeesPage(),
               CompanyAccountPage(),
             ],
@@ -81,25 +82,25 @@ class CompanyMainPage extends StatelessWidget {
       label: 'Fichajes',
     ),
 
-    // BottomNavigationBarItem(
-    //   icon: SvgPicture.asset(
-    //     'assets/icons/chat.svg', 
-    //     height: 26,
-    //     colorFilter: ColorFilter.mode(
-    //       Get.theme.colorScheme.tertiary,
-    //       BlendMode.srcIn,
-    //     ),
-    //   ),
-    //   activeIcon: SvgPicture.asset(
-    //     'assets/icons/chat_bold.svg',
-    //     colorFilter: ColorFilter.mode(
-    //       Get.theme.colorScheme.primary,
-    //       BlendMode.srcIn,
-    //     ),
-    //     height: 26,
-    //   ),
-    //   label: 'Chat',
-    // ),
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        'assets/icons/chat.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/chat_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
+      label: 'Chat',
+    ),
 
     BottomNavigationBarItem(
       icon: SvgPicture.asset(

@@ -24,6 +24,7 @@ abstract class StripeRepository {
 
   Future<Result<String?>> createBillingPortalSession({
     required String companyId,
+    String? returnUrl,
   });
 
   Future<Result<CreateSeatCheckoutSessionResponse?>> createSeatCheckoutSession({

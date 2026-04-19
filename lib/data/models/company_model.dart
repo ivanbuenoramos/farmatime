@@ -240,6 +240,7 @@ class CompanyModel {
     String? stripeSubscriptionId,
     int? contractedSeats,
     String? billingStatus,
+    DateTime? currentPeriodStart,
     DateTime? currentPeriodEnd,
     int? pendingSeats,
     int? scheduledSeats,

@@ -274,7 +274,7 @@ class UpsertEmployeePage extends GetView<UpsertEmployeeController> {
                   spacing4,
                   Obx(() {
                     return DropdownButtonFormField<EmployeeRole>(
-                      value: controller.role.value,
+                      initialValue: controller.role.value,
                       decoration: decoration('Selecciona el cargo'),
                       borderRadius: BorderRadius.circular(12),
                       isExpanded: true,
@@ -321,7 +321,7 @@ class UpsertEmployeePage extends GetView<UpsertEmployeeController> {
                   spacing4,
                   Obx(() {
                     return DropdownButtonFormField<WorkdayType?>(
-                      value: controller.workdayType.value,
+                      initialValue: controller.workdayType.value,
                       decoration: decoration('Selecciona la jornada'),
                       borderRadius: BorderRadius.circular(12),
                       isExpanded: true,

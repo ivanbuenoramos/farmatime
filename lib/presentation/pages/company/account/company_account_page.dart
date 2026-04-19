@@ -32,11 +32,13 @@ class CompanyAccountPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            
             Container(
               height: 200,
               width: double.infinity,
               color: Theme.of(context).colorScheme.primaryContainer,
             ),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               child: Column(

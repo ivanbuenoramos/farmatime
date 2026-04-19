@@ -43,7 +43,7 @@ class ShiftTemplate {
     final d = totalDuration;
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
-    return m == 0 ? '${h}h' : '${h}h ${m} min';
+    return m == 0 ? '${h}h' : '${h}h $m min';
   }
 
   // ----------------- JSON -----------------

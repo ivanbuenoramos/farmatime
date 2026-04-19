@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:flutter_svg/svg.dart';
 
 import 'package:farmatime/presentation/presentation.dart';
+import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/employee/my_day/employee_may_day_page.dart';
 import 'package:farmatime/presentation/pages/employee/entries/employee_entries_page.dart';
 
@@ -29,7 +30,7 @@ class EmployeeMainPage extends StatelessWidget {
             children: [
               EmployeeMyDayPage(),
               EmployeeEntriesPage(),
-              // InboxPage(),
+              const InboxPage(),
               EmployeeCalendarPage(),
               EmployeeAccountPage(),
             ],
@@ -81,25 +82,25 @@ class EmployeeMainPage extends StatelessWidget {
       label: 'Fichajes',
     ),
 
-    // BottomNavigationBarItem(
-    //   icon: SvgPicture.asset(
-    //     'assets/icons/chat.svg', 
-    //     height: 26,a
-    //     colorFilter: ColorFilter.mode(
-    //       Get.theme.colorScheme.tertiary,
-    //       BlendMode.srcIn,
-    //     ),
-    //   ),
-    //   activeIcon: SvgPicture.asset(
-    //     'assets/icons/chat_bold.svg', 
-    //     height: 26,
-    //     colorFilter: ColorFilter.mode(
-    //       Get.theme.colorScheme.primary,
-    //       BlendMode.srcIn,
-    //     ),
-    //   ),
-    //   label: 'Chat',
-    // ),
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        'assets/icons/chat.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.tertiary,
+          BlendMode.srcIn,
+        ),
+      ),
+      activeIcon: SvgPicture.asset(
+        'assets/icons/chat_bold.svg',
+        height: 26,
+        colorFilter: ColorFilter.mode(
+          Get.theme.colorScheme.primary,
+          BlendMode.srcIn,
+        ),
+      ),
+      label: 'Chat',
+    ),
 
     BottomNavigationBarItem(
       icon: SvgPicture.asset(

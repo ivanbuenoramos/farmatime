@@ -169,7 +169,7 @@ class _EmployeeAvatar extends StatelessWidget {
     final hasPhoto =
         employee.photoUrl != null && employee.photoUrl!.trim().isNotEmpty;
 
-    String _initialsFromName(String name) {
+    String initialsFromName(String name) {
       final parts = name.trim().split(' ');
       if (parts.isEmpty) return '';
       if (parts.length == 1) return parts.first.characters.first.toUpperCase();
@@ -184,7 +184,7 @@ class _EmployeeAvatar extends StatelessWidget {
       backgroundImage: hasPhoto ? NetworkImage(employee.photoUrl!) : null,
       child: !hasPhoto
           ? Text(
-              _initialsFromName(employee.name),
+              initialsFromName(employee.name),
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onPrimaryContainer,
                 fontWeight: FontWeight.bold,

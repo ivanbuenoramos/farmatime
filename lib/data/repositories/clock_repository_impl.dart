@@ -265,8 +265,9 @@ class ClockRepositoryImpl implements ClockRepository {
 
           final ci = data['clockIn'];
           DateTime? clockIn;
-          if (ci is Timestamp) clockIn = ci.toDate();
-          else if (ci is DateTime) clockIn = ci;
+          if (ci is Timestamp) {
+            clockIn = ci.toDate();
+          } else if (ci is DateTime) clockIn = ci;
 
           // 🔥 isActive basado en RAW: si no hay clockOut o es null
           final isActive = data['clockOut'] == null;
@@ -294,8 +295,9 @@ class ClockRepositoryImpl implements ClockRepository {
 
           final ci = data['clockIn'];
           int millis = 0;
-          if (ci is Timestamp) millis = ci.millisecondsSinceEpoch;
-          else if (ci is DateTime) millis = ci.millisecondsSinceEpoch;
+          if (ci is Timestamp) {
+            millis = ci.millisecondsSinceEpoch;
+          } else if (ci is DateTime) millis = ci.millisecondsSinceEpoch;
 
           final prev = bestMillis[empId] ?? -1;
           if (millis >= prev) {
@@ -310,8 +312,9 @@ class ClockRepositoryImpl implements ClockRepository {
 
           final ci = data['clockIn'];
           DateTime? clockIn;
-          if (ci is Timestamp) clockIn = ci.toDate();
-          else if (ci is DateTime) clockIn = ci;
+          if (ci is Timestamp) {
+            clockIn = ci.toDate();
+          } else if (ci is DateTime) clockIn = ci;
 
           // abiertos => activo sí o sí (y además raw clockOut null)
           out[e.key] = (clockIn, true);

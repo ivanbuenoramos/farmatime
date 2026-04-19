@@ -1,72 +1,103 @@
 import 'package:farmatime/data/models/chat/chat_models.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:farmatime/presentation/widgets/chat/day_separator.dart';
 import 'package:farmatime/presentation/widgets/chat/message_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'chat_controller.dart';
 
-class ChatPage extends StatelessWidget {
+class ChatPage extends GetView<ChatController> {
+  const ChatPage({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<ChatController>(
-      builder: (controller) {
-        final conv = controller.conversation.value;
-        final title = (conv?.title.isNotEmpty ?? false) ? conv!.title : 'Chat';
+    return Scaffold(
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: Obx(() {
+          final conv = controller.conversation.value;
+          final name = controller.displayName.value?.isNotEmpty == true
+              ? controller.displayName.value!
+              : conv?.title.isNotEmpty == true
+                  ? conv!.title
+                  : 'Chat';
+          final isGroup = conv?.isGroup ?? false;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundImage: NetworkImage(
-                    'https://randomuser.me/api/portraits/men/32.jpg',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(title),
-              ],
-            )
-          ),
-          body: Column(
+          return Row(
             children: [
+              isGroup
+                  ? CircleAvatar(
+                      radius: 18,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.group_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 18,
+                      ),
+                    )
+                  : ProfileAvatar(
+                      imageUrl: conv?.imageUrl,
+                      name: name,
+                      size: 36,
+                    ),
+              const SizedBox(width: 10),
               Expanded(
-                child: Obx(() {
-                  final list = controller.messages.value ?? const <ChatMessage>[];
-                  if (list.isEmpty) {
-                    return const Center(child: Text('Sin mensajes'));
-                  }
-                  final items = _itemsWithSeparators(list);
-                  return ListView.builder(
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: items.length,
-                    itemBuilder: (_, i) {
-                      final item = items[i];
-                      if (item is _DaySep) {
-                        return DaySeparator(day: item.day);
-                      }
-                      final msg = item as ChatMessage;
-                      final myId = controller.currentUserId.value;
-                      return MessageBubble(
-                        message: msg,
-                        isMine: msg.senderId == myId, // <-- clave
-                      );
-                    },
-                  );
-                }),
+                child: Text(
+                  name,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              _Composer(onSend: controller.send, isSending: controller.isSending),
             ],
+          );
+        }),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Obx(() {
+              final list =
+                  controller.messages.value ?? const <ChatMessage>[];
+              if (list.isEmpty) {
+                return Center(
+                  child: Text(
+                    'Sin mensajes aún',
+                    style: Get.theme.textTheme.bodyMedium?.copyWith(
+                      color: Get.theme.colorScheme.outline,
+                    ),
+                  ),
+                );
+              }
+              final items = _buildItemsWithSeparators(list);
+              return ListView.builder(
+                reverse: true,
+                controller: controller.scrollController,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: items.length,
+                itemBuilder: (_, i) {
+                  final item = items[i];
+                  if (item is _DaySep) return DaySeparator(day: item.day);
+                  final msg = item as ChatMessage;
+                  return MessageBubble(
+                    message: msg,
+                    isMine: msg.senderId == controller.currentUserId.value,
+                  );
+                },
+              );
+            }),
           ),
-        );
-      },
+          _Composer(
+            onSend: controller.send,
+            isSending: controller.isSending,
+          ),
+        ],
+      ),
     );
   }
 
-  List<Object> _itemsWithSeparators(List<ChatMessage> desc) {
+  List<Object> _buildItemsWithSeparators(List<ChatMessage> desc) {
     final out = <Object>[];
-    DateTime? currentDay; // día "abierto" cuyas burbujas estamos acumulando
+    DateTime? currentDay;
 
     for (final m in desc) {
       final d = DateTime(m.createdAt.year, m.createdAt.month, m.createdAt.day);
@@ -78,20 +109,14 @@ class ChatPage extends StatelessWidget {
             d.month == currentDay.month &&
             d.day == currentDay.day;
         if (!sameDay) {
-          // Cerramos el día anterior insertando su separador
           out.add(_DaySep(currentDay));
           currentDay = d;
         }
       }
-
-      out.add(m); // añadimos el mensaje
+      out.add(m);
     }
 
-    // Cierra el último día pendiente
-    if (currentDay != null) {
-      out.add(_DaySep(currentDay));
-    }
-
+    if (currentDay != null) out.add(_DaySep(currentDay));
     return out;
   }
 }
@@ -101,11 +126,14 @@ class _DaySep {
   _DaySep(this.day);
 }
 
-// Resto del _Composer igual que lo tenías
+// ─────────────────────────────────────────────
+// Composer (campo de texto + botón enviar)
+// ─────────────────────────────────────────────
 
 class _Composer extends StatefulWidget {
   final Future<void> Function(String) onSend;
   final RxBool isSending;
+
   const _Composer({required this.onSend, required this.isSending});
 
   @override
@@ -121,72 +149,93 @@ class _ComposerState extends State<_Composer> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(8.0),
-                constraints: BoxConstraints(
-                  maxHeight: 200,
-
-                ),
-                child: TextField(
-                  scrollPadding: EdgeInsets.zero,
-                  controller: _ctrl,
-                  // onSubmitted: _handleSend,
-                  style: Get.theme.textTheme.bodyMedium?.copyWith(
-                    color: Get.theme.colorScheme.secondary
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Escribe un mensaje…',
-                    hintStyle: Get.theme.textTheme.bodyMedium,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Get.theme.colorScheme.outline,
-                      )
-                    ),
-                  ),
-                  minLines: 1,
-                  maxLines: 100,
-                ),
-              ),
-            ),
-            Obx(() => GestureDetector(
-              onTap: widget.isSending.value
-                ? null
-                : () => _handleSend(_ctrl.text),
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 16),
-                padding: EdgeInsets.only(left: 12, right: 8, top: 8, bottom: 8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Get.theme.colorScheme.primary,
-                ),
-                child: Icon(
-                  Icons.send_rounded, 
-                  color: Get.theme.colorScheme.onPrimary
-                ),
-              ),
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _handleSend(String v) async {
+  Future<void> _handleSend(String v) async {
     final text = v.trim();
     if (text.isEmpty) return;
     await widget.onSend(text);
     _ctrl.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+      ),
+      child: SafeArea(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  child: TextField(
+                    controller: _ctrl,
+                    onSubmitted: _handleSend,
+                    textInputAction: TextInputAction.newline,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.secondary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Escribe un mensaje…',
+                      hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide:
+                            BorderSide(color: theme.colorScheme.outline),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.outline
+                              .withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                    minLines: 1,
+                    maxLines: 6,
+                  ),
+                ),
+              ),
+            ),
+            Obx(() {
+              final sending = widget.isSending.value;
+              return Padding(
+                padding: const EdgeInsets.only(right: 12, bottom: 8),
+                child: GestureDetector(
+                  onTap: sending ? null : () => _handleSend(_ctrl.text),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: sending
+                          ? theme.colorScheme.primary.withValues(alpha: 0.4)
+                          : theme.colorScheme.primary,
+                    ),
+                    child: Icon(
+                      Icons.send_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onPrimary,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 }

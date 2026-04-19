@@ -25,7 +25,7 @@ class EmployeeScheduleController extends GetxController {
   });
 
   // Parámetro de navegación
-  final String employeeId = Get.arguments['employeeId'] ?? '';
+  final String employeeId = (Get.arguments as Map?)?['employeeId'] as String? ?? '';
 
   // Estado calendario
   final Rx<DateTime> focusedDay = DateTime.now().obs;
@@ -89,7 +89,7 @@ class EmployeeScheduleController extends GetxController {
   Future<void> loadMonth(int year, int month) async {
     error.value = null;
 
-    final monthKey = '${year}-${month.toString().padLeft(2, '0')}';
+    final monthKey = '$year-${month.toString().padLeft(2, '0')}';
 
     final Result<Map<String, DayEntry>> res = await getMonthUC.call(
       companyId: _companyId,

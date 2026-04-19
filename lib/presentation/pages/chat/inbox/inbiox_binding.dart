@@ -7,10 +7,10 @@ class InboxBinding extends Bindings {
   @override
   void dependencies() {
 
-    Get.lazyPut<ChatRepository>(() => ChatRepositoryImpl());
-    
+    Get.lazyPut<ChatRepository>(() => ChatRepositoryImpl(), fenix: true);
+
     Get.lazyPut(() => InboxController(
       repo: Get.find<ChatRepository>(),
-    ));
+    ), fenix: true);
   }
 }

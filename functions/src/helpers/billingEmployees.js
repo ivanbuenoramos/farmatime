@@ -18,10 +18,10 @@ async function updateEmployeesForBillingState(companyId, opts = {}) {
   // allowedActive real
   let allowedActive = 1;
 
-  if (billingStatus === 'active') {
+  if (billingStatus === 'active' || billingStatus === 'trialing') {
     allowedActive = Math.max(overrideAllowedActive ?? contractedSeats, 1);
   } else {
-    // none / past_due / unpaid / canceled -> solo 1
+    // none / past_due / unpaid / canceled / incomplete → solo 1
     allowedActive = 1;
   }
 
@@ -39,7 +39,10 @@ async function updateEmployeesForBillingState(companyId, opts = {}) {
     });
   });
 
-  const list = employees.filter((e) => e.status !== 'deleted').sort((a, b) => a.createdAt - b.createdAt);
+  // 'pending' = invitación sin aceptar → no ocupa plaza de facturación
+  const list = employees
+      .filter((e) => e.status !== 'deleted' && e.status !== 'pending')
+      .sort((a, b) => a.createdAt - b.createdAt);
 
   const batch = db.batch();
   list.forEach((emp, index) => {

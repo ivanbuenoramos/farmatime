@@ -19,28 +19,26 @@ class CompanyEmployeesPage extends StatelessWidget {
         title: const Text('Lista de empleados'),
         titleSpacing: 16,
       ),
-      floatingActionButton: Obx(() {
-        final enabled = controller.canCreateEmployee;
-        return FloatingActionButton(
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-          onPressed: enabled ? controller.onAddEmployeePressed : null,
-          child: const Icon(Icons.add),
-        );
-      }),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'employees_fab',
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+        onPressed: controller.onAddEmployeePressed,
+        child: const Icon(Icons.add),
+      ),
       body: Obx(() {
         final employees = controller.employees;
         final seats = controller.effectiveSeats; // ✅ aquí está la gracia
 
         final totalCards = (seats > employees.length) ? seats : employees.length;
 
-        final billingStatus = controller.brain.company.value!.billingStatus;
+        final billingStatus = controller.brain.company.value?.billingStatus;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             children: [
-              if (billingStatus != 'active' && billingStatus != 'none') ...[
+              if (billingStatus != null && billingStatus != 'active' && billingStatus != 'none') ...[
                 PaymentIssueAlertCard(billingStatus: billingStatus),
                 const SizedBox(height: 12),
               ],

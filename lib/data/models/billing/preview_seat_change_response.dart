@@ -29,7 +29,7 @@ class PreviewSeatChangeResponse {
   });
 
   factory PreviewSeatChangeResponse.fromJson(Map<String, dynamic> json) {
-    int _i(String k) => (json[k] as num?)?.toInt() ?? 0;
+    int i(String k) => (json[k] as num?)?.toInt() ?? 0;
 
     return PreviewSeatChangeResponse(
       noPaymentNow: json['noPaymentNow'] == true,
@@ -37,13 +37,13 @@ class PreviewSeatChangeResponse {
           ? (json['currency'] as String).trim()
           : 'eur',
 
-      nowSubtotalCents: _i('nowSubtotalCents'),
-      nowTaxCents: _i('nowTaxCents'),
-      nowTotalCents: _i('nowTotalCents'),
+      nowSubtotalCents: i('nowSubtotalCents'),
+      nowTaxCents: i('nowTaxCents'),
+      nowTotalCents: i('nowTotalCents'),
 
-      nextSubtotalCents: _i('nextSubtotalCents'),
-      nextTaxCents: _i('nextTaxCents'),
-      nextTotalCents: _i('nextTotalCents'),
+      nextSubtotalCents: i('nextSubtotalCents'),
+      nextTaxCents: i('nextTaxCents'),
+      nextTotalCents: i('nextTotalCents'),
 
       currentTotalSeats: (json['currentTotalSeats'] as num?)?.toInt(),
       newTotalSeats: (json['newTotalSeats'] as num?)?.toInt() ?? 1,

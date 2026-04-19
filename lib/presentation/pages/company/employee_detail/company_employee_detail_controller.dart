@@ -9,7 +9,6 @@ import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/utils/leave_simple_utils.dart';
 
 import 'package:farmatime/data/models/employee_model.dart';
-import 'package:farmatime/data/models/employee_shift_model.dart';
 
 // Fichajes
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
@@ -72,8 +71,8 @@ class EmployeeDetailController extends GetxController {
   StreamSubscription<Map<String, DayEntry>>? _monthSub;
   StreamSubscription<List<RecurringShiftRule>>? _rulesSub;
 
-  String get _companyId => brain.company.value!.id;
-  String get _employeeId => employee.value!.uid;
+  String get _companyId => brain.company.value?.id ?? '';
+  String get _employeeId => employee.value?.uid ?? '';
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 

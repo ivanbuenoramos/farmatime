@@ -158,7 +158,7 @@ class _EmployeeTile extends StatelessWidget {
         default:
           return 'Sin puesto definido';
       }
-    };
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),

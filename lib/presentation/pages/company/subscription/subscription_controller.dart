@@ -128,13 +128,10 @@ class SubscriptionController extends GetxController {
   // -------------------------------------------------------
   Future<void> _loadInvoices() async {
     if (companyId.isEmpty) return;
-    print('INVOICES DEBUG -> uid=${FirebaseAuth.instance.currentUser?.uid}  companyId=${brain.company.value?.id}');
     invoicesLoading.value = true;
     final res = await listInvoicesUseCase.call(companyId, limit: 50);
-    print(res.success);
     if (res.success) {
       invoices.assignAll(res.data);
-      print(invoices.length);
     } else {
       // opcional: Get.snackbar('Error', res.errorCode ?? 'Error al cargar facturas');
     }

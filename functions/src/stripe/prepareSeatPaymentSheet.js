@@ -204,8 +204,25 @@ exports.stripe_prepareSeatPaymentSheet = onCall(
 
         const currentPaidSeats = seatItem.quantity ?? 0;
 
-        if (newPaidSeats <= currentPaidSeats) {
-          return { ok: true, noPayment: true };
+        // Bajada de seats: programar para fin de periodo (sin cobro inmediato)
+        if (newPaidSeats < currentPaidSeats) {
+          await ref.set(
+              {
+                scheduledSeats: newTotalSeats,
+                scheduledPaidSeats: newPaidSeats,
+                scheduledForPeriodEnd: currentSub.current_period_end ?
+                  admin.firestore.Timestamp.fromMillis(currentSub.current_period_end * 1000) :
+                  null,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              },
+              { merge: true },
+          );
+          return { ok: true, noPayment: true, mode: 'downgrade_scheduled' };
+        }
+
+        // Sin cambio
+        if (newPaidSeats === currentPaidSeats) {
+          return { ok: true, noPayment: true, mode: 'no_change' };
         }
 
         const updated = await stripe.subscriptions.update(subscriptionId, {

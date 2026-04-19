@@ -227,7 +227,7 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: theme.colorScheme.background,
+                color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(100),
               ),
             ),

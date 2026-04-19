@@ -23,7 +23,16 @@ class ChatRepositoryImpl implements ChatRepository {
         .limit(1)
         .get();
 
-    if (q.docs.isNotEmpty) return Conversation.fromSnapshot(q.docs.first);
+    if (q.docs.isNotEmpty) {
+      final snap = q.docs.first;
+      final conv = Conversation.fromSnapshot(snap);
+      // Fusionar miembros existentes con los nuevos para no perder a nadie
+      final merged = {...conv.memberIds, ...allMemberIds}.toList();
+      if (merged.length != conv.memberIds.length) {
+        await _conversations.doc(conv.id).update({'memberIds': merged});
+      }
+      return conv;
+    }
 
     final doc = await _conversations.add({
       'companyId': companyId,
@@ -35,6 +44,34 @@ class ChatRepositoryImpl implements ChatRepository {
     });
     final snap = await doc.get();
     return Conversation.fromSnapshot(snap);
+  }
+
+  @override
+  Future<Map<String, String>> getMemberNames(String companyId) async {
+    final out = <String, String>{};
+
+    // Nombre de la farmacia
+    try {
+      final compSnap = await firestore.collection('companies').doc(companyId).get();
+      final name = compSnap.data()?['legalName'] as String?;
+      out[companyId] = name?.isNotEmpty == true ? name! : 'Farmacia';
+    } catch (_) {
+      out[companyId] = 'Farmacia';
+    }
+
+    // Nombres de empleados
+    try {
+      final empSnap = await firestore
+          .collection('employees')
+          .where('companyId', isEqualTo: companyId)
+          .get();
+      for (final d in empSnap.docs) {
+        final name = d.data()['name'] as String? ?? '';
+        if (name.isNotEmpty) out[d.id] = name;
+      }
+    } catch (_) {}
+
+    return out;
   }
 
   @override

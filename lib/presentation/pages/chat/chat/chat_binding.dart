@@ -7,10 +7,10 @@ class ChatBinding extends Bindings {
   @override
   void dependencies() {
 
-    Get.lazyPut<ChatRepository>(() => ChatRepositoryImpl());
-    
+    Get.lazyPut<ChatRepository>(() => ChatRepositoryImpl(), fenix: true);
+
     Get.lazyPut(() => ChatController(
       repo: Get.find<ChatRepository>(),
-    ));
+    ), fenix: true);
   }
 }

@@ -19,6 +19,7 @@ class PaymentMethodsPage extends StatelessWidget {
       floatingActionButton: Obx(() => Opacity(
           opacity: c.loading.value ? 0.5 : 1,
           child: FloatingActionButton(
+            heroTag: 'payment_methods_fab',
             onPressed: c.loading.value
             ? null
             : () => c.addCard(context),

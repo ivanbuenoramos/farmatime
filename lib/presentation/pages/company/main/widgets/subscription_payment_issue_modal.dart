@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SubscriptionPaymentIssueModalContent extends StatelessWidget {
-  const SubscriptionPaymentIssueModalContent();
+  const SubscriptionPaymentIssueModalContent({super.key});
 
   @override
   Widget build(BuildContext context) {

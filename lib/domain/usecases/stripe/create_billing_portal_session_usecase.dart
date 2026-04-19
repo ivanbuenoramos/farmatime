@@ -8,7 +8,11 @@ class CreateBillingPortalSessionUseCase {
 
   Future<Result<String?>> call({
     required String companyId,
+    String? returnUrl,
   }) {
-    return repository.createBillingPortalSession(companyId: companyId);
+    return repository.createBillingPortalSession(
+      companyId: companyId,
+      returnUrl: returnUrl,
+    );
   }
 }

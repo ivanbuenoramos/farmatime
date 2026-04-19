@@ -71,7 +71,7 @@ class EmployeeSubscriptionCanceledPage extends StatelessWidget {
 
                   Card(
                     elevation: 0,
-                    color: theme.colorScheme.surfaceVariant..withAlpha(12),
+                    color: theme.colorScheme.surfaceContainerHighest.withAlpha(12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                     ),

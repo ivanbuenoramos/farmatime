@@ -93,15 +93,25 @@ class EmployeeScheduleCalendar extends StatelessWidget {
       onRangeSelected: onRangeSelected,
       onPageChanged: onPageChanged,
       calendarBuilders: CalendarBuilders(
-        defaultBuilder: (context, day, _) => _dayCell(context, day, theme),
-        outsideBuilder: (context, day, _) => Opacity(
-          opacity: 0.4,
-          child: _dayCell(context, day, theme),
-        ),
-        todayBuilder: (context, day, _) =>
-            _dayCell(context, day, theme, outline: theme.colorScheme.secondary),
-        selectedBuilder: (context, day, _) =>
-            _dayCell(context, day, theme, outline: theme.colorScheme.primary, bold: true),
+        // prioritizedBuilder aplica a TODOS los días (incl. sáb/dom que
+        // defaultBuilder no cubre en table_calendar v3)
+        prioritizedBuilder: (context, day, focusedDay) {
+          final isOutside = day.month != focusedDay.month;
+          final isToday   = isSameDay(day, DateTime.now());
+          final isSelected = selectedDay != null && isSameDay(day, selectedDay);
+
+          Color? outline;
+          bool bold = false;
+          if (isSelected) {
+            outline = theme.colorScheme.primary;
+            bold    = true;
+          } else if (isToday) {
+            outline = theme.colorScheme.secondary;
+          }
+
+          final cell = _dayCell(context, day, theme, outline: outline, bold: bold);
+          return isOutside ? Opacity(opacity: 0.4, child: cell) : cell;
+        },
       ),
     );
   }
@@ -252,16 +262,16 @@ class EmployeeScheduleCalendar extends StatelessWidget {
     if (entry == null) {
       final hasRule = rules.any((r) => r.matchesDate(day));
       return hasRule
-          ? theme.colorScheme.primary.withOpacity(0.18)
+          ? theme.colorScheme.primary.withValues(alpha: 0.18)
           : theme.colorScheme.surfaceContainerHighest;
     }
     switch (entry.type) {
       case DayType.work:
-        return theme.colorScheme.primary.withOpacity(0.25);
+        return theme.colorScheme.primary.withValues(alpha: 0.25);
       case DayType.off:
-        return theme.colorScheme.tertiaryContainer.withOpacity(0.35);
+        return theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35);
       case DayType.vacation:
-        return theme.colorScheme.errorContainer.withOpacity(0.45);
+        return theme.colorScheme.errorContainer.withValues(alpha: 0.45);
     }
   }
 

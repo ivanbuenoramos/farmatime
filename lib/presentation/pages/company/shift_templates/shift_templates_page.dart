@@ -13,6 +13,7 @@ class ShiftTemplatesPage extends GetView<ShiftTemplatesController> {
     return Scaffold(
       appBar: AppBar(title: const Text('Turnos preestablecidos')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'shift_templates_fab',
         onPressed: () => _openForm(context),
         child: const Icon(Icons.add),
       ),

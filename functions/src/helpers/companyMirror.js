@@ -27,6 +27,13 @@ async function updateCompanyMirror(companyId, payload) {
 
   if ('billingStatus' in payload) data.billingStatus = payload.billingStatus ?? null;
 
+  if ('currentPeriodStart' in payload) {
+    data.currentPeriodStart =
+      payload.currentPeriodStart ?
+        admin.firestore.Timestamp.fromMillis(payload.currentPeriodStart * 1000) :
+        null;
+  }
+
   if ('currentPeriodEnd' in payload) {
     data.currentPeriodEnd =
       payload.currentPeriodEnd ?

@@ -6,6 +6,7 @@ import 'package:farmatime/data/models/billing/preview_seat_change_response.dart'
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/stripe_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
 class StripeRepositoryImpl implements StripeRepository {
   final FirebaseFunctions _functions;
@@ -27,10 +28,10 @@ class StripeRepositoryImpl implements StripeRepository {
       return Result(success: true, data: items);
     } on FirebaseFunctionsException catch (e) {
       final pretty = '${e.code}: ${e.message ?? ''}';
-      print(pretty);
+      debugPrint(pretty);
       return Result(success: false, data: <InvoiceModel>[], errorCode: pretty);
     } catch (e) {
-      print(e);
+      debugPrint('listInvoices: $e');
       return Result(success: false, data: <InvoiceModel>[], errorCode: 'unknown: $e');
     }
   }
@@ -50,7 +51,7 @@ class StripeRepositoryImpl implements StripeRepository {
           .toList();
       return Result(success: true, data: list);
     } catch (e) {
-      print(e);
+      debugPrint('listPaymentMethods: $e');
       return Result(success: false, data: [], errorCode: e.toString());
     }
   }
@@ -63,7 +64,7 @@ class StripeRepositoryImpl implements StripeRepository {
       await callable.call({'companyId': companyId, 'paymentMethodId': paymentMethodId});
       return Result(success: true, data: null);
     } catch (e) {
-      print(e);
+      debugPrint('setDefaultPaymentMethod: $e');
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }
@@ -76,7 +77,7 @@ class StripeRepositoryImpl implements StripeRepository {
       await callable.call({'companyId': companyId, 'paymentMethodId': paymentMethodId});
       return Result(success: true, data: null);
     } catch (e) {
-      print(e);
+      debugPrint('detachPaymentMethod: $e');
       return Result(success: false, data: null, errorCode: e.toString());
     }
   }
@@ -140,12 +141,16 @@ class StripeRepositoryImpl implements StripeRepository {
   @override
   Future<Result<String?>> createBillingPortalSession({
     required String companyId,
+    String? returnUrl,
   }) async {
     try {
       final callable =
           _functions.httpsCallable('stripe_createBillingPortalSession');
 
-      final res = await callable.call({'companyId': companyId});
+      final res = await callable.call({
+        'companyId': companyId,
+        if (returnUrl != null) 'returnUrl': returnUrl,
+      });
       final data = Map<String, dynamic>.from(res.data);
 
       final url = data['url'] as String?;
@@ -191,10 +196,11 @@ class StripeRepositoryImpl implements StripeRepository {
         data: PreviewSeatChangeResponse.fromJson(data),
       );
     } catch (e) {
+      debugPrint('previewSeatChange: $e');
       return Result(
         success: false,
         data: null,
-        errorCode: 'stripe_preview_failed',
+        errorCode: e.toString(),
       );
     }
   }

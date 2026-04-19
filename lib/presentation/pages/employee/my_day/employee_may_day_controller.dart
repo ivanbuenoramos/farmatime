@@ -116,13 +116,17 @@ class EmployeeMyDayController extends GetxController {
     final now = DateTime.now();
     final dayDate = DateTime(now.year, now.month, now.day);
 
-    final map = await getExpectedShiftUseCase.call(
+    final result = await getExpectedShiftUseCase.call(
       companyId: employee.companyId,
       employeeIds: [employee.uid],
       dayDate: dayDate,
     );
 
-    todayExpected.value = map[employee.uid]; // null = no trabaja hoy
+    if (result.success) {
+      todayExpected.value = result.data[employee.uid]; // null = no trabaja hoy
+    } else {
+      todayExpected.value = null;
+    }
     _recomputeScheduleCounter();
   }
 
