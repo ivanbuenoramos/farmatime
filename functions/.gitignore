@@ -1,27 +1,14 @@
-const { HttpsError } = require('firebase-functions/v2/https');
-const { db } = require('../config/firebase');
-const logger = require('firebase-functions/logger');
+# Dependencias
+node_modules/
 
-function assertAuth(req) {
-  if (!req.auth) {
-    throw new HttpsError('unauthenticated', 'Login requerido');
-  }
-}
+# Logs
+npm-debug.log*
+firebase-debug.log*
+pubsub-debug.log*
+ui-debug.log*
 
-async function assertCompanyAccount(uid, companyId) {
-  const uidStr = String(uid || '').trim();
-  const cidStr = String(companyId || '').trim();
+# Runtime local del emulador
+.runtimeconfig.json
 
-  logger.info('[assertCompanyAccount]', { uid: uidStr, companyId: cidStr });
-  if (!uidStr || !cidStr) throw new HttpsError('invalid-argument', 'uid/companyId vacío');
-
-  const snap = await db.collection('companies').doc(cidStr).get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Empresa no existe');
-
-  if (uidStr !== cidStr)
-    throw new HttpsError('permission-denied', 'Solo la cuenta de empresa puede gestionar la facturación');
-
-  logger.info('[assertCompanyAccount] OK');
-}
-
-module.exports = { assertAuth, assertCompanyAccount };
+# NOTA: los .env de functions (.env.local, .env.farmatime-app) se versionan a
+# propósito: no contienen secretos (esos viven en Secret Manager).
