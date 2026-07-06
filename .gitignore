@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android signing
+/android/key.properties
+**/*.jks
+**/*.keystore
+
+# Extension params con credenciales (usar los .example como plantilla)
+/params.env
+/extensions/*.env
+!/extensions/*.env.example
