@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:farmatime/core/routes/routes.dart';
 import 'verify_email_controller.dart';
 
 class VerifyEmailPage extends GetView<VerifyEmailController> {
@@ -92,7 +93,14 @@ class VerifyEmailPage extends GetView<VerifyEmailController> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () => Get.back(),
+                      // Llamamos a checkNow() para que se ejecute _onVerified
+                      // (actualiza verifiedEmail=true en Firestore) antes de
+                      // navegar; sin esto el doc quedaba sin actualizar si el
+                      // usuario pulsaba el botón en vez de esperar al polling.
+                      onPressed: () async {
+                        await controller.checkNow();
+                        Get.offAllNamed(Routes.companyMain);
+                      },
                       icon: const Icon(Icons.check_circle_outline),
                       label: const Text('Continuar'),
                     ),

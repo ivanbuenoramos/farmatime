@@ -1,15 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:farmatime/domain/repositories/chat_repository.dart';
 import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart' hide Result;
 
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/callable_http_client.dart';
+import 'package:farmatime/core/services/toast_service.dart';
+import 'package:farmatime/core/services/push_notification_service.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/company_model.dart';
@@ -41,10 +43,6 @@ class CompanyAuthSignInController extends GetxController {
   final rememberMe = false.obs;
 
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
-  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
-    app: Firebase.app(),
-    region: 'europe-west1',
-  );
 
   final Brain brain = Get.find<Brain>();
 
@@ -57,20 +55,20 @@ class CompanyAuthSignInController extends GetxController {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      Get.snackbar('Error', 'Por favor, rellena todos los campos');
+      ToastService().show(title: 'Error', message: 'Por favor, rellena todos los campos', type: ToastType.error);
       return;
     }
 
     final Result<UserCredential?> signInResult = await signInWithEmailUseCase.call(email, password);
 
     if (!signInResult.success || signInResult.data == null) {
-      Get.snackbar('Error', 'Credenciales incorrectas o cuenta inexistente');
+      ToastService().show(title: 'Error', message: 'Credenciales incorrectas o cuenta inexistente', type: ToastType.error);
       return;
     }
 
     final user = firebaseAuth.currentUser;
     if (user == null) {
-      Get.snackbar('Error', 'No se pudo obtener el usuario actual');
+      ToastService().show(title: 'Error', message: 'No se pudo obtener el usuario actual', type: ToastType.error);
       return;
     }
 
@@ -91,8 +89,13 @@ class CompanyAuthSignInController extends GetxController {
         debugPrint('Seed chat error: $e\n$st');
       }
 
+      try {
+        await _registerPushToken(company.id);
+      } catch (e, st) {
+        debugPrint('registerPushToken error (no-fatal): $e\n$st');
+      }
       Get.offAllNamed(Routes.companyMain);
-      notifyLogin(company.email, company.legalName);
+      unawaited(notifyLogin(company.email, company.legalName));
       return;
     }
 
@@ -103,11 +106,22 @@ class CompanyAuthSignInController extends GetxController {
     if (employeeResult.success && employeeResult.data != null) {
       brain.employee.value = employeeResult.data;
       await GetStorage().write('employee', json.encode(employeeResult.data!.toJson()));
+      try {
+        await _registerPushToken(employeeResult.data!.uid);
+      } catch (e, st) {
+        debugPrint('registerPushToken error (no-fatal): $e\n$st');
+      }
       Get.offAllNamed(Routes.employeeMain);
       return;
     }
 
-    Get.snackbar('Error', 'No se encontró ninguna cuenta asociada a este email');
+    ToastService().show(title: 'Error', message: 'No se encontró ninguna cuenta asociada a este email', type: ToastType.error);
+  }
+
+  /// Registra el token FCM de este dispositivo para el usuario recién logueado.
+  Future<void> _registerPushToken(String uid) async {
+    if (!Get.isRegistered<PushNotificationService>()) return;
+    await Get.find<PushNotificationService>().registerTokenForUser(uid);
   }
 
   void recoverPassword() => Get.toNamed(Routes.recoverPassword);
@@ -115,9 +129,17 @@ class CompanyAuthSignInController extends GetxController {
   void redirectToSignUp() => Get.toNamed(Routes.companyAuthSignUp);
 
   Future<void> notifyLogin(String email, String name) async {
-    print('📩 Enviando notificación de inicio de sesión para $email / $name');
-    final callable = functions.httpsCallable('sendLoginNotification');
-    await callable.call({'email': email, 'name': name});
+    try {
+      debugPrint('📩 Enviando notificación de inicio de sesión para $email / $name');
+      // HTTP directo en lugar de httpsCallable: el SDK nativo de
+      // FirebaseFunctions aborta la app en release (ver CallableHttpClient).
+      await CallableHttpClient.call(
+        'sendLoginNotification',
+        {'email': email, 'name': name},
+      );
+    } catch (e, st) {
+      debugPrint('notifyLogin error (no-fatal): $e\n$st');
+    }
   }
 
   @override

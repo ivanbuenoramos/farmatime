@@ -13,28 +13,34 @@ class DaySeparator extends StatelessWidget {
 
     if (target == today) return 'Hoy';
     if (target == yesterday) return 'Ayer';
-    return DateFormat('EEE d MMM', 'es_ES').format(d);
+    if (now.year == d.year) {
+      return DateFormat('EEEE d MMM', 'es_ES').format(d);
+    }
+    return DateFormat('d MMM yyyy', 'es_ES').format(d);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          const Expanded(child: Divider()),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              _label(day),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            _label(day),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.secondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 11.5,
+              letterSpacing: 0.2,
             ),
           ),
-          const Expanded(child: Divider()),
-        ],
+        ),
       ),
     );
   }

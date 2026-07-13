@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:farmatime/core/services/callable_http_client.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/services/toast_service.dart';
@@ -153,10 +154,22 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
     try {
       final user = _auth.currentUser;
       if (user == null) return Result(success: false, data: null);
-      await user.delete();
+
+      // El borrado real (datos + Auth de empresa y empleados) lo hace la Cloud
+      // Function en cascada: el cliente no puede borrar datos de otros usuarios.
+      // HTTP directo en lugar de httpsCallable: el SDK nativo de
+      // FirebaseFunctions aborta la app en release (ver CallableHttpClient).
+      await CallableHttpClient.call(
+        'deleteCompanyAccount',
+        {'companyId': user.uid},
+        timeout: const Duration(seconds: 120),
+      );
+
+      // La cuenta Auth ya quedó borrada en el servidor; cerramos sesión local.
+      await _auth.signOut().catchError((_) {});
       return Result(success: true, data: null);
     } catch (e) {
-      print(e);
+      toastService.showParsedErrorCode('firestore-error');
       return Result(success: false, data: null);
     }
   }

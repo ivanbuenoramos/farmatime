@@ -103,6 +103,11 @@ export 'package:farmatime/presentation/pages/company/delete_employee/delete_empl
 export 'package:farmatime/presentation/pages/company/delete_employee/delete_employee_binding.dart';
 export 'package:farmatime/presentation/pages/company/delete_employee/delete_employee_controller.dart';
 
+// COMPANY TIME OFF (solicitudes de ausencia)
+export 'package:farmatime/presentation/pages/company/time_off/company_time_off_page.dart';
+export 'package:farmatime/presentation/pages/company/time_off/company_time_off_binding.dart';
+export 'package:farmatime/presentation/pages/company/time_off/company_time_off_controller.dart';
+
 // COMPANY EMPLOYEE SCHEDULE
 export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_page.dart';
 export 'package:farmatime/presentation/pages/company/schedule/company_employee_schedule_binding.dart';
@@ -113,30 +118,15 @@ export 'package:farmatime/presentation/pages/company/shift_templates/shift_templ
 export 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_binding.dart';
 export 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_controller.dart';
 
-// COMPANY SUBSCRIPTION
+// COMPANY SUBSCRIPTION (rehecho en Fase 3 para IAP)
 export 'package:farmatime/presentation/pages/company/subscription/subscription_page.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_binding.dart';
 export 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
 
-// COMPANY SUBSCRIPTION SEAT CHECKOUT
-export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_page.dart';
-export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_binding.dart';
-export 'package:farmatime/presentation/pages/company/subscription/seat_checkout/seat_checkout_controller.dart';
-
-// COMPANY SUBSCRIPTION SELECT EMPLOYEES TO REMOVE
-export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employees_to_remove_page.dart';
-export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_binding.dart';
-export 'package:farmatime/presentation/pages/company/subscription/select_employee_to_remove/select_employee_to_remove_controller.dart';
-
-// COMPANY SUBSCRIPTION INCOMPLETE PAYMENT
-export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_page.dart';
-export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_binding.dart';
-export 'package:farmatime/presentation/pages/company/subscription/incomplete_payment/incomplete_payment_controller.dart';
-
-// COMPANY PAYMENT METHODS
-export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_page.dart';
-export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_binding.dart';
-export 'package:farmatime/presentation/pages/company/payment_metods/list/payment_methods_controller.dart';
+// COMPANY SUBSCRIPTION BLOCKED (pantalla bloqueante: solo renovar / logout)
+export 'package:farmatime/presentation/pages/company/subscription_blocked/subscription_blocked_page.dart';
+export 'package:farmatime/presentation/pages/company/subscription_blocked/subscription_blocked_binding.dart';
+export 'package:farmatime/presentation/pages/company/subscription_blocked/subscription_blocked_controller.dart';
 
 // COMPANY ACCOUNT
 export 'package:farmatime/presentation/pages/company/account/company_account_page.dart';
@@ -152,3 +142,8 @@ export 'package:farmatime/presentation/pages/company/profile/company_profile_con
 export 'package:farmatime/presentation/pages/company/settings/settings_page.dart';
 export 'package:farmatime/presentation/pages/company/settings/settings_binding.dart';
 export 'package:farmatime/presentation/pages/company/settings/settings_controller.dart';
+
+// COMPANY NOTIFICATIONS
+export 'package:farmatime/presentation/pages/company/notifications/notifications_page.dart';
+export 'package:farmatime/presentation/pages/company/notifications/notifications_binding.dart';
+export 'package:farmatime/presentation/pages/company/notifications/notifications_controller.dart';

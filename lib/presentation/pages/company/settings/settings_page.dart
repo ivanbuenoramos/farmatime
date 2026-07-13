@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/presentation/pages/company/settings/settings_controller.dart';
 
 class SettingsPage extends GetView<SettingsController> {
@@ -34,7 +35,8 @@ class SettingsPage extends GetView<SettingsController> {
                         _Tile(
                           leading: Icon(Icons.notifications_none_rounded, color: Get.theme.colorScheme.primary),
                           title: 'Notificaciones',
-                          trailing: trailing
+                          trailing: trailing,
+                          onTap: () => Get.toNamed(Routes.companyNotifications),
                         ),
                       ],
                     ),
@@ -61,9 +63,9 @@ class SettingsPage extends GetView<SettingsController> {
                         _Tile(
                           leading: Icon(Icons.password_rounded, color: Get.theme.colorScheme.primary),
                           title: 'Cambiar contraseña',
-                          subtitle: controller.platformSettingsHint,
+                          subtitle: 'Actualizar la contraseña de la cuenta',
                           trailing: trailing,
-                          // onTap: controller.openSystemSettings,
+                          onTap: controller.redirectToChangePassword,
                         ),
                       ],
                     ),

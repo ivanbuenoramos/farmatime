@@ -153,30 +153,46 @@ WorkHoursSummary computeWorkHoursSummary({
     }
   }
 
-  // 2) Horas esperadas por día según las reglas recurrentes
+  // 2) Horas esperadas por día según las reglas recurrentes.
+  // Un turno con end <= start cruza medianoche (p.ej. 22:00 → 06:00): termina
+  // al día siguiente y sus horas se reparten entre los días reales, igual que
+  // las trabajadas. Por eso se evalúa también el día anterior a `fromDate`:
+  // su tramo de madrugada cae dentro del rango.
   final Map<DateTime, Duration> expectedPerDay = {};
-  DateTime dayCursor = fromDate;
+  DateTime dayCursor = fromDate.subtract(const Duration(days: 1));
   while (!dayCursor.isAfter(toDate)) {
-    Duration sumForDay = Duration.zero;
-
     for (final rule in rules) {
       if (!rule.matchesDate(dayCursor)) continue;
 
-      final startTime = rule.startTime;
-      final endTime = rule.endTime;
+      final startDt = _onDate(rule.startTime, dayCursor);
+      var endDt = _onDate(rule.endTime, dayCursor);
+      if (!endDt.isAfter(startDt)) {
+        // Turno nocturno: termina al día siguiente.
+        endDt = endDt.add(const Duration(days: 1));
+      }
 
-      final startDt = _onDate(startTime, dayCursor);
-      final endDt = _onDate(endTime, dayCursor);
+      // Recortamos al rango global
+      final startClamped =
+          startDt.isBefore(rangeStartDateTime) ? rangeStartDateTime : startDt;
+      final endClamped =
+          endDt.isAfter(rangeEndDateTime) ? rangeEndDateTime : endDt;
+      if (!endClamped.isAfter(startClamped)) continue;
 
-      // Suponemos que el horario no cruza medianoche.
-      // Si quisieras soportar turnos noche, habría que trocear como arriba.
-      if (!endDt.isAfter(startDt)) continue;
+      // Partimos el intervalo por días (por si cruza medianoche)
+      DateTime cursor = startClamped;
+      while (cursor.isBefore(endClamped)) {
+        final day = _dateOnly(cursor);
+        final endOfThisDay = _endOfDay(day);
+        final chunkEnd =
+            endClamped.isBefore(endOfThisDay) ? endClamped : endOfThisDay;
 
-      sumForDay += endDt.difference(startDt);
-    }
+        final chunk = chunkEnd.difference(cursor);
+        if (chunk <= Duration.zero) break;
 
-    if (sumForDay > Duration.zero) {
-      expectedPerDay[dayCursor] = sumForDay;
+        expectedPerDay[day] = (expectedPerDay[day] ?? Duration.zero) + chunk;
+
+        cursor = chunkEnd.add(const Duration(milliseconds: 1));
+      }
     }
 
     dayCursor = dayCursor.add(const Duration(days: 1));

@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/sign_up_with_email_usecase.dart';
-import 'package:farmatime/domain/usecases/stripe/create_stripe_customer_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -17,13 +17,9 @@ class CompanyAuthSignUpController extends GetxController {
   final SignUpWithEmailUseCase signUpWithEmailUseCase;
   final CreateCompanyUseCase createCompanyUseCase;
 
-  // ⬇️ NUEVO: inyecta este usecase
-  final CreateStripeCustomerUseCase createStripeCustomerUseCase;
-
   CompanyAuthSignUpController({
     required this.signUpWithEmailUseCase,
     required this.createCompanyUseCase,
-    required this.createStripeCustomerUseCase, // ⬅️ nuevo
   });
 
   final nameController = TextEditingController();
@@ -37,7 +33,7 @@ class CompanyAuthSignUpController extends GetxController {
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
   final Brain brain = Get.find<Brain>();
 
-  final isLoading = false.obs; // ⬅️ opcional para deshabilitar el botón
+  final isLoading = false.obs;
 
   bool validateForm() {
     bool isValid = true;
@@ -89,25 +85,24 @@ class CompanyAuthSignUpController extends GetxController {
           await signUpWithEmailUseCase.call(email, password);
 
       if (!signUpResult.success || signUpResult.data == null) {
-        Get.snackbar('Error', 'No se pudo crear la cuenta');
+        ToastService().show(title: 'Error', message: 'No se pudo crear la cuenta', type: ToastType.error);
         return;
       }
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        Get.snackbar('Error', 'Sesión no encontrada tras el registro');
+        ToastService().show(title: 'Error', message: 'Sesión no encontrada tras el registro', type: ToastType.error);
         return;
       }
 
-      // 1) Crear documento de empresa en Firestore
       final company = CompanyModel(
         id: user.uid,
         email: email,
-        purchasedEmployeeSlots: 0,
         legalName: name,
         verifiedEmail: false,
         verifiedPhone: false,
         billingStatus: 'none',
+        contractedSeats: 1,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -116,42 +111,19 @@ class CompanyAuthSignUpController extends GetxController {
           await createCompanyUseCase.call(company);
 
       if (!createResult.success || createResult.data == null) {
-        Get.snackbar('Error', 'No se pudo crear la empresa');
+        ToastService().show(title: 'Error', message: 'No se pudo crear la empresa', type: ToastType.error);
         return;
       }
 
-      // Guarda en memoria local
       brain.company.value = createResult.data;
       await GetStorage().write('company', json.encode(createResult.data!.toJson()));
 
-      // 2) NUEVO: Crear en Stripe (Customer + Subscription) vía Cloud Function
-
-      await FirebaseAuth.instance.currentUser?.reload();
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
-
-      //    initialQuantity: 1 para que encaje con tu precio por niveles (1º gratis).
-      final stripeRes = await createStripeCustomerUseCase.call(companyId: company.id);
-
-      print(stripeRes.toJson());
-
-      if (!stripeRes.success) {
-        // No bloqueamos el flujo de onboarding, pero informamos.
-        // El webhook o un botón de "Reintentar" en la pantalla de suscripción podría solventarlo.
-        Get.snackbar(
-          'Atención',
-          'La configuración de facturación no se completó. Puedes reintentarlo desde Suscripción.',
-        );
-      }
-
-      // 3) Actualizar perfil del usuario de Firebase (cosmético)
       await user.updateDisplayName(name);
       await user.reload();
 
-      // 4) Navegar a la app de empresa
       Get.offAllNamed(Routes.companyMain);
     } catch (e) {
-      print(e);
-      Get.snackbar('Error', 'Ocurrió un problema durante el registro');
+      ToastService().show(title: 'Error', message: 'Ocurrió un problema durante el registro', type: ToastType.error);
     } finally {
       isLoading.value = false;
     }

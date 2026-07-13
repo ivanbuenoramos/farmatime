@@ -64,6 +64,18 @@ abstract class EmployeeScheduleRepository {
     String? dayKey, // yyyy-MM-dd
   });
 
+  /// Cuenta los días marcados (overrides) de un tipo concreto durante un año
+  /// natural completo. Incluye tanto los días marcados manualmente por la
+  /// empresa como los escritos al aprobar una solicitud (ambos viven en
+  /// employee_schedule_months). Devuelve además el detalle por fecha
+  /// (yyyy-MM-dd) para poder excluir días concretos al re-evaluar.
+  Future<Result<Set<String>>> getAssignedDaysOfTypeInYear({
+    required String companyId,
+    required String employeeId,
+    required int year,
+    required DayType type,
+  });
+
   Stream<Map<String, DayEntry>> streamMonth({
     required String companyId,
     required String employeeId,

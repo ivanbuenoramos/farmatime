@@ -1,6 +1,8 @@
 // presentation/pages/account/change_password/change_password_controller.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/push_notification_service.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:flutter/material.dart';
@@ -43,8 +45,30 @@ class EmployeeSetPasswordController extends GetxController {
   String? validateNew(String? v) {
     if (v == null || v.isEmpty) return 'Introduce la nueva contraseña';
     if (v.length < 6) return 'Debe tener al menos 6 caracteres';
-    if (v == brain.employee.value!.tempPassword) return 'La nueva no puede ser igual a la actual';
+    // Antes comparábamos contra brain.employee.value!.tempPassword (campo del
+    // doc legible por compañeros). Ya no se persiste ahí; si la pass es igual a
+    // la actual, Firebase Auth lo rechazará con error en submit().
     return null;
+  }
+
+  /// Lee la contraseña temporal desde la subcolección privada
+  /// `employees/{uid}/private/credentials`. Solo el propio empleado tiene
+  /// permiso de lectura (ver firestore.rules). Devuelve null si no existe.
+  Future<String?> _readTempPassword() async {
+    final uid = brain.employee.value?.uid;
+    if (uid == null || uid.isEmpty) return null;
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('employees')
+          .doc(uid)
+          .collection('private')
+          .doc('credentials')
+          .get();
+      final data = snap.data();
+      return data?['tempPassword'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   String? validateConfirm(String? v) {
@@ -61,8 +85,20 @@ class EmployeeSetPasswordController extends GetxController {
     if (!isValid) return;
 
     isLoading.value = true;
+    // tempPassword vive en una subcolección privada (no en el doc principal,
+    // que es legible por los compañeros). La leemos solo en este momento.
+    final tempPass = await _readTempPassword();
+    if (tempPass == null || tempPass.isEmpty) {
+      isLoading.value = false;
+      toast.show(
+        title: 'No se pudo verificar tu cuenta',
+        message: 'Vuelve a iniciar sesión e inténtalo de nuevo.',
+        type: ToastType.error,
+      );
+      return;
+    }
     final Result<void> res = await changePasswordUseCase(
-      currentPassword: brain.employee.value!.tempPassword!,
+      currentPassword: tempPass,
       newPassword: newCtrl.text.trim(),
     );
     isLoading.value = false;
@@ -103,7 +139,7 @@ class EmployeeSetPasswordController extends GetxController {
   Future<void> onSuccess() async {
 
     final EmployeeModel updatedEmployee = brain.employee.value!.copyWith(
-      tempPassword: '',
+      hasTempPassword: false,
       accountStatus: EmployeeAccountStatus.active,
     );
 
@@ -111,6 +147,10 @@ class EmployeeSetPasswordController extends GetxController {
 
     if (updateResult.success) {
       brain.updateEmployeeData(updatedEmployee);
+      if (Get.isRegistered<PushNotificationService>()) {
+        await Get.find<PushNotificationService>()
+            .registerTokenForUser(updatedEmployee.uid);
+      }
     } else {
       toast.showParsedErrorCode(
         updateResult.errorCode,

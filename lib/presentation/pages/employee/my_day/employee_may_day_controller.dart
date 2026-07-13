@@ -7,22 +7,27 @@ import 'package:uuid/uuid.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/clock_in_out_model.dart';
+import 'package:farmatime/data/models/clock_audit_log_model.dart';
 import 'package:farmatime/domain/usecases/clock/create_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/log_clock_creation_usecase.dart';
 
 class EmployeeMyDayController extends GetxController {
   final CreateEntryUseCase createEntryUseCase;
   final UpdateEntryUseCase updateEntryUseCase;
   final GetEntriesByEmployeeUseCase getEntriesByEmployeeUseCase;
   final GetExpectedShiftsForDayUseCase getExpectedShiftUseCase;
+  final LogClockCreationUseCase logClockCreationUseCase;
 
   EmployeeMyDayController({
     required this.createEntryUseCase,
     required this.updateEntryUseCase,
     required this.getEntriesByEmployeeUseCase,
     required this.getExpectedShiftUseCase,
+    required this.logClockCreationUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -93,7 +98,11 @@ class EmployeeMyDayController extends GetxController {
         all.where((e) => _isSameDay(e.clockIn, now)).toList(),
       );
     } else {
-      Get.snackbar('Error', 'No se pudieron cargar fichajes');
+      ToastService().show(
+        title: 'Error',
+        message: 'No se pudieron cargar fichajes',
+        type: ToastType.error,
+      );
     }
 
     // Horario real de hoy (override mensual + reglas dentro del usecase)
@@ -198,9 +207,11 @@ class EmployeeMyDayController extends GetxController {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        Get.snackbar(
-          'Ubicación desactivada',
-          'Activa la ubicación del dispositivo para registrar dónde fichas.',
+        ToastService().show(
+          title: 'Ubicación desactivada',
+          message:
+              'Activa la ubicación del dispositivo para registrar dónde fichas.',
+          type: ToastType.warning,
         );
         return null;
       }
@@ -209,18 +220,22 @@ class EmployeeMyDayController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          Get.snackbar(
-            'Permiso denegado',
-            'No se ha concedido permiso de ubicación. Se registrará el fichaje sin ubicación.',
+          ToastService().show(
+            title: 'Permiso denegado',
+            message:
+                'No se ha concedido permiso de ubicación. Se registrará el fichaje sin ubicación.',
+            type: ToastType.warning,
           );
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        Get.snackbar(
-          'Permiso bloqueado',
-          'Los permisos de ubicación están bloqueados. Actívalos en ajustes para registrar la ubicación.',
+        ToastService().show(
+          title: 'Permiso bloqueado',
+          message:
+              'Los permisos de ubicación están bloqueados. Actívalos en ajustes para registrar la ubicación.',
+          type: ToastType.warning,
         );
         return null;
       }
@@ -229,7 +244,11 @@ class EmployeeMyDayController extends GetxController {
         desiredAccuracy: LocationAccuracy.high,
       );
     } catch (_) {
-      Get.snackbar('Error ubicación', 'No se pudo obtener la ubicación.');
+      ToastService().show(
+        title: 'Error ubicación',
+        message: 'No se pudo obtener la ubicación.',
+        type: ToastType.error,
+      );
       return null;
     }
   }
@@ -261,19 +280,31 @@ class EmployeeMyDayController extends GetxController {
 
       _recomputeScheduleCounter();
     } else {
-      Get.snackbar('Error', 'No se pudo registrar la salida');
+      ToastService().show(
+        title: 'Error',
+        message: 'No se pudo registrar la salida',
+        type: ToastType.error,
+      );
     }
   }
 
   Future<void> clockIn() async {
     if (currentEntry.value != null) {
-      Get.snackbar('Aviso', 'Ya hay una entrada activa');
+      ToastService().show(
+        title: 'Aviso',
+        message: 'Ya hay una entrada activa',
+        type: ToastType.warning,
+      );
       return;
     }
 
     final employee = brain.employee.value;
     if (employee == null) {
-      Get.snackbar('Error', 'No se encontró el empleado en sesión');
+      ToastService().show(
+        title: 'Error',
+        message: 'No se encontró el empleado en sesión',
+        type: ToastType.error,
+      );
       return;
     }
 
@@ -302,9 +333,31 @@ class EmployeeMyDayController extends GetxController {
       todayEntries.insert(0, result.data!);
       _startClockTimer();
 
+      // Registro inmutable del estado inicial del fichaje (trazabilidad).
+      // Best-effort: no bloquea el fichaje si falla.
+      logClockCreationUseCase(
+        ClockAuditLogModel(
+          id: const Uuid().v4(),
+          entryId: newEntry.id,
+          companyId: newEntry.companyId,
+          employeeId: newEntry.employeeId,
+          action: ClockAuditAction.created,
+          actorUid: employee.uid,
+          actorRole: 'employee',
+          actorName: employee.name,
+          reason: null,
+          changes: const [],
+          at: now,
+        ),
+      );
+
       _recomputeScheduleCounter();
     } else {
-      Get.snackbar('Error', 'No se pudo registrar la entrada');
+      ToastService().show(
+        title: 'Error',
+        message: 'No se pudo registrar la entrada',
+        type: ToastType.error,
+      );
     }
   }
 
@@ -317,10 +370,25 @@ class EmployeeMyDayController extends GetxController {
     });
   }
 
-  String getFormattedWorkedToday() {
-    final duration = getTotalWorkedToday();
+  /// Tiempo total trabajado hoy incluyendo el turno en curso (si lo hay).
+  /// Reactivo: depende de [currentDuration], que se refresca cada segundo.
+  Duration get totalWorkedTodayLive {
+    var sum = getTotalWorkedToday();
+    final active = currentEntry.value;
+    if (active != null && active.clockOut == null) {
+      sum += currentDuration.value;
+    }
+    return sum;
+  }
+
+  String formatDurationHm(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     return '${hours}h ${minutes.toString().padLeft(2, '0')}min';
   }
+
+  String getFormattedWorkedToday() => formatDurationHm(getTotalWorkedToday());
+
+  /// Nº de fichajes (turnos) registrados hoy.
+  int get todayShiftCount => todayEntries.length;
 }

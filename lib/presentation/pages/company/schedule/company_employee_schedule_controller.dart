@@ -1,15 +1,22 @@
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/shift_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/services/toast_service.dart';
+import 'package:farmatime/core/utils/leave_simple_utils.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/schedule/day_entry.dart';
 import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/get_employee_month_schedule_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_assigned_days_in_year_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/upsert_employee_month_schedule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:farmatime/domain/usecases/shift_template/list_shift_templates_usecase.dart';
+
+/// Origen de la entrada efectiva de un día en el calendario.
+enum DayEntrySource { override, rule, none }
 
 class EmployeeScheduleController extends GetxController {
   final Brain brain = Get.find<Brain>();
@@ -17,15 +24,37 @@ class EmployeeScheduleController extends GetxController {
   final GetEmployeeMonthScheduleUseCase getMonthUC;
   final UpsertEmployeeMonthScheduleUseCase upsertMonthUC;
   final ListRecurringRulesUseCase listRulesUC;
+  final GetAssignedDaysInYearUseCase getAssignedDaysUC;
 
   EmployeeScheduleController({
     required this.getMonthUC,
     required this.upsertMonthUC,
     required this.listRulesUC,
+    required this.getAssignedDaysUC,
   });
 
   // Parámetro de navegación
   final String employeeId = (Get.arguments as Map?)?['employeeId'] as String? ?? '';
+  final String employeeName =
+      (Get.arguments as Map?)?['employeeName'] as String? ?? '';
+
+  // ── Saldos de vacaciones / asuntos propios ─────────────────────────────────
+  /// Empleado actual (para devengados). Se resuelve desde Brain.
+  EmployeeModel? _employee;
+
+  /// Días devengados (totales) en el año natural en curso.
+  final RxDouble vacationEarned = 0.0.obs;
+  final RxDouble personalEarned = 0.0.obs;
+
+  /// Fechas (yyyy-MM-dd) ya asignadas este año, por tipo. Incluyen tanto
+  /// solicitudes aprobadas como días marcados a mano (ambos viven como
+  /// overrides en employee_schedule_months → sin doble conteo).
+  final RxSet<String> assignedVacationDays = <String>{}.obs;
+  final RxSet<String> assignedPersonalDays = <String>{}.obs;
+
+  final RxBool balancesReady = false.obs;
+
+  int get _currentYear => DateTime.now().year;
 
   // Estado calendario
   final Rx<DateTime> focusedDay = DateTime.now().obs;
@@ -80,9 +109,90 @@ class EmployeeScheduleController extends GetxController {
       loadMonth(focusedDay.value.year, focusedDay.value.month),
       loadRules(),
       loadShiftTemplates(),
+      loadBalances(),
     ]);
 
     isLoading.value = false;
+  }
+
+  // ── Saldos de vacaciones / asuntos propios ─────────────────────────────────
+  Future<void> loadBalances() async {
+    // Resolvemos el empleado desde el estado global.
+    _employee = brain.companyEmployees.firstWhereOrNull((e) => e.uid == employeeId);
+    final emp = _employee;
+    if (emp == null) {
+      balancesReady.value = false;
+      return;
+    }
+
+    // Devengado por tiempo trabajado, a día de hoy.
+    final earned = earnedByTime(employee: emp, hireDateOverride: emp.createdAt);
+    vacationEarned.value = earned.vacationEarned;
+    personalEarned.value = earned.personalEarned;
+
+    // Días ya asignados este año (vacaciones y asuntos propios) en el calendario.
+    final results = await Future.wait([
+      getAssignedDaysUC.call(
+        companyId: _companyId,
+        employeeId: employeeId,
+        year: _currentYear,
+        type: DayType.vacation,
+      ),
+      getAssignedDaysUC.call(
+        companyId: _companyId,
+        employeeId: employeeId,
+        year: _currentYear,
+        type: DayType.personal,
+      ),
+    ]);
+
+    if (results[0].success) assignedVacationDays.assignAll(results[0].data);
+    if (results[1].success) assignedPersonalDays.assignAll(results[1].data);
+
+    balancesReady.value = true;
+  }
+
+  /// Días disponibles (devengado − asignados este año), nunca negativo.
+  double get vacationAvailable {
+    final v = vacationEarned.value - assignedVacationDays.length;
+    return v < 0 ? 0 : v;
+  }
+
+  double get personalAvailable {
+    final v = personalEarned.value - assignedPersonalDays.length;
+    return v < 0 ? 0 : v;
+  }
+
+  /// Conjunto de días asignados del tipo dado (this year), normalizado.
+  Set<String> _assignedFor(DayType type) =>
+      type == DayType.vacation ? assignedVacationDays : assignedPersonalDays;
+
+  /// Cuántos días NUEVOS del año actual añadiría asignar [type] a las fechas
+  /// actualmente seleccionadas (excluye los que ya estén marcados de ese tipo
+  /// y los de otros años, que no cuentan para el saldo anual).
+  int newDaysForType(DayType type) {
+    final already = _assignedFor(type);
+    var count = 0;
+    for (final d in selectedDates) {
+      if (d.year != _currentYear) continue; // el saldo es anual
+      final key = _yMd(_dateOnly(d));
+      if (!already.contains(key)) count++;
+    }
+    return count;
+  }
+
+  /// Días disponibles para el tipo dado.
+  double availableFor(DayType type) =>
+      type == DayType.vacation ? vacationAvailable : personalAvailable;
+
+  /// ¿La asignación de [type] a la selección actual supera el saldo disponible?
+  bool exceedsBalance(DayType type) =>
+      newDaysForType(type) > availableFor(type);
+
+  /// Cuántos días excederían el saldo (para el mensaje de la alerta).
+  int overflowFor(DayType type) {
+    final overflow = newDaysForType(type) - availableFor(type);
+    return overflow > 0 ? overflow.ceil() : 0;
   }
 
   // ── Horario por mes (overrides) ────────────────────────────────────────────
@@ -161,14 +271,15 @@ class EmployeeScheduleController extends GetxController {
     final e = entryFor(day);
     if (e != null) {
       return switch (e.type) {
-        DayType.work => theme.colorScheme.primary.withOpacity(0.25),
-        DayType.off => theme.colorScheme.tertiaryContainer.withOpacity(0.35),
-        DayType.vacation => theme.colorScheme.errorContainer.withOpacity(0.45),
+        DayType.work => theme.colorScheme.primary.withValues(alpha: 0.25),
+        DayType.off => theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
+        DayType.vacation => theme.colorScheme.errorContainer.withValues(alpha: 0.45),
+        DayType.personal => const Color(0xff8B5CF6).withValues(alpha: 0.28),
       };
     }
     // Color por regla cuando no hay override
     final hasRule = rules.any((r) => r.matchesDate(day));
-    if (hasRule) return theme.colorScheme.primary.withOpacity(0.18);
+    if (hasRule) return theme.colorScheme.primary.withValues(alpha: 0.18);
     return theme.colorScheme.surfaceContainerHighest;
   }
 
@@ -234,8 +345,10 @@ class EmployeeScheduleController extends GetxController {
   // ── Guardar ────────────────────────────────────────────────────────────────
   Future<void> save() async {
     if (dirtyMonths.isEmpty) {
-      Get.snackbar('Sin cambios', 'No hay nada que guardar',
-          snackPosition: SnackPosition.BOTTOM);
+      ToastService().show(
+          title: 'Sin cambios',
+          message: 'No hay nada que guardar',
+          type: ToastType.warning);
       return;
     }
 
@@ -267,9 +380,10 @@ class EmployeeScheduleController extends GetxController {
       if (!res.success) {
         isSaving.value = false;
         error.value = 'No se pudo guardar ($mk)';
-        Get.snackbar('Error', error.value!,
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: Colors.red.withOpacity(0.1));
+        ToastService().show(
+            title: 'Error',
+            message: error.value!,
+            type: ToastType.error);
         return;
       }
     }
@@ -277,8 +391,13 @@ class EmployeeScheduleController extends GetxController {
     dirtyMonths.clear();
     isSaving.value = false;
 
-    Get.snackbar('Guardado', 'Horario actualizado',
-        snackPosition: SnackPosition.BOTTOM);
+    // Recalcula saldos: los días recién guardados ya cuentan como asignados.
+    await loadBalances();
+
+    ToastService().show(
+        title: 'Guardado',
+        message: 'Horario actualizado',
+        type: ToastType.success);
   }
 
   // ── Entrada calculada (override > regla) ───────────────────────────────────
@@ -290,6 +409,79 @@ class EmployeeScheduleController extends GetxController {
     if (r == null) return null;
 
     return DayEntry(type: DayType.work, start: r.startTime, end: r.endTime);
+  }
+
+  // ── Helpers para la UI rediseñada ──────────────────────────────────────────
+
+  /// ¿Hay cambios sin guardar?
+  bool get hasUnsavedChanges => dirtyMonths.isNotEmpty;
+
+  /// Origen de la entrada efectiva de un día.
+  /// `override` -> editado manualmente · `rule` -> por regla recurrente · `none`.
+  DayEntrySource sourceFor(DateTime day) {
+    if (entryFor(day) != null) return DayEntrySource.override;
+    if (rules.any((r) => r.matchesDate(day))) return DayEntrySource.rule;
+    return DayEntrySource.none;
+  }
+
+  /// Selecciona un único día (usado al tocar en el calendario).
+  void selectSingleDay(DateTime day) {
+    selectedDay.value = _dateOnly(day);
+    rangeStart.value = null;
+    rangeEnd.value = null;
+    rangeSelectionMode.value = RangeSelectionMode.toggledOff;
+    update();
+  }
+
+  /// Selecciona todos los días del mes visible que caen en [weekday] (1..7).
+  void selectWeekdayInMonth(int weekday) {
+    final focused = focusedDay.value;
+    final first = DateTime(focused.year, focused.month, 1);
+    final daysInMonth = DateTime(focused.year, focused.month + 1, 0).day;
+
+    final matches = <DateTime>[];
+    for (var i = 0; i < daysInMonth; i++) {
+      final d = first.add(Duration(days: i));
+      if (d.weekday == weekday) matches.add(d);
+    }
+    if (matches.isEmpty) return;
+
+    selectedDay.value = null;
+    rangeStart.value = matches.first;
+    rangeEnd.value = matches.last;
+    rangeSelectionMode.value = RangeSelectionMode.toggledOn;
+    update();
+  }
+
+  /// Días actualmente seleccionados (1 día o un rango). Vacío si no hay nada.
+  List<DateTime> get selectedDates {
+    if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
+        rangeStart.value != null &&
+        rangeEnd.value != null) {
+      final out = <DateTime>[];
+      var d = rangeStart.value!;
+      while (!d.isAfter(rangeEnd.value!)) {
+        out.add(d);
+        d = d.add(const Duration(days: 1));
+      }
+      return out;
+    }
+    if (selectedDay.value != null) return [selectedDay.value!];
+    return const [];
+  }
+
+  bool get hasSelection => selectedDates.isNotEmpty;
+
+  /// Duración de un turno (maneja cruce de medianoche). null si no aplica.
+  Duration? workDurationOf(DayEntry? e) {
+    if (e == null || e.type != DayType.work || e.start == null || e.end == null) {
+      return null;
+    }
+    final startM = e.start!.hour * 60 + e.start!.minute;
+    final endM = e.end!.hour * 60 + e.end!.minute;
+    final minutes = endM >= startM ? endM - startM : (24 * 60 - startM + endM);
+    if (minutes <= 0) return null;
+    return Duration(minutes: minutes);
   }
 
   // ── Page changed ───────────────────────────────────────────────────────────

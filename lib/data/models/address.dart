@@ -15,11 +15,11 @@ class Address {
   });
 
   factory Address.fromJson(Map<String, dynamic> json) => Address(
-        address: json["address"],
-        city: json["city"],
-        state: json["province"] ?? json["state"],
-        country: json["country"],
-        zipCode: json["zipCode"],
+        address: (json["address"] as String?) ?? '',
+        city: (json["city"] as String?) ?? '',
+        state: (json["province"] as String?) ?? (json["state"] as String?) ?? '',
+        country: (json["country"] as String?) ?? '',
+        zipCode: (json["zipCode"] as String?) ?? '',
       );
 
   Map<String, dynamic> toJson() => {

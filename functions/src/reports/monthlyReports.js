@@ -1,5 +1,6 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 const PDFDocument = require('pdfkit');
@@ -9,6 +10,7 @@ const {
   format,
   parseISO,
 } = require('date-fns');
+const { sendPushToUsers } = require('../notifications/sendPush');
 
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
@@ -28,9 +30,12 @@ function toDate(value) {
     type: typeof value,
     value,
   });
-  return null; // mejor saltar el registro que reventar toda la función
+  return null;
 }
 
+// Horas de un fichaje. Un fichaje sin salida (abierto) NO suma horas: no
+// inventamos una hora de cierre. El día sí se cuenta y los fichajes abiertos se
+// reportan aparte (ver openRecordsCount) para que no se pierdan silenciosamente.
 function diffHours(clockInISO, clockOutISO) {
   if (!clockOutISO) return 0;
   const a = parseISO(clockInISO);
@@ -39,20 +44,28 @@ function diffHours(clockInISO, clockOutISO) {
   return ms / HOUR_MS;
 }
 
+// ID determinístico para que regenerar sobrescriba el mismo doc.
+function reportDocId(companyId, employeeId, year, month) {
+  const mm = String(month).padStart(2, '0');
+  return `${companyId}_${employeeId}_${year}-${mm}`;
+}
+
 async function getCompany(companyId) {
   const doc = await db.collection('companies').doc(companyId).get();
   return { id: companyId, ...(doc.data() || {}) };
+}
+
+async function getEmployee(employeeId) {
+  const doc = await db.collection('employees').doc(employeeId).get();
+  if (!doc.exists) return null;
+  return { id: employeeId, ...(doc.data() || {}) };
 }
 
 async function getEmployees(companyId) {
   const snap = await db
       .collection('employees')
       .where('companyId', '==', companyId)
-      // .where('accountStatus', '==', 'active')
       .get();
-
-  console.log('[reports] empleados encontrados para company', companyId, snap.size);
-
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
@@ -70,14 +83,6 @@ async function getClockRecords(companyId, employeeId, from, to) {
       .where('clockIn', '>=', startTs)
       .where('clockIn', '<=', endTs)
       .get();
-
-  console.log('[reports] clockRecords encontrados', {
-    companyId,
-    employeeId,
-    count: snap.size,
-    start: start.toISOString(),
-    end: end.toISOString(),
-  });
 
   const records = [];
 
@@ -103,9 +108,6 @@ async function getClockRecords(companyId, employeeId, from, to) {
   });
 
   records.sort((a, b) => (a.clockIn || '').localeCompare(b.clockIn || ''));
-
-  console.log('[reports] clockRecords finales tras mapeo:', records.length);
-
   return records;
 }
 
@@ -212,9 +214,10 @@ function buildPdf({ company, employee, periodLabel, records }) {
       const h = diffHours(r.clockIn, r.clockOut);
       if (h > 0) {
         totalHours += h;
-        daysCount += 1;
       }
     }
+
+    daysCount = Object.keys(groupedByDate).length;
 
     const sortedDates = Object.keys(groupedByDate).sort();
 
@@ -300,7 +303,6 @@ function buildPdf({ company, employee, periodLabel, records }) {
       doc.fillColor('black');
       doc.moveDown(0.3);
 
-      // Agrupamos ediciones por día (fecha del clockIn)
       const editsByDate = {};
       for (const r of editedRecords) {
         const key = format(parseISO(r.clockIn), 'yyyy-MM-dd');
@@ -365,8 +367,18 @@ async function uploadPdf({
   const bucket = storage.bucket();
   const file = bucket.file(path);
 
-  // Token de descarga tipo Firebase Storage
-  const downloadToken = uuidv4();
+  // Si ya existe, reutilizamos el mismo download token para no invalidar URLs.
+  let downloadToken = uuidv4();
+  try {
+    const [meta] = await file.getMetadata();
+    const existingToken =
+      meta && meta.metadata && meta.metadata.firebaseStorageDownloadTokens;
+    if (existingToken) {
+      downloadToken = String(existingToken).split(',')[0];
+    }
+  } catch (_) {
+    // El archivo no existe aún; usamos el token nuevo.
+  }
 
   await file.save(buffer, {
     contentType: 'application/pdf',
@@ -385,124 +397,200 @@ async function uploadPdf({
   return { path, url };
 }
 
-async function saveClockReportDoc({
+async function upsertClockReportDoc({
   companyId,
   employeeId,
+  year,
+  month,
   periodStart,
   periodEnd,
   pdfPath,
   downloadUrl,
   totalHours,
   daysCount,
+  recordsCount,
+  openRecordsCount = 0,
   source,
 }) {
-  await db.collection('clockReports').add({
-    companyId,
-    employeeId,
-    periodStart: periodStart.toISOString(),
-    periodEnd: periodEnd.toISOString(),
-    pdfPath,
-    downloadUrl,
-    totalHours,
-    daysCount,
-    source, // 'auto_monthly' o 'manual'
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  const id = reportDocId(companyId, employeeId, year, month);
+  await db
+      .collection('clockReports')
+      .doc(id)
+      .set(
+          {
+            companyId,
+            employeeId,
+            year,
+            month,
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString(),
+            pdfPath,
+            downloadUrl,
+            totalHours,
+            daysCount,
+            recordsCount,
+            // Fichajes sin salida en el periodo: sus horas no se suman a
+            // totalHours; sirve para alertar de registros incompletos.
+            openRecordsCount,
+            source,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+      );
 }
 
-async function generateForCompanyRange(
-    companyId,
-    periodStart,
-    periodEnd,
-    source,
-) {
-  console.log('[reports] start generateForCompanyRange', {
-    companyId,
-    periodStart: periodStart.toISOString(),
-    periodEnd: periodEnd.toISOString(),
-    source,
-  });
+/**
+ * Genera (o regenera) el PDF de un empleado para un mes concreto.
+ * Es idempotente: sobrescribe el PDF y el doc en `clockReports`.
+ *
+ * @param {Object} args
+ * @param {string} args.companyId
+ * @param {string} args.employeeId
+ * @param {number} args.year
+ * @param {number} args.month  1-12
+ * @param {string} args.source  'auto_monthly' | 'auto_trigger' | 'manual'
+ * @param {Object} [args.companyOverride] Para evitar re-leer la empresa.
+ * @param {Object} [args.employeeOverride] Para evitar re-leer el empleado.
+ */
+async function generateForEmployeeMonth({
+  companyId,
+  employeeId,
+  year,
+  month,
+  source,
+  companyOverride,
+  employeeOverride,
+}) {
+  const periodStart = startOfMonth(new Date(year, month - 1, 1));
+  const periodEnd = endOfMonth(periodStart);
 
-  const company = await getCompany(companyId);
-  console.log('[reports] company doc:', company);
+  const company = companyOverride || (await getCompany(companyId));
+  const employee = employeeOverride || (await getEmployee(employeeId));
+  if (!employee) {
+    console.warn('[reports] empleado no existe, se omite', { employeeId });
+    return null;
+  }
 
-  const employees = await getEmployees(companyId);
-  console.log('[reports] total empleados:', employees.length);
+  const records = await getClockRecords(
+      companyId,
+      employeeId,
+      periodStart,
+      periodEnd,
+  );
+
+  const totalHours = records.reduce(
+      (acc, r) => acc + diffHours(r.clockIn, r.clockOut),
+      0,
+  );
+  // daysCount = días distintos con AL MENOS UN fichaje (abierto o cerrado), igual
+  // que en el PDF. Antes solo contaba días con salida, lo que perdía el último
+  // día si el fichaje quedaba abierto.
+  const workedDays = new Set();
+  let openRecordsCount = 0;
+  for (const r of records) {
+    workedDays.add(format(parseISO(r.clockIn), 'yyyy-MM-dd'));
+    if (!r.clockOut) openRecordsCount += 1;
+  }
+  const daysCount = workedDays.size;
 
   const periodLabel = `${format(periodStart, 'dd/MM/yyyy')} - ${format(
       periodEnd,
       'dd/MM/yyyy',
   )}`;
 
-  let generated = 0;
+  const pdfBuffer = await buildPdf({
+    company,
+    employee,
+    periodLabel,
+    records,
+  });
 
+  const { path, url } = await uploadPdf({
+    companyId,
+    employeeId,
+    periodStart,
+    periodEnd,
+    buffer: pdfBuffer,
+  });
+
+  await upsertClockReportDoc({
+    companyId,
+    employeeId,
+    year,
+    month,
+    periodStart,
+    periodEnd,
+    pdfPath: path,
+    downloadUrl: url,
+    totalHours,
+    daysCount,
+    recordsCount: records.length,
+    openRecordsCount,
+    source,
+  });
+
+  console.log('[reports] generado', {
+    companyId,
+    employeeId,
+    year,
+    month,
+    recordsCount: records.length,
+    source,
+  });
+
+  return { companyId, employeeId, year, month, recordsCount: records.length };
+}
+
+async function generateForCompanyMonth({
+  companyId,
+  year,
+  month,
+  source,
+  onlyWithRecords = false,
+}) {
+  const company = await getCompany(companyId);
+  const employees = await getEmployees(companyId);
+
+  let generated = 0;
+  const generatedEmployeeIds = [];
   for (const emp of employees) {
-    console.log('[reports] procesando empleado', emp.id);
+    // eslint-disable-next-line no-await-in-loop
+    const periodStart = startOfMonth(new Date(year, month - 1, 1));
+    const periodEnd = endOfMonth(periodStart);
+    // eslint-disable-next-line no-await-in-loop
     const records = await getClockRecords(
         companyId,
         emp.id,
         periodStart,
         periodEnd,
     );
-    console.log('[reports] registros de', emp.id, ':', records.length);
+    if (onlyWithRecords && !records.length) continue;
+    // Empleados borrados: solo conservamos el reporte del mes en el que SÍ
+    // trabajaron (dato laboral legítimo). No generamos reportes vacíos de meses
+    // posteriores a su baja (privacidad / minimización de datos).
+    if (emp.accountStatus === 'deleted' && !records.length) continue;
 
-    if (!records.length) continue;
-
-    const totalHours = records.reduce(
-        (acc, r) => acc + diffHours(r.clockIn, r.clockOut),
-        0,
-    );
-    const daysCount = records.filter((r) => r.clockOut).length;
-
-    const pdfBuffer = await buildPdf({
-      company,
-      employee: emp,
-      periodLabel,
-      records,
-    });
-
-    const { path, url } = await uploadPdf({
+    // eslint-disable-next-line no-await-in-loop
+    await generateForEmployeeMonth({
       companyId,
       employeeId: emp.id,
-      periodStart,
-      periodEnd,
-      buffer: pdfBuffer,
-    });
-
-    console.log('[reports] PDF creado', { employeeId: emp.id, path, url });
-
-    await saveClockReportDoc({
-      companyId,
-      employeeId: emp.id,
-      periodStart,
-      periodEnd,
-      pdfPath: path,
-      downloadUrl: url,
-      totalHours,
-      daysCount,
+      year,
+      month,
       source,
+      companyOverride: company,
+      employeeOverride: emp,
     });
-
     generated += 1;
+    if (emp.accountStatus !== 'deleted') generatedEmployeeIds.push(emp.id);
   }
 
-  console.log('[reports] finished generateForCompanyRange', {
-    companyId,
-    generated,
-  });
-
-  return {
-    companyId,
-    periodStart: periodStart.toISOString(),
-    periodEnd: periodEnd.toISOString(),
-    generated,
-    source,
-  };
+  return { companyId, year, month, generated, source, generatedEmployeeIds };
 }
 
 // ============ EXPORTS ============
 
-// 1) Programada: día 1, mes anterior completo.
+// 1) Programada: día 1 de cada mes a la 01:00 → genera mes anterior completo.
 const reportsScheduleMonthly = onSchedule(
     { schedule: '0 1 1 * *', timeZone: 'Europe/Madrid' },
     async () => {
@@ -511,24 +599,51 @@ const reportsScheduleMonthly = onSchedule(
           .where('billingStatus', '==', 'active')
           .get();
 
-      const now = new Date();
-      now.setMonth(now.getMonth() - 1);
-      const periodStart = startOfMonth(now);
-      const periodEnd = endOfMonth(now);
+      const ref = new Date();
+      ref.setDate(1);
+      ref.setMonth(ref.getMonth() - 1);
+      const year = ref.getFullYear();
+      const month = ref.getMonth() + 1;
+
+      const monthLabel = format(ref, 'MM/yyyy');
 
       for (const c of companies.docs) {
         // eslint-disable-next-line no-await-in-loop
-        await generateForCompanyRange(
-            c.id,
-            periodStart,
-            periodEnd,
-            'auto_monthly',
-        );
+        const res = await generateForCompanyMonth({
+          companyId: c.id,
+          year,
+          month,
+          source: 'auto_monthly',
+          onlyWithRecords: false,
+        });
+
+        // Notifica a la empresa y a sus empleados que el reporte está listo.
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await sendPushToUsers({
+            uids: [c.id],
+            title: 'Reportes mensuales listos',
+            body: `Los reportes de horas de ${monthLabel} ya están disponibles`,
+            data: { type: 'report_ready', month: monthLabel },
+          });
+          const empIds = (res && res.generatedEmployeeIds) || [];
+          if (empIds.length) {
+            // eslint-disable-next-line no-await-in-loop
+            await sendPushToUsers({
+              uids: empIds,
+              title: 'Tu reporte de horas está listo',
+              body: `Ya puedes consultar tu reporte de ${monthLabel}`,
+              data: { type: 'report_ready', month: monthLabel },
+            });
+          }
+        } catch (e) {
+          console.warn('[reports] error notificando reporte listo', e);
+        }
       }
     },
 );
 
-// 2) Manual: rango dentro del mismo mes (CALLABLE)
+// 2) Manual: regenera el mes actual hasta hoy (sigue disponible por compatibilidad).
 const reportsGenerateRange = onCall(async (request) => {
   try {
     const data = request.data || {};
@@ -553,13 +668,6 @@ const reportsGenerateRange = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Fechas inválidas');
     }
 
-    if (periodStart > periodEnd) {
-      throw new HttpsError(
-          'invalid-argument',
-          'startDate no puede ser posterior a endDate',
-      );
-    }
-
     if (
       periodStart.getFullYear() !== periodEnd.getFullYear() ||
       periodStart.getMonth() !== periodEnd.getMonth()
@@ -570,19 +678,16 @@ const reportsGenerateRange = onCall(async (request) => {
       );
     }
 
-    const result = await generateForCompanyRange(
-        companyId,
-        periodStart,
-        periodEnd,
-        'manual',
-    );
-
-    return result;
+    return await generateForCompanyMonth({
+      companyId,
+      year: periodStart.getFullYear(),
+      month: periodStart.getMonth() + 1,
+      source: 'manual',
+      onlyWithRecords: false,
+    });
   } catch (err) {
     console.error('[reportsGenerateRange] error', err);
-    if (err instanceof HttpsError) {
-      throw err;
-    }
+    if (err instanceof HttpsError) throw err;
     throw new HttpsError(
         'internal',
         err.message || 'Error generando reportes',
@@ -590,7 +695,67 @@ const reportsGenerateRange = onCall(async (request) => {
   }
 });
 
+// 3) Trigger: cuando se crea/edita/borra un fichaje, regenera el PDF
+//    del empleado para el mes afectado.
+//    - Idempotente (mismo doc/path se sobrescribe).
+//    - Si la edición mueve el fichaje a otro mes, regenera ambos meses.
+const reportsOnClockRecordWrite = onDocumentWritten(
+    {
+      document: 'clockRecords/{recordId}',
+      // Limitamos concurrencia para no saturar el bucket en ediciones masivas.
+      concurrency: 5,
+    },
+    async (event) => {
+      const before = event.data && event.data.before && event.data.before.exists ?
+        event.data.before.data() : null;
+      const after = event.data && event.data.after && event.data.after.exists ?
+        event.data.after.data() : null;
+
+      const source = after || before;
+      if (!source) return;
+
+      const companyId = source.companyId;
+      const employeeId = source.employeeId;
+      if (!companyId || !employeeId) {
+        console.warn('[reports] trigger sin companyId/employeeId, skip');
+        return;
+      }
+
+      // Conjunto de (year, month) afectados (puede ser 1 o 2).
+      const affected = new Set();
+      const addFrom = (data) => {
+        if (!data || !data.clockIn) return;
+        const d = toDate(data.clockIn);
+        if (!d) return;
+        affected.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+      };
+      addFrom(before);
+      addFrom(after);
+
+      if (!affected.size) return;
+
+      const company = await getCompany(companyId);
+      const employee = await getEmployee(employeeId);
+      if (!employee) return;
+
+      for (const key of affected) {
+        const [yStr, mStr] = key.split('-');
+        // eslint-disable-next-line no-await-in-loop
+        await generateForEmployeeMonth({
+          companyId,
+          employeeId,
+          year: Number(yStr),
+          month: Number(mStr),
+          source: 'auto_trigger',
+          companyOverride: company,
+          employeeOverride: employee,
+        });
+      }
+    },
+);
+
 module.exports = {
   reportsScheduleMonthly,
   reportsGenerateRange,
+  reportsOnClockRecordWrite,
 };

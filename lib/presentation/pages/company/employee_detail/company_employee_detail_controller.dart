@@ -2,15 +2,20 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
+import 'package:farmatime/presentation/widgets/time_off/time_off_manage_sheet.dart';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/core/utils/leave_simple_utils.dart';
 
 import 'package:farmatime/data/models/employee_model.dart';
 
 // Fichajes
+import 'package:farmatime/data/models/clock_in_out_model.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
 
 // Horario (mensual)
@@ -19,6 +24,12 @@ import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/stream_employee_month_schedule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/stream_recurring_rules_usecase.dart';
 
+// Solicitudes de ausencia
+import 'package:farmatime/data/models/schedule/time_off_model.dart';
+import 'package:farmatime/domain/usecases/time_off/stream_time_off_by_employee_usecase.dart';
+import 'package:farmatime/domain/usecases/time_off/decide_time_off_usecase.dart';
+import 'package:farmatime/domain/usecases/time_off/find_time_off_overlaps_usecase.dart';
+
 class EmployeeDetailController extends GetxController {
   final GetEntriesByEmployeeUseCase getEntriesByEmployeeUseCase;
 
@@ -26,13 +37,30 @@ class EmployeeDetailController extends GetxController {
   final StreamEmployeeMonthScheduleUseCase streamMonthScheduleUseCase;
   final StreamRecurringRulesUseCase streamRecurringRulesUseCase;
 
+  // Solicitudes de ausencia
+  final StreamTimeOffByEmployeeUseCase streamTimeOffByEmployeeUseCase;
+  final DecideTimeOffUseCase decideTimeOffUseCase;
+  final FindTimeOffOverlapsUseCase findTimeOffOverlapsUseCase;
+
   EmployeeDetailController({
     required this.getEntriesByEmployeeUseCase,
     required this.streamMonthScheduleUseCase,
     required this.streamRecurringRulesUseCase,
+    required this.streamTimeOffByEmployeeUseCase,
+    required this.decideTimeOffUseCase,
+    required this.findTimeOffOverlapsUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
+
+  // ──────────────────────────────────────────────
+  // SOLICITUDES DE AUSENCIA (real-time)
+  // ──────────────────────────────────────────────
+  final RxList<TimeOffModel> timeOffRequests = <TimeOffModel>[].obs;
+  StreamSubscription<List<TimeOffModel>>? _timeOffSub;
+
+  /// uid de la empresa que toma las decisiones.
+  String get decidedBy => brain.company.value?.id ?? '';
 
   // ──────────────────────────────────────────────
   // Estado general
@@ -44,6 +72,11 @@ class EmployeeDetailController extends GetxController {
   // FICHAJES (tu estado)
   // ──────────────────────────────────────────────
   final groupedClockIns = <DateTime, List<_ClockInOutDisplay>>{}.obs;
+
+  /// Fichajes en crudo (turnos entrada/salida) para poder comparar previsto
+  /// vs. realizado en el modal de detalle de día.
+  final List<ClockInOutModel> _allEntries = [];
+
   final selectedMonth = DateTime(DateTime.now().year, DateTime.now().month).obs;
 
   void prevMonth() => selectedMonth.value =
@@ -88,7 +121,7 @@ class EmployeeDetailController extends GetxController {
       initWithEmployee(arg);
       _loadBalances();
     } else {
-      Get.snackbar('Error', 'No employee data provided');
+      ToastService().show(title: 'Error', message: 'No employee data provided', type: ToastType.error);
     }
   }
 
@@ -96,13 +129,36 @@ class EmployeeDetailController extends GetxController {
   void onClose() {
     _monthSub?.cancel();
     _rulesSub?.cancel();
+    _timeOffSub?.cancel();
     super.onClose();
+  }
+
+  /// Solicitudes que requieren acción de la empresa (recién solicitadas).
+  int get pendingTimeOffCount =>
+      timeOffRequests.where((r) => r.awaitingCompany).length;
+
+  void _bindTimeOffStream() {
+    _timeOffSub?.cancel();
+    if (_companyId.isEmpty || _employeeId.isEmpty) return;
+    _timeOffSub = streamTimeOffByEmployeeUseCase
+        .call(companyId: _companyId, employeeId: _employeeId)
+        .listen((list) {
+      timeOffRequests.assignAll(list);
+      _loadBalances(); // recalcula descontando los días aprobados
+    }, onError: (e) {
+      // No rompas la UI por las solicitudes
+      print('streamTimeOffByEmployee error: $e');
+    });
   }
 
   Future<void> _loadBalances() async {
     final emp = employee.value;
     if (emp == null) return;
-    balances.value = computeSimpleBalances(employee: emp, hireDateOverride: emp.createdAt);
+    balances.value = computeBalancesWithRequests(
+      employee: emp,
+      requests: timeOffRequests,
+      hireDateOverride: emp.createdAt,
+    );
   }
 
   void initWithEmployee(EmployeeModel e) {
@@ -117,6 +173,22 @@ class EmployeeDetailController extends GetxController {
     // ✅ Real-time: reglas + mes visible
     _bindRulesStream();
     _bindMonthStream(calendarFocusedDay.value);
+
+    // ✅ Real-time: solicitudes de ausencia
+    _bindTimeOffStream();
+  }
+
+  /// Abre la hoja de gestión de una solicitud (aprobar/rechazar/proponer).
+  Future<void> manageTimeOff(BuildContext context, TimeOffModel request) async {
+    await TimeOffManageSheet.show(
+      context,
+      request: request,
+      employeeName: employee.value?.name ?? 'Empleado',
+      decideUseCase: decideTimeOffUseCase,
+      overlapsUseCase: findTimeOffOverlapsUseCase,
+      decidedBy: decidedBy,
+    );
+    // El stream refresca la lista automáticamente; nada más que hacer.
   }
 
   // ──────────────────────────────────────────────
@@ -125,15 +197,20 @@ class EmployeeDetailController extends GetxController {
   Future<void> fetch() async {
     final emp = employee.value;
     if (emp == null) {
-      Get.snackbar('Error', 'Empleado no definido');
+      ToastService().show(title: 'Error', message: 'Empleado no definido', type: ToastType.error);
       return;
     }
 
     final result = await getEntriesByEmployeeUseCase.call(emp.uid);
     if (!result.success) {
-      Get.snackbar('Error', 'No se pudieron cargar los registros de entrada');
+      ToastService().show(title: 'Error', message: 'No se pudieron cargar los registros de entrada', type: ToastType.error);
       return;
     }
+
+    // Guardamos los fichajes en crudo para el modal de detalle de día.
+    _allEntries
+      ..clear()
+      ..addAll(result.data);
 
     final allItems = <_ClockInOutDisplay>[];
     for (final m in result.data) {
@@ -151,19 +228,42 @@ class EmployeeDetailController extends GetxController {
     groupedClockIns.value = last5;
   }
 
+  /// Fichajes (turnos) registrados en un día concreto, ordenados por hora.
+  List<ClockInOutModel> clockRecordsForDay(DateTime day) {
+    final d = _dateOnly(day);
+    final list = _allEntries
+        .where((e) =>
+            e.clockIn.year == d.year &&
+            e.clockIn.month == d.month &&
+            e.clockIn.day == d.day)
+        .toList()
+      ..sort((a, b) => a.clockIn.compareTo(b.clockIn));
+    return list;
+  }
+
+  /// Minutos realmente trabajados ese día según fichajes (turnos abiertos
+  /// cuentan hasta ahora).
+  int workedMinutesForDay(DateTime day) {
+    final now = DateTime.now();
+    return clockRecordsForDay(day).fold<int>(0, (prev, r) {
+      final end = r.clockOut ?? now;
+      return prev + end.difference(r.clockIn).inMinutes.clamp(0, 24 * 60);
+    });
+  }
+
   // ──────────────────────────────────────────────
   // Navegación a edición de horario
   // ──────────────────────────────────────────────
   Future<void> redirectToEmployeeSchedule() async {
     final emp = employee.value;
     if (emp == null) {
-      Get.snackbar('Error', 'Empleado no definido');
+      ToastService().show(title: 'Error', message: 'Empleado no definido', type: ToastType.error);
       return;
     }
 
     final res = await Get.toNamed(
       Routes.companyEmployeeSchedule,
-      arguments: {'employeeId': emp.uid},
+      arguments: {'employeeId': emp.uid, 'employeeName': emp.name},
     );
 
     // Con stream NO es necesario, pero si devuelves result y quieres forzar:

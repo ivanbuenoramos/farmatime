@@ -1,9 +1,9 @@
 import 'package:farmatime/domain/usecases/shift_template/upsert_shift_template_usecase.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/data/models/shift_template_model.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 
 // UseCases
 import 'package:farmatime/domain/usecases/shift_template/list_shift_templates_usecase.dart';
@@ -45,9 +45,7 @@ class ShiftTemplatesController extends GetxController {
       items.assignAll(res.data);
     } else {
       error.value = 'No se pudieron cargar los turnos';
-      Get.snackbar('Error', error.value!,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.08));
+      ToastService().show(title: 'Error', message: error.value!, type: ToastType.error);
     }
   }
 
@@ -57,13 +55,11 @@ class ShiftTemplatesController extends GetxController {
     isSaving.value = false;
 
     if (!res.success) {
-      Get.snackbar('Error', 'No se pudo crear el turno',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.08));
+      ToastService().show(title: 'Error', message: 'No se pudo crear el turno', type: ToastType.error);
       return false;
     }
     await load();
-    Get.snackbar('Turno creado', t.name, snackPosition: SnackPosition.BOTTOM);
+    ToastService().show(title: 'Turno creado', message: t.name, type: ToastType.success);
     return true;
   }
 
@@ -73,13 +69,11 @@ class ShiftTemplatesController extends GetxController {
     isSaving.value = false;
 
     if (!res.success) {
-      Get.snackbar('Error', 'No se pudo actualizar',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.08));
+      ToastService().show(title: 'Error', message: 'No se pudo actualizar', type: ToastType.error);
       return false;
     }
     await load();
-    Get.snackbar('Turno actualizado', t.name, snackPosition: SnackPosition.BOTTOM);
+    ToastService().show(title: 'Turno actualizado', message: t.name, type: ToastType.success);
     return true;
   }
 
@@ -89,13 +83,11 @@ class ShiftTemplatesController extends GetxController {
     isSaving.value = false;
 
     if (!res.success) {
-      Get.snackbar('Error', 'No se pudo eliminar',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.withOpacity(0.08));
+      ToastService().show(title: 'Error', message: 'No se pudo eliminar', type: ToastType.error);
       return false;
     }
     items.removeWhere((e) => e.id == id);
-    Get.snackbar('Eliminado', 'Turno eliminado', snackPosition: SnackPosition.BOTTOM);
+    ToastService().show(title: 'Eliminado', message: 'Turno eliminado', type: ToastType.success);
     return true;
   }
 }

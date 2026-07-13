@@ -1,12 +1,26 @@
 import 'package:flutter/material.dart';
 
-enum DayType { work, off, vacation }
+enum DayType { work, off, vacation, personal }
 
 extension DayTypeX on DayType {
-  String get code => switch (this) { DayType.work => 'work', DayType.off => 'off', DayType.vacation => 'vacation' };
-  static DayType fromCode(String? code) =>
-      switch (code) { 'work' => DayType.work, 'vacation' => DayType.vacation, _ => DayType.off };
-  String get label => switch (this) { DayType.work => 'Laboral', DayType.off => 'Libre', DayType.vacation => 'Vacaciones' };
+  String get code => switch (this) {
+        DayType.work => 'work',
+        DayType.off => 'off',
+        DayType.vacation => 'vacation',
+        DayType.personal => 'personal',
+      };
+  static DayType fromCode(String? code) => switch (code) {
+        'work' => DayType.work,
+        'vacation' => DayType.vacation,
+        'personal' => DayType.personal,
+        _ => DayType.off,
+      };
+  String get label => switch (this) {
+        DayType.work => 'Laboral',
+        DayType.off => 'Libre',
+        DayType.vacation => 'Vacaciones',
+        DayType.personal => 'Asuntos propios',
+      };
 }
 
 class DayEntry {

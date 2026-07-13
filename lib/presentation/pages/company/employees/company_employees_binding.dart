@@ -6,6 +6,9 @@ import 'company_employees_controller.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
 import 'package:farmatime/data/repositories/employee_repository_impl.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:farmatime/domain/repositories/time_off_repository.dart';
+import 'package:farmatime/data/repositories/time_off_repository_impl.dart';
+import 'package:farmatime/domain/usecases/time_off/stream_time_off_by_company_usecase.dart';
 
 
 
@@ -26,11 +29,17 @@ class CompanyEmployeesBinding extends Bindings {
     Get.lazyPut<StreamEmployeesByCompanyIdUseCase>(
       () => StreamEmployeesByCompanyIdUseCase(Get.find<EmployeeRepository>()),
     );
-    
+
+    Get.lazyPut<TimeOffRepository>(() => TimeOffRepositoryImpl());
+    Get.lazyPut<StreamTimeOffByCompanyUseCase>(
+      () => StreamTimeOffByCompanyUseCase(Get.find<TimeOffRepository>()),
+    );
+
     Get.lazyPut<CompanyEmployeesController>(() => CompanyEmployeesController(
       getEmployeesByCompanyIdUseCase: Get.find<GetEmployeesByCompanyIdUseCase>(),
       updateEmployeeUseCase: Get.find<UpdateEmployeeUseCase>(),
       streamEmployeesByCompanyIdUseCase: Get.find<StreamEmployeesByCompanyIdUseCase>(),
+      streamTimeOffByCompanyUseCase: Get.find<StreamTimeOffByCompanyUseCase>(),
     ));
 
   }

@@ -1,5 +1,6 @@
 import 'package:meta/meta.dart';
 import '../../data/models/employee_model.dart';
+import '../../data/models/schedule/time_off_model.dart';
 
 /// Resultado del cálculo simple (sin solicitudes)
 class SimpleLeaveBalances {
@@ -63,6 +64,19 @@ double _round2(num v) => double.parse(v.toStringAsFixed(2));
   );
 }
 
+/// Versión pública del cálculo de devengado (vacaciones y asuntos propios)
+/// por tiempo trabajado. Pensada para usarse fuera de tests.
+({double vacationEarned, double personalEarned}) earnedByTime({
+  required EmployeeModel employee,
+  DateTime? hireDateOverride,
+  DateTime? today,
+}) =>
+    computeEarnedByTime(
+      employee: employee,
+      hireDateOverride: hireDateOverride,
+      today: today,
+    );
+
 /// API principal para tu app hoy: devuelve devengado y disponible (sin usados).
 SimpleLeaveBalances computeSimpleBalances({
   required EmployeeModel employee,
@@ -86,5 +100,46 @@ SimpleLeaveBalances computeSimpleBalances({
     personalAvailable: earned.personalEarned,
     asOf: now,
     hireDateUsed: hireDate,
+  );
+}
+
+/// Igual que [computeSimpleBalances] pero descontando del disponible los días
+/// ya aprobados (vacaciones y asuntos propios) presentes en [requests].
+///
+/// Solo cuentan las solicitudes en estado approved; se usan las fechas
+/// efectivas (las propuestas por la empresa si las hubo).
+SimpleLeaveBalances computeBalancesWithRequests({
+  required EmployeeModel employee,
+  required List<TimeOffModel> requests,
+  DateTime? hireDateOverride,
+  DateTime? today,
+}) {
+  final base = computeSimpleBalances(
+    employee: employee,
+    hireDateOverride: hireDateOverride,
+    today: today,
+  );
+
+  var vacationUsed = 0;
+  var personalUsed = 0;
+  for (final r in requests) {
+    if (r.status != TimeOffStatus.approved) continue;
+    final days = r.effectiveDates.length;
+    if (r.type == TimeOffType.vacation) {
+      vacationUsed += days;
+    } else {
+      personalUsed += days;
+    }
+  }
+
+  double clampNonNeg(double v) => v < 0 ? 0 : v;
+
+  return SimpleLeaveBalances(
+    vacationEarned: base.vacationEarned,
+    personalEarned: base.personalEarned,
+    vacationAvailable: clampNonNeg(_round2(base.vacationEarned - vacationUsed)),
+    personalAvailable: clampNonNeg(_round2(base.personalEarned - personalUsed)),
+    asOf: base.asOf,
+    hireDateUsed: base.hireDateUsed,
   );
 }

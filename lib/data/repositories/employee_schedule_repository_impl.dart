@@ -403,6 +403,52 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
   }
 
   // ─────────────────────────────────────────────
+  // Conteo de días asignados de un tipo en un año natural
+  // ─────────────────────────────────────────────
+  @override
+  Future<Result<Set<String>>> getAssignedDaysOfTypeInYear({
+    required String companyId,
+    required String employeeId,
+    required int year,
+    required DayType type,
+  }) async {
+    try {
+      // Consulta los documentos de los 12 meses del año del empleado.
+      // (Cada doc es companyId__employeeId__yyyy-MM.)
+      final snap = await _monthsCol()
+          .where('companyId', isEqualTo: companyId)
+          .where('employeeId', isEqualTo: employeeId)
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      final wantedCode = type.code;
+      final yearPrefix = year.toString().padLeft(4, '0');
+      final out = <String>{};
+
+      for (final doc in snap.docs) {
+        final entries = (doc.data()['entries'] as Map<String, dynamic>? ?? {});
+        entries.forEach((dateKey, raw) {
+          if (!dateKey.startsWith(yearPrefix)) return; // otro año
+          if (raw is! Map) return;
+          final t = (raw['type'] as String?) ?? '';
+          if (t == wantedCode) out.add(dateKey);
+        });
+      }
+
+      return Result(success: true, data: out);
+    } on TimeoutException {
+      toastService.showParsedErrorCode('time-exceeded');
+      return Result(success: false, data: <String>{}, errorCode: 'time-exceeded');
+    } on FirebaseException catch (e) {
+      toastService.showParsedErrorCode(e.code);
+      return Result(success: false, data: <String>{}, errorCode: e.code);
+    } catch (_) {
+      toastService.showParsedErrorCode('firestore-error');
+      return Result(success: false, data: <String>{}, errorCode: 'firestore-error');
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────
   ExpectedShiftModel _shiftFromDayEntry(DayEntry entry, DateTime dayDate) {

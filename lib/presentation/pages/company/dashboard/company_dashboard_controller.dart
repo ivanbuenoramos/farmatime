@@ -128,6 +128,39 @@ class CompanyDashboardController extends GetxController {
   }
 
   // ─────────────────────────────────────────────────────────────
+  // Resumen / lista unificada para la cabecera del dashboard
+  // ─────────────────────────────────────────────────────────────
+
+  /// Nº de empleados activos (no eliminados).
+  int get totalEmployees => brain.companyEmployees
+      .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
+      .length;
+
+  int get workingCount => working.length;
+  int get absentCount => absent.length;
+
+  /// Todos los empleados (no eliminados) ordenados por nombre, cada uno con
+  /// su [EmployeeRow] resuelta (estado de hoy). Para la lista de la cabecera.
+  List<EmployeeRow> get allRows {
+    final byStatus = <String, EmployeeRow>{
+      for (final r in working) r.emp.uid: r,
+      for (final r in absent) r.emp.uid: r,
+      for (final r in off) r.emp.uid: r,
+    };
+
+    final employees = brain.companyEmployees
+        .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
+        .toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    return employees
+        .map((e) =>
+            byStatus[e.uid] ??
+            EmployeeRow(emp: e, status: TodayStatus.off))
+        .toList();
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // Internals
   // ─────────────────────────────────────────────────────────────
 
@@ -275,17 +308,19 @@ class CompanyDashboardController extends GetxController {
   }
 
   bool _isNowWithinShift(DateTime start, DateTime end, {DateTime? now}) {
-    final n = (now ?? DateTime.now()).toUtc();
-    final s = start.toUtc();
-    final e = end.toUtc();
-
-    if (!e.isBefore(s)) {
-      return (n.isAtSameMomentAs(s) || n.isAfter(s)) &&
-          n.isBefore(e.add(const Duration(minutes: 1)));
-    } else {
-      return n.isAtSameMomentAs(s) ||
-          n.isAfter(s) ||
-          n.isBefore(e.add(const Duration(minutes: 1)));
+    // start/end ya vienen como instantes absolutos coherentes: el repositorio
+    // suma un día a `end` cuando el turno cruza medianoche (ver
+    // _shiftFromDayEntry/_shiftFromRule), así que end SIEMPRE es posterior a
+    // start. Comparamos en la misma referencia local que `now` para evitar
+    // desfases de zona horaria; comparar dos DateTime da el mismo resultado en
+    // cualquier zona, así que no convertimos a UTC.
+    final n = now ?? DateTime.now();
+    if (end.isBefore(start)) {
+      // Defensa: si por un cambio futuro `end` no trajera el +1 día, lo
+      // corregimos aquí en vez de caer en una rama que daría falsos positivos.
+      end = end.add(const Duration(days: 1));
     }
+    return !n.isBefore(start) &&
+        n.isBefore(end.add(const Duration(minutes: 1)));
   }
 }

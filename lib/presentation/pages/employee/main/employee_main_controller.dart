@@ -19,9 +19,11 @@ class EmployeeMainController extends GetxController {
   }
 
   void checkAccountStatus() {
-    if (brain.employee.value != null && brain.employee.value!.accountStatus == EmployeeAccountStatus.disabled) {
+    final emp = brain.employee.value;
+    if (emp == null) return;
+    if (emp.accountStatus == EmployeeAccountStatus.disabled) {
       Get.offAllNamed(Routes.employeeSubscriptionCanceled);
-    } else if (brain.employee.value != null && brain.employee.value!.tempPassword != null && brain.employee.value!.tempPassword! != '') {
+    } else if (emp.hasTempPassword) {
       Get.offNamed(Routes.employeeSetPassword);
     }
   }

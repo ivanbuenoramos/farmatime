@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/log_out_usecase.dart';
@@ -65,7 +66,7 @@ class EmployeeAccountController extends GetxController {
       fileName: 'logo.jpg',
     );
     if (fileUrl == null) {
-      Get.snackbar('Error', 'No se pudo subir la imagen');
+      ToastService().show(title: 'Error', message: 'No se pudo subir la imagen', type: ToastType.error);
       isUploadingLogo.value = false;
       return;
     } else {
@@ -85,12 +86,12 @@ class EmployeeAccountController extends GetxController {
 
     final Result<EmployeeModel?> result = await updateEmployeeUseCase.call(updatedEmployee);
     if (!result.success || result.data == null) {
-      Get.snackbar('Error', 'No se pudo actualizar la empresa');
+      ToastService().show(title: 'Error', message: 'No se pudo actualizar la empresa', type: ToastType.error);
       return;
     }
 
     brain.employee.value = result.data;
-    Get.snackbar('Éxito', 'Datos actualizados correctamente');
+    ToastService().show(title: 'Éxito', message: 'Datos actualizados correctamente', type: ToastType.success);
   }
 
   void logOut() async {
@@ -112,10 +113,6 @@ class EmployeeAccountController extends GetxController {
     super.onClose();
   }
 
-  void redirectToPaymentMethods() {
-    Get.toNamed(Routes.companyPaymentMethods);
-  }
-
   void redirectToProfile() {
     Get.toNamed(Routes.employeeProfile);
   }
@@ -126,5 +123,9 @@ class EmployeeAccountController extends GetxController {
 
   void redirectToChangePassword() {
     Get.toNamed(Routes.changePassword);
+  }
+
+  void redirectToSettings() {
+    Get.toNamed(Routes.companySettings);
   }
 }

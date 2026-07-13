@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/send_password_reset_email_usecase.dart';
 
@@ -63,25 +64,26 @@ class ForgotPasswordController extends GetxController {
 
       // Ajusta estos campos a tu implementación real de Result
       if (result.success) {
-        Get.snackbar(
-          'Correo enviado',
-          'Hemos enviado un enlace para restablecer tu contraseña a $email',
-          snackPosition: SnackPosition.BOTTOM,
+        ToastService().show(
+          title: 'Correo enviado',
+          message:
+              'Hemos enviado un enlace para restablecer tu contraseña a $email',
+          type: ToastType.success,
         );
         // Si quieres volver automáticamente:
         // Get.back();
       } else {
-        Get.snackbar(
-          'Error',
-          'No se ha podido enviar el correo',
-          snackPosition: SnackPosition.BOTTOM,
+        ToastService().show(
+          title: 'Error',
+          message: 'No se ha podido enviar el correo',
+          type: ToastType.error,
         );
       }
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Ha ocurrido un error inesperado',
-        snackPosition: SnackPosition.BOTTOM,
+      ToastService().show(
+        title: 'Error',
+        message: 'Ha ocurrido un error inesperado',
+        type: ToastType.error,
       );
     } finally {
       submitting.value = false;

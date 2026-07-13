@@ -53,3 +53,9 @@ app.*.map.json
 /params.env
 /extensions/*.env
 !/extensions/*.env.example
+
+# Credencial de service account (nunca commitear)
+/service-account.json
+
+# Artefactos de build accidentales
+/functions/build/

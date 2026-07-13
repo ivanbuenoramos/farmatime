@@ -31,11 +31,14 @@ class EmployeeScheduleCalendar extends StatelessWidget {
     this.onDaySelected,
     this.onRangeSelected,
     this.onPageChanged,
+    this.onDayTap,
     // Config visual
     this.locale = 'es_ES',
     this.showTimes = true,
     this.compact = true,
     this.showDayInfoOnTap = true,
+    this.headerVisible = true,
+    this.availableGestures = AvailableGestures.all,
   });
 
   final DateTime firstDay;
@@ -57,10 +60,21 @@ class EmployeeScheduleCalendar extends StatelessWidget {
   final void Function(DateTime? start, DateTime? end, DateTime focusedDay)? onRangeSelected;
   final void Function(DateTime focusedDay)? onPageChanged;
 
+  /// Si se proporciona, al pulsar un día se llama a este callback en lugar de
+  /// mostrar el diálogo interno (tenga showDayInfoOnTap el valor que tenga).
+  final void Function(DateTime day)? onDayTap;
+
   final String locale;
   final bool showTimes; // muestra duración
   final bool compact;
   final bool showDayInfoOnTap;
+
+  /// Muestra la cabecera interna con el mes y las flechas de navegación.
+  final bool headerVisible;
+
+  /// Gestos disponibles. Con [AvailableGestures.none] el calendario no captura
+  /// el arrastre vertical, permitiendo hacer scroll en la pantalla.
+  final AvailableGestures availableGestures;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +90,8 @@ class EmployeeScheduleCalendar extends StatelessWidget {
       rangeEndDay: rangeEnd,
       rangeSelectionMode: rangeSelectionMode,
       availableCalendarFormats: const {CalendarFormat.month: 'Mes'},
+      headerVisible: headerVisible,
+      availableGestures: availableGestures,
       calendarStyle: CalendarStyle(
         todayDecoration: BoxDecoration(
           color: theme.colorScheme.secondaryContainer,
@@ -87,7 +103,11 @@ class EmployeeScheduleCalendar extends StatelessWidget {
         ),
       ),
       onDaySelected: (sel, foc) {
-        if (showDayInfoOnTap) _showDayInfoDialog(context, sel);
+        if (onDayTap != null) {
+          onDayTap!(sel);
+        } else if (showDayInfoOnTap) {
+          _showDayInfoDialog(context, sel);
+        }
         if (onDaySelected != null) onDaySelected!(sel, foc);
       },
       onRangeSelected: onRangeSelected,
@@ -187,6 +207,10 @@ class EmployeeScheduleCalendar extends StatelessWidget {
           estado = 'Vacaciones';
           icon = Icons.beach_access_rounded;
           break;
+        case DayType.personal:
+          estado = 'Asuntos propios';
+          icon = Icons.event_available_rounded;
+          break;
       }
     } else if (rule != null) {
       // Sin override, pero hay regla => Laboral (por regla)
@@ -258,20 +282,27 @@ class EmployeeScheduleCalendar extends StatelessWidget {
     return DayEntry(type: DayType.work, start: rule.startTime, end: rule.endTime);
   }
 
+  // Paleta por tipo de día. Debe coincidir con la leyenda de la pantalla de
+  // calendario (_styleForType) para que el código de color sea coherente.
+  static const Color _kWorkColor = Color(0xff1971FF); // azul (primary)
+  static const Color _kVacationColor = Color(0xffE53935); // rojo
+  static const Color _kPersonalColor = Color(0xff8E24AA); // morado
+  static const Color _kOffColor = Color(0xffA5A5A5); // gris
+
   Color _backgroundColorFor(DayEntry? entry, ThemeData theme, DateTime day) {
     if (entry == null) {
-      final hasRule = rules.any((r) => r.matchesDate(day));
-      return hasRule
-          ? theme.colorScheme.primary.withValues(alpha: 0.18)
-          : theme.colorScheme.surfaceContainerHighest;
+      // Sin override: día libre (sin turno).
+      return _kOffColor.withValues(alpha: 0.14);
     }
     switch (entry.type) {
       case DayType.work:
-        return theme.colorScheme.primary.withValues(alpha: 0.25);
+        return _kWorkColor.withValues(alpha: 0.18);
       case DayType.off:
-        return theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35);
+        return _kOffColor.withValues(alpha: 0.14);
       case DayType.vacation:
-        return theme.colorScheme.errorContainer.withValues(alpha: 0.45);
+        return _kVacationColor.withValues(alpha: 0.22);
+      case DayType.personal:
+        return _kPersonalColor.withValues(alpha: 0.22);
     }
   }
 

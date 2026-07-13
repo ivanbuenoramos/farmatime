@@ -1,186 +1,123 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Estados IAP unificados para iOS y Android.
+/// Mapeo:
+/// - Apple: 1→active, 2→expired, 3→in_billing_retry, 4→in_grace_period, 5→revoked
+/// - Google: ACTIVE→active, IN_GRACE_PERIOD→in_grace_period, ON_HOLD→on_hold,
+///   PAUSED→paused, CANCELED→canceled, EXPIRED→expired, PENDING→pending
 enum BillingStatus {
-  active,       // pagos al día
-  trialing,     // prueba o incompleta hasta añadir método de pago
-  past_due,     // pago fallido
-  canceled,     // suscripción cancelada
+  active,
+  inGracePeriod,
+  inBillingRetry,
+  onHold,
+  paused,
+  canceled,
+  expired,
+  revoked,
+  pending,
+  none,
 }
 
 BillingStatus billingStatusFromString(String? v) {
   switch (v) {
-    case 'trialing': return BillingStatus.trialing;
-    case 'past_due': return BillingStatus.past_due;
+    case 'active': return BillingStatus.active;
+    case 'in_grace_period': return BillingStatus.inGracePeriod;
+    case 'in_billing_retry': return BillingStatus.inBillingRetry;
+    case 'on_hold': return BillingStatus.onHold;
+    case 'paused': return BillingStatus.paused;
     case 'canceled': return BillingStatus.canceled;
-    case 'active':
-    default: return BillingStatus.active;
+    case 'expired': return BillingStatus.expired;
+    case 'revoked': return BillingStatus.revoked;
+    case 'pending': return BillingStatus.pending;
+    default: return BillingStatus.none;
   }
 }
 
 extension BillingStatusX on BillingStatus {
-  String get nameStr => toString().split('.').last;
+  /// Valor que usa el backend (snake_case).
+  String get wireName {
+    switch (this) {
+      case BillingStatus.inGracePeriod: return 'in_grace_period';
+      case BillingStatus.inBillingRetry: return 'in_billing_retry';
+      case BillingStatus.onHold: return 'on_hold';
+      default: return toString().split('.').last;
+    }
+  }
+
+  /// Concede acceso pagado (incluye periodo de gracia y reintento de cobro).
+  bool get isPaid =>
+      this == BillingStatus.active ||
+      this == BillingStatus.inGracePeriod ||
+      this == BillingStatus.inBillingRetry;
 }
-
-
 
 class CompanyBilling {
   final String companyId;
-  final String? stripeCustomerId;
-  final String? stripeSubscriptionId;
-  final int contractedSeats;     // cantidad contratada en Stripe (quantity)
-  final int occupiedSeats;       // empleados activos (denormalizado opcional)
-  final BillingStatus status;    // active/trialing/past_due/canceled
-  final DateTime? currentPeriodEnd; // próxima renovación (de Stripe)
+  final String? platform; // 'ios' | 'android'
+  final String? productId;
+  final int contractedSeats;
+  final int occupiedSeats;
+  final BillingStatus status;
+  final DateTime? currentPeriodEnd;
+  final bool autoRenewing;
   final DateTime? updatedAt;
 
   const CompanyBilling({
     required this.companyId,
-    this.stripeCustomerId,
-    this.stripeSubscriptionId,
+    this.platform,
+    this.productId,
     required this.contractedSeats,
     required this.occupiedSeats,
     required this.status,
     this.currentPeriodEnd,
+    this.autoRenewing = false,
     this.updatedAt,
   });
 
   int get freeSeats => contractedSeats - occupiedSeats;
 
   factory CompanyBilling.fromJson(String id, Map<String, dynamic> json) {
+    final sub = (json['subscription'] as Map?)?.cast<String, dynamic>() ?? {};
+    final periodEndRaw = sub['expiresAt'] ?? json['currentPeriodEnd'];
+
     return CompanyBilling(
       companyId: id,
-      stripeCustomerId: json['stripeCustomerId'] as String?,
-      stripeSubscriptionId: json['stripeSubscriptionId'] as String?,
-      contractedSeats: (json['contractedSeats'] as num?)?.toInt() ?? 0,
+      platform: sub['platform'] as String?,
+      productId: sub['productId'] as String?,
+      contractedSeats: (json['contractedSeats'] as num?)?.toInt() ?? 1,
       occupiedSeats: (json['occupiedSeats'] as num?)?.toInt() ?? 0,
-      status: billingStatusFromString(json['billingStatus'] as String?),
-      currentPeriodEnd: (json['currentPeriodEnd'] is Timestamp)
-          ? (json['currentPeriodEnd'] as Timestamp).toDate()
-          : (json['currentPeriodEnd'] != null
-              ? DateTime.tryParse(json['currentPeriodEnd'].toString())
+      status: billingStatusFromString(
+        (sub['status'] ?? json['billingStatus']) as String?,
+      ),
+      currentPeriodEnd: (periodEndRaw is Timestamp)
+          ? periodEndRaw.toDate()
+          : (periodEndRaw != null
+              ? DateTime.tryParse(periodEndRaw.toString())
               : null),
+      autoRenewing: sub['autoRenewing'] == true,
       updatedAt: (json['updatedAt'] is Timestamp)
           ? (json['updatedAt'] as Timestamp).toDate()
-          : (json['updatedAt'] != null
-              ? DateTime.tryParse(json['updatedAt'].toString())
-              : null),
+          : null,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'stripeCustomerId': stripeCustomerId,
-      'stripeSubscriptionId': stripeSubscriptionId,
-      'contractedSeats': contractedSeats,
-      'occupiedSeats': occupiedSeats,
-      'billingStatus': status.nameStr,
-      'currentPeriodEnd': currentPeriodEnd != null
-          ? Timestamp.fromDate(currentPeriodEnd!)
-          : null,
-      'updatedAt': updatedAt != null
-          ? Timestamp.fromDate(updatedAt!)
-          : FieldValue.serverTimestamp(),
-    };
-  }
-
   CompanyBilling copyWith({
-    String? stripeCustomerId,
-    String? stripeSubscriptionId,
     int? contractedSeats,
     int? occupiedSeats,
     BillingStatus? status,
     DateTime? currentPeriodEnd,
-    DateTime? updatedAt,
+    bool? autoRenewing,
   }) {
     return CompanyBilling(
       companyId: companyId,
-      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
-      stripeSubscriptionId:
-          stripeSubscriptionId ?? this.stripeSubscriptionId,
+      platform: platform,
+      productId: productId,
       contractedSeats: contractedSeats ?? this.contractedSeats,
       occupiedSeats: occupiedSeats ?? this.occupiedSeats,
       status: status ?? this.status,
       currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
-      updatedAt: updatedAt ?? this.updatedAt,
+      autoRenewing: autoRenewing ?? this.autoRenewing,
+      updatedAt: updatedAt,
     );
   }
-}
-
-
-class InvoiceModel {
-  final String id;
-  final String number;
-  final int amountCents;
-  final String currency;
-  final String status;
-  final String? pdfUrl;
-  final DateTime createdAt;
-
-  InvoiceModel({
-    required this.id,
-    required this.number,
-    required this.amountCents,
-    required this.currency,
-    required this.status,
-    this.pdfUrl,
-    required this.createdAt,
-  });
-
-  /// 🔹 Crear desde JSON (Stripe o Firestore)
-  factory InvoiceModel.fromJson(Map<String, dynamic> json) {
-    final created = json['date'] ?? json['created'];
-    return InvoiceModel(
-      id: json['id'] ?? '',
-      number: json['number'] ?? '',
-      amountCents: json['amountCents'] is int
-          ? json['amountCents']
-          : int.tryParse('${json['amountCents'] ?? 0}') ?? 0,
-      currency: (json['currency'] ?? 'eur').toUpperCase(),
-      status: json['status'] ?? 'unknown',
-      pdfUrl: json['pdfUrl'],
-      createdAt: created is Timestamp
-          ? created.toDate()
-          : DateTime.fromMillisecondsSinceEpoch((created ?? 0) * 1000),
-    );
-  }
-
-  /// 🔹 Convertir a JSON para almacenar en Firestore
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'number': number,
-        'amountCents': amountCents,
-        'currency': currency,
-        'status': status,
-        'pdfUrl': pdfUrl,
-        'date': Timestamp.fromDate(createdAt),
-      };
-
-  /// 🔹 Copia modificada (immutabilidad)
-  InvoiceModel copyWith({
-    String? id,
-    String? number,
-    int? amountCents,
-    String? currency,
-    String? status,
-    String? pdfUrl,
-    DateTime? createdAt,
-  }) {
-    return InvoiceModel(
-      id: id ?? this.id,
-      number: number ?? this.number,
-      amountCents: amountCents ?? this.amountCents,
-      currency: currency ?? this.currency,
-      status: status ?? this.status,
-      pdfUrl: pdfUrl ?? this.pdfUrl,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
-  /// 🔹 Monto formateado en euros
-  String get formattedAmount =>
-      '${(amountCents / 100).toStringAsFixed(2)} €';
-
-  /// 🔹 Fecha formateada (dd/MM/yyyy)
-  String get formattedDate =>
-      '${createdAt.day.toString().padLeft(2, '0')}/${createdAt.month.toString().padLeft(2, '0')}/${createdAt.year}';
 }

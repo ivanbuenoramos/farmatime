@@ -14,8 +14,16 @@ class EmployeeModel {
   final String uid;
   final String email;
   final String name;
-  final String? tempPassword;
+  /// True si el backend ha generado una contraseña temporal y el empleado
+  /// todavía no la ha cambiado. Es un flag derivado: la contraseña en sí vive
+  /// en la subcolección privada `employees/{uid}/private/credentials` (no en
+  /// el doc principal, que es legible por todos los compañeros).
+  final bool hasTempPassword;
   final String? photoUrl;
+
+  /// Color base (ARGB) del avatar, tono pastel asignado al crear el empleado.
+  /// Null en empleados antiguos: la UI cae al color primario.
+  final int? avatarColor;
   final String companyId;
   final String? position;
   final EmployeeAccountStatus? accountStatus;
@@ -33,8 +41,9 @@ class EmployeeModel {
     required this.uid,
     required this.email,
     required this.name,
-    this.tempPassword,
+    this.hasTempPassword = false,
     this.photoUrl,
+    this.avatarColor,
     required this.companyId,
     this.position,
     required this.accountStatus,
@@ -81,12 +90,18 @@ class EmployeeModel {
       return d;
     }
 
+    // hasTempPassword es el nuevo flag derivado; para docs antiguos que aún
+    // tengan `tempPassword` en texto plano, derivamos el flag del propio campo.
+    final bool hasTemp = json['hasTempPassword'] == true ||
+        ((json['tempPassword'] as String?)?.isNotEmpty ?? false);
+
     return EmployeeModel(
       uid: json['uid'],
       email: json['email'],
       name: json['name'],
-      tempPassword: json['tempPassword'],
+      hasTempPassword: hasTemp,
       photoUrl: json['photoUrl'],
+      avatarColor: (json['avatarColor'] as num?)?.toInt(),
       companyId: json['companyId'],
       position: json['position'],
       accountStatus: switch (json['accountStatus'] as String?) {
@@ -114,8 +129,11 @@ class EmployeeModel {
         'uid': uid,
         'email': email,
         'name': name,
-        'tempPassword': tempPassword,
+        // NO persistimos tempPassword en el doc principal (vive en
+        // employees/{uid}/private/credentials). El flag sí, como dato derivado.
+        'hasTempPassword': hasTempPassword,
         'photoUrl': photoUrl,
+        'avatarColor': avatarColor,
         'companyId': companyId,
         'position': position,
         'accountStatus': switch (accountStatus) {
@@ -151,8 +169,9 @@ class EmployeeModel {
     String? uid,
     String? email,
     String? name,
-    String? tempPassword,
+    bool? hasTempPassword,
     String? photoUrl,
+    int? avatarColor,
     String? companyId,
     String? position,
     EmployeeAccountStatus? accountStatus,
@@ -170,8 +189,9 @@ class EmployeeModel {
       uid: uid ?? this.uid,
       email: email ?? this.email,
       name: name ?? this.name,
-      tempPassword: tempPassword ?? this.tempPassword,
+      hasTempPassword: hasTempPassword ?? this.hasTempPassword,
       photoUrl: photoUrl ?? this.photoUrl,
+      avatarColor: avatarColor ?? this.avatarColor,
       companyId: companyId ?? this.companyId,
       position: position ?? this.position,
       accountStatus: accountStatus ?? this.accountStatus,

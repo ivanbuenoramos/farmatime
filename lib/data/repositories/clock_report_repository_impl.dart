@@ -1,6 +1,7 @@
 // lib/data/repositories/clock_report_repository_impl.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:farmatime/core/services/callable_http_client.dart';
 import 'package:farmatime/data/models/clock_report.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/intl.dart';
@@ -24,19 +25,25 @@ class ClockReportRepositoryImpl implements ClockReportRepository {
 
   ClockReport _fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
+    final created = (data['createdAt'] as Timestamp?)?.toDate() ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final updated = (data['updatedAt'] as Timestamp?)?.toDate() ?? created;
     return ClockReport(
       id: doc.id,
       companyId: data['companyId'] as String? ?? '',
       employeeId: data['employeeId'] as String? ?? '',
+      year: (data['year'] as num?)?.toInt(),
+      month: (data['month'] as num?)?.toInt(),
       periodStart: DateTime.parse(data['periodStart'] as String),
       periodEnd: DateTime.parse(data['periodEnd'] as String),
       pdfPath: data['pdfPath'] as String? ?? '',
       downloadUrl: data['downloadUrl'] as String? ?? '',
       totalHours: (data['totalHours'] as num?)?.toDouble() ?? 0.0,
       daysCount: (data['daysCount'] as num?)?.toInt() ?? 0,
+      recordsCount: (data['recordsCount'] as num?)?.toInt() ?? 0,
       source: data['source'] as String? ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt: created,
+      updatedAt: updated,
     );
   }
 
@@ -79,14 +86,17 @@ class ClockReportRepositoryImpl implements ClockReportRepository {
     final startStr = dateFormatter.format(monthStart);
     final endStr = dateFormatter.format(now);
 
-    final callable = functions.httpsCallable('reportsGenerateRange');
-
-    final result = await callable.call(<String, dynamic>{
-      'companyId': companyId,
-      'startDate': startStr,
-      'endDate': endStr,
-    });
-    print('reportsGenerateRange result: ${result.data}');
+    // HTTP directo en lugar de httpsCallable: el SDK nativo de
+    // FirebaseFunctions aborta la app en release (ver CallableHttpClient).
+    await CallableHttpClient.call(
+      'reportsGenerateRange',
+      <String, dynamic>{
+        'companyId': companyId,
+        'startDate': startStr,
+        'endDate': endStr,
+      },
+      timeout: const Duration(seconds: 120),
+    );
   }
 
   /// 3) Reportes de un empleado paginados de 10 en 10

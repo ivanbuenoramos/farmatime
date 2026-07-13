@@ -10,9 +10,14 @@ exports.sendEmployeeWelcome = onDocumentCreated('employees/{employeeId}', async 
   }
 
   const data = snap.data();
-  if (!data || !data.email || !data.tempPassword) {
-    // logger.warn('⚠️ Falta email o tempPassword en el empleado. No se enviará correo.');
-    // return null;
+  // Ignoramos los docs que no son la creación "real" del empleado:
+  //  - sin email/tempPassword (alta a medias)
+  //  - marcados como reserva (createEmployeeAccount crea un doc temporal con
+  //    _pendingReservation=true para reservar plaza antes de crear el Auth user;
+  //    se borra al migrar al UID real).
+  if (!data || !data.email || !data.tempPassword || data._pendingReservation) {
+    logger.info('sendEmployeeWelcome: doc temporal o incompleto, no enviamos');
+    return null;
   }
 
   const { email, name, tempPassword } = data;

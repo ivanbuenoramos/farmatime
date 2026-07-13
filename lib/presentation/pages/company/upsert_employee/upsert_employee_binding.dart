@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
 import 'package:farmatime/data/repositories/employee_repository_impl.dart';
 import 'package:farmatime/domain/usecases/employee/create_employee_usecase.dart';
+import 'package:farmatime/domain/usecases/employee/check_employee_email_usecase.dart';
 import 'package:farmatime/presentation/pages/company/upsert_employee/upsert_employee_controller.dart';
 
 
@@ -27,6 +28,10 @@ class UpsertEmployeeBinding extends Bindings {
       () => UpdateEmployeeUseCase(Get.find<EmployeeRepository>()),
     );
 
+    Get.lazyPut<CheckEmployeeEmailUseCase>(
+      () => CheckEmployeeEmailUseCase(Get.find<EmployeeRepository>()),
+    );
+
     Get.lazyPut<UploadFileUseCase>(
       () => UploadFileUseCase(Get.find<FirebaseStorageRepository>()),
     );
@@ -34,6 +39,7 @@ class UpsertEmployeeBinding extends Bindings {
     Get.lazyPut(() => UpsertEmployeeController(
       createEmployeeUseCase: Get.find<CreateEmployeeUseCase>(),
       updateEmployeeUseCase: Get.find<UpdateEmployeeUseCase>(),
+      checkEmployeeEmailUseCase: Get.find<CheckEmployeeEmailUseCase>(),
       uploadFileUseCase: Get.find<UploadFileUseCase>(),
 
     ));

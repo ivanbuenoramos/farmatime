@@ -61,8 +61,9 @@ class EmployeeSubscriptionCanceledPage extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   Text(
-                    'La suscripción de tu farmacia a FarmaTime se ha cancelado. '
-                    'De momento no puedes fichar ni acceder a la información de tus fichajes.',
+                    'De momento no puedes acceder a la app. Por favor, '
+                    'contacta con el personal administrativo de tu farmacia '
+                    'para que reactive tu cuenta.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium
                   ),
@@ -106,11 +107,11 @@ class EmployeeSubscriptionCanceledPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           _Bullet(
-                            text: 'No se registrarán nuevos fichajes mientras la suscripción esté cancelada.',
+                            text: 'No se registrarán nuevos fichajes hasta que se reactive tu acceso.',
                           ),
                           const SizedBox(height: 4),
                           _Bullet(
-                            text: 'Cuando la farmacia reactive la suscripción, tu acceso volverá a estar disponible.',
+                            text: 'Habla con el personal administrativo de tu farmacia para resolverlo.',
                           ),
                         ],
                       ),
@@ -119,7 +120,7 @@ class EmployeeSubscriptionCanceledPage extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   Text(
-                    'Si crees que se trata de un error, ponte en contacto con tu responsable o administrador.',
+                    'Si crees que se trata de un error, ponte en contacto con tu responsable.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall
                   ),

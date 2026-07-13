@@ -29,7 +29,10 @@ class BaseCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title!,
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ),
                   if (actions != null) ...actions!,

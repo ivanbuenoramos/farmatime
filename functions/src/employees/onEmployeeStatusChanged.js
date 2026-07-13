@@ -1,47 +1,52 @@
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const { admin } = require('../config/firebase'); // Asegúrate de tener initializedApp aquí
 const logger = require('firebase-functions/logger');
+const { deleteEmployeeData } = require('../helpers/cascadeDelete');
 
+// Cuando un empleado pasa a 'deleted' purgamos TODOS sus datos en cascada:
+// doc de empleado, fichajes (+ auditLog), reportes, horarios, ausencias, tokens
+// FCM, conversaciones (DMs borrados, retirado de grupos), Storage y cuenta Auth.
+//
+// NOTA LEGAL: esto borra también el registro horario. El RD 8/2019 obliga a
+// conservar el registro de jornada 4 años; si la empresa necesita preservarlo,
+// debe exportar/archivar los reportes ANTES de eliminar al empleado. La purga
+// total es una decisión explícita de producto (derecho al olvido inmediato).
 exports.handleEmployeeDeletion = onDocumentUpdated(
-    'employees/{employeeId}',
+    {
+      document: 'employees/{employeeId}',
+      region: 'europe-west1',
+      timeoutSeconds: 540,
+      memory: '512MiB',
+    },
     async (event) => {
       const beforeData = event.data.before.data();
       const afterData = event.data.after.data();
 
-      // Si no había documento antes, o datos inesperados
       if (!beforeData || !afterData) return;
 
       const beforeStatus = beforeData.accountStatus;
       const afterStatus = afterData.accountStatus;
 
-      // Solo actuamos si pasó de algo → 'deleted'
+      // Solo actuamos en la transición → 'deleted'.
       if (beforeStatus === afterStatus) return;
       if (afterStatus !== 'deleted') return;
 
-      const uid = afterData.authUid || afterData.uid || null;
-      const email = afterData.email || null;
+      const uid = afterData.authUid || afterData.uid || event.params.employeeId;
+      const companyId = afterData.companyId || null;
 
-      if (!uid && !email) {
-        logger.error(
-            'No UID ni email disponible para eliminar la cuenta Auth',
-            afterData,
-        );
+      if (!uid) {
+        logger.error('[handleEmployeeDeletion] sin uid para purgar', afterData);
         return;
       }
 
       try {
-        if (uid) {
-          // Eliminar por UID directamente
-          await admin.auth().deleteUser(uid);
-          logger.info(`Cuenta Auth eliminada por UID: ${uid}`);
-        } else if (email) {
-          // Buscar usuario por email si no hay UID
-          const user = await admin.auth().getUserByEmail(email);
-          await admin.auth().deleteUser(user.uid);
-          logger.info(`Cuenta Auth eliminada por email: ${email}`);
-        }
+        await deleteEmployeeData(uid, { companyId });
+        logger.info('[handleEmployeeDeletion] empleado purgado', { uid, companyId });
       } catch (err) {
-        logger.error('Error eliminando usuario de FirebaseAuth:', err);
+        logger.error('[handleEmployeeDeletion] error en cascada', {
+          uid,
+          msg: err?.message,
+          stack: err?.stack,
+        });
       }
     },
 );

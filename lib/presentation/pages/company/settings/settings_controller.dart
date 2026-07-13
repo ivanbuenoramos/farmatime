@@ -1,18 +1,22 @@
 import 'dart:io';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/log_out_usecase.dart';
+import 'package:farmatime/domain/usecases/firebase_auth/delete_account_usecase.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 
 class SettingsController extends GetxController {
 
   final LogOutUseCase logOutUseCase;
+  final DeleteAccountUseCase deleteAccountUseCase;
 
   SettingsController({
     required this.logOutUseCase,
+    required this.deleteAccountUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -62,6 +66,11 @@ class SettingsController extends GetxController {
     await openAppSettings();
   }
 
+  /// Ir a la pantalla de cambio de contraseña
+  void redirectToChangePassword() {
+    Get.toNamed(Routes.changePassword);
+  }
+
   /// Cambiar idioma
   void changeLanguage(Locale locale) {
     currentLocale.value = locale;
@@ -87,12 +96,23 @@ class SettingsController extends GetxController {
 
     try {
       isBusy.value = true;
-      // TODO: Llama a tu endpoint/servicio para eliminar la cuenta
-      // await Get.find<AuthService>().deleteAccount();
-      await Future.delayed(const Duration(milliseconds: 800));
-      Get.offAllNamed('/auth');
-      Get.snackbar('Cuenta eliminada', 'Tu cuenta ha sido eliminada correctamente.',
-          snackPosition: SnackPosition.BOTTOM);
+      // Borrado en cascada server-side (datos + Auth de empresa y empleados).
+      final res = await deleteAccountUseCase.call();
+      if (!res.success) {
+        ToastService().show(
+          title: 'No se pudo eliminar',
+          message: 'Inténtalo de nuevo en unos instantes.',
+          type: ToastType.error,
+        );
+        return;
+      }
+      brain.clearSession();
+      Get.offAllNamed(Routes.index);
+      ToastService().show(
+        title: 'Cuenta eliminada',
+        message: 'Tu cuenta ha sido eliminada correctamente.',
+        type: ToastType.success,
+      );
     } finally {
       isBusy.value = false;
     }

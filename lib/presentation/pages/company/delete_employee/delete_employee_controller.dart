@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 
@@ -58,16 +59,16 @@ class DeleteEmployeeController extends GetxController {
       await _updateEmployeeUseCase.call(updatedEmployee);
 
       Get.back(result: true);
-      Get.snackbar(
-        'Empleado eliminado',
-        'La cuenta de ${employee.value!.name} ha sido eliminada.',
-        snackPosition: SnackPosition.BOTTOM,
+      ToastService().show(
+        title: 'Empleado eliminado',
+        message: 'La cuenta de ${employee.value!.name} ha sido eliminada.',
+        type: ToastType.success,
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'No se ha podido eliminar al empleado. Inténtalo de nuevo.',
-        snackPosition: SnackPosition.BOTTOM,
+      ToastService().show(
+        title: 'Error',
+        message: 'No se ha podido eliminar al empleado. Inténtalo de nuevo.',
+        type: ToastType.error,
       );
     } finally {
       isDeleting.value = false;

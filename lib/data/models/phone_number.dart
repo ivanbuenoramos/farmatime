@@ -11,10 +11,17 @@ class PhoneNumber {
   });
 
   factory PhoneNumber.fromJson(Map<String, dynamic> json) {
+    DateTime? lastUpdate;
+    final raw = json['lastUpdate'];
+    if (raw is String) {
+      lastUpdate = DateTime.tryParse(raw);
+    } else if (raw is DateTime) {
+      lastUpdate = raw;
+    }
     return PhoneNumber(
-      countryCode: json['countryCode'],
-      number: json['number'],
-      lastUpdate: json['lastUpdate'] != null ? DateTime.parse(json['lastUpdate']) : null,
+      countryCode: (json['countryCode'] as String?) ?? '',
+      number: (json['number'] as String?) ?? '',
+      lastUpdate: lastUpdate,
     );
   }
 

@@ -29,17 +29,28 @@ class ChatRepositoryImpl implements ChatRepository {
       // Fusionar miembros existentes con los nuevos para no perder a nadie
       final merged = {...conv.memberIds, ...allMemberIds}.toList();
       if (merged.length != conv.memberIds.length) {
-        await _conversations.doc(conv.id).update({'memberIds': merged});
+        // Inicializa unreadCounts a 0 para los nuevos miembros sin pisar los existentes
+        final updates = <String, dynamic>{'memberIds': merged};
+        for (final uid in merged) {
+          if (!conv.unreadCounts.containsKey(uid)) {
+            updates['unreadCounts.$uid'] = 0;
+          }
+        }
+        await _conversations.doc(conv.id).update(updates);
       }
       return conv;
     }
 
+    final initialUnread = {for (final uid in allMemberIds) uid: 0};
     final doc = await _conversations.add({
       'companyId': companyId,
       'isGroup': true,
       'title': 'Todos',
       'memberIds': allMemberIds,
       'lastMessageText': null,
+      'lastMessageSenderId': null,
+      'lastMessageAt': null,
+      'unreadCounts': initialUnread,
       'updatedAt': FieldValue.serverTimestamp(),
     });
     final snap = await doc.get();
@@ -75,6 +86,22 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
+  Future<Map<String, String>> getMemberStatuses(String companyId) async {
+    final out = <String, String>{};
+    try {
+      final empSnap = await firestore
+          .collection('employees')
+          .where('companyId', isEqualTo: companyId)
+          .get();
+      for (final d in empSnap.docs) {
+        final status = d.data()['accountStatus'] as String? ?? 'active';
+        out[d.id] = status;
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  @override
   Future<Conversation> ensureDirectConversation({
     required String companyId,
     required String userA,
@@ -102,6 +129,9 @@ class ChatRepositoryImpl implements ChatRepository {
       'title': titleOverride ?? '',
       'memberIds': members,
       'lastMessageText': null,
+      'lastMessageSenderId': null,
+      'lastMessageAt': null,
+      'unreadCounts': {for (final uid in members) uid: 0},
       'updatedAt': FieldValue.serverTimestamp(),
     });
     final snap = await doc.get();
@@ -133,6 +163,17 @@ class ChatRepositoryImpl implements ChatRepository {
     required String senderId,
     required String text,
   }) async {
+    final convRef = _conversations.doc(conversationId);
+    final convSnap = await convRef.get();
+    if (!convSnap.exists) {
+      throw StateError('Conversación no encontrada: $conversationId');
+    }
+    final memberIds = ((convSnap.data() as Map<String, dynamic>)['memberIds']
+            as List<dynamic>? ??
+        const [])
+        .map((e) => e.toString())
+        .toList();
+
     final now = FieldValue.serverTimestamp();
     final batch = firestore.batch();
 
@@ -144,12 +185,30 @@ class ChatRepositoryImpl implements ChatRepository {
       'createdAt': now,
     });
 
-    final convRef = _conversations.doc(conversationId);
-    batch.update(convRef, {
+    final updates = <String, dynamic>{
       'lastMessageText': text,
+      'lastMessageSenderId': senderId,
+      'lastMessageAt': now,
       'updatedAt': now,
-    });
+      'unreadCounts.$senderId': 0,
+    };
+    for (final uid in memberIds) {
+      if (uid != senderId) {
+        updates['unreadCounts.$uid'] = FieldValue.increment(1);
+      }
+    }
+    batch.update(convRef, updates);
 
     await batch.commit();
+  }
+
+  @override
+  Future<void> markConversationAsRead({
+    required String conversationId,
+    required String userId,
+  }) async {
+    await _conversations.doc(conversationId).update({
+      'unreadCounts.$userId': 0,
+    });
   }
 }

@@ -154,39 +154,33 @@ class AppRoutes {
       ),
 
       GetPage(
+        name: Routes.companySubscriptionBlocked,
+        page: () => const SubscriptionBlockedPage(),
+        binding: SubscriptionBlockedBinding(),
+      ),
+
+      GetPage(
         name: Routes.companyProfile,
         page: () => const CompanyProfilePage(),
         binding: CompanyProfileBinding(),
       ),
 
       GetPage(
-        name: Routes.companySubscriptionSeatCheckout,
-        page: () => const SeatCheckoutPage(),
-        binding: SeatCheckoutBinding(),
-      ),
-
-      GetPage(
-        name: Routes.companySubscriptionSelectEmployeesToRemove,
-        page: () => const SelectEmployeeToRemovePage(),
-        binding: SelectEmployeeToRemoveBinding(),
-      ),
-
-      GetPage(
-        name: Routes.companySubscriptionIncompletePayment,
-        page: () => const IncompletePaymentPage(),
-        binding: IncompletePaymentBinding(),
-      ),
-      
-      GetPage(
-        name: Routes.companyPaymentMethods,
-        page: () => const PaymentMethodsPage(),
-        binding: PaymentMethodsBinding(),
-      ),
-
-      GetPage(
         name: Routes.companySettings,
         page: () => const SettingsPage(),
         binding: SettingsBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyNotifications,
+        page: () => const NotificationsPage(),
+        binding: NotificationsBinding(),
+      ),
+
+      GetPage(
+        name: Routes.companyTimeOff,
+        page: () => const CompanyTimeOffPage(),
+        binding: CompanyTimeOffBinding(),
       ),
 
     ];

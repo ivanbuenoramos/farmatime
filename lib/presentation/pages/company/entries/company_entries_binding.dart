@@ -1,11 +1,14 @@
 import 'package:farmatime/data/repositories/clock_repository_impl.dart';
 import 'package:farmatime/data/repositories/employee_repository_impl.dart';
+import 'package:farmatime/data/repositories/employee_schedule_repository_impl.dart';
 import 'package:farmatime/domain/repositories/clock_repository.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
+import 'package:farmatime/domain/repositories/employee_schedule_repository.dart';
 import 'package:farmatime/domain/usecases/clock/get_company_clock_records_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_employee_day_clock_records_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/stream_company_clock_records_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/pages/company/entries/company_entries_controller.dart';
@@ -35,8 +38,16 @@ class CompanyEntriesBinding extends Bindings {
     Get.lazyPut(
       () => GetEmployeesByCompanyIdUseCase(Get.find<EmployeeRepository>()),
     );
-    
+
     Get.lazyPut(() => StreamCompanyClockRecordsUseCase(Get.find<ClockRepository>()));
+
+    // Horario (para calcular minutos esperados reales por día/empleado)
+    Get.lazyPut<EmployeeScheduleRepository>(
+      () => EmployeeScheduleRepositoryImpl(),
+    );
+    Get.lazyPut(
+      () => GetExpectedShiftsForDayUseCase(Get.find<EmployeeScheduleRepository>()),
+    );
 
 
     // Controller
@@ -45,6 +56,7 @@ class CompanyEntriesBinding extends Bindings {
         getEmployeeDayClockRecordsUseCase: Get.find(),
         getEmployeesByCompanyIdUseCase: Get.find(),
         streamCompanyClockRecordsUseCase: Get.find(),
+        getExpectedShiftsForDayUseCase: Get.find(),
       ),
     );
   }

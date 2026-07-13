@@ -4,14 +4,14 @@
       "android": {
         "default": {
           "projectId": "farmatime-app",
-          "appId": "1:1079606530132:android:9e1cc4dee5269d96f29dc1",
+          "appId": "1:1079606530132:android:8faa11643cb4ef18f29dc1",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "ios": {
         "default": {
           "projectId": "farmatime-app",
-          "appId": "1:1079606530132:ios:ce6833501593141df29dc1",
+          "appId": "1:1079606530132:ios:d1af08572b4f5bc6f29dc1",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }
@@ -20,8 +20,8 @@
         "lib/firebase_options.dart": {
           "projectId": "farmatime-app",
           "configurations": {
-            "android": "1:1079606530132:android:9e1cc4dee5269d96f29dc1",
-            "ios": "1:1079606530132:ios:ce6833501593141df29dc1"
+            "android": "1:1079606530132:android:8faa11643cb4ef18f29dc1",
+            "ios": "1:1079606530132:ios:d1af08572b4f5bc6f29dc1"
           }
         }
       }
@@ -40,12 +40,16 @@
       ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run lint"
-      ],
-      "env": {
-        "PRICE_ID": "price_1Sg1mNEzO55Y4loluV1B0FHU"
-      }
+      ]
     }
   ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "extensions": {
     "firestore-send-email": "firebase/firestore-send-email@0.2.4",
     "sendgrid-mailer": "firebase/firestore-send-email@0.2.4"

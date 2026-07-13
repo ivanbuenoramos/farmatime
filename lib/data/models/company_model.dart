@@ -20,37 +20,24 @@ class CompanyModel {
   final PhoneNumber? phoneNumber;
   final AuthMethod? authMethod;
 
-  /// (Legacy/auxiliar) plazas pagadas guardadas históricamente.
-  /// Si contractedSeats está null/0, hacemos fallback a 1 + purchasedEmployeeSlots.
-  final int purchasedEmployeeSlots;
-
-  final String? stripeCustomerId;
-  final String? stripeSubscriptionId;
-
-  /// Plazas confirmadas (billadas). Incluye la gratuita.
-  /// ✅ Fuente de verdad recomendada para la app.
+  /// Plazas confirmadas (billadas) incluyendo la gratuita.
+  /// 1 = sin suscripción (solo la plaza gratis).
+  /// 2+ = suscripción IAP activa.
   final int? contractedSeats;
 
-  /// Estado de facturación (active, past_due, unpaid, none, etc.)
+  /// Estado unificado (ver BillingStatus).
   final String? billingStatus;
 
-  /// Inicio del periodo actual (según Stripe)
-  final DateTime? currentPeriodStart;
-
-  /// Fin del periodo actual (según Stripe)
+  /// Fin del periodo actual (expiresAt del receipt).
   final DateTime? currentPeriodEnd;
 
-  /// Upgrade pendiente de pago (NO se aplica hasta invoice.paid)
-  final int? pendingSeats;
-
-  /// Downgrade programado para la próxima renovación (sí limita empleados ya)
-  final int? scheduledSeats;
-
-  /// Downgrade programado (paid seats en Stripe = total-1)
-  final int? scheduledPaidSeats;
-
-  /// Para qué periodEnd aplica el downgrade (seguridad)
-  final DateTime? scheduledForPeriodEnd;
+  /// Fecha en que la suscripción pasó a un estado no pagado
+  /// (canceled / expired / revoked / on_hold / paused).
+  /// Null mientras la suscripción esté activa o en grace period del store.
+  /// La usamos para calcular el periodo de gracia in-app de 30 días
+  /// durante el que la farmacia ve la pantalla de renovar pero los
+  /// empleados siguen operativos.
+  final DateTime? canceledAt;
 
   final bool verifiedEmail;
   final bool verifiedPhone;
@@ -67,46 +54,74 @@ class CompanyModel {
     this.address,
     this.phoneNumber,
     this.authMethod = AuthMethod.emailPassword,
-    required this.purchasedEmployeeSlots,
-    this.stripeCustomerId,
-    this.stripeSubscriptionId,
     this.contractedSeats,
     this.billingStatus,
-    this.currentPeriodStart,
     this.currentPeriodEnd,
-    this.pendingSeats,
-    this.scheduledSeats,
-    this.scheduledPaidSeats,
-    this.scheduledForPeriodEnd,
+    this.canceledAt,
     this.verifiedEmail = false,
     this.verifiedPhone = false,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // Derivados útiles para UI / lógica
-  // ─────────────────────────────────────────────────────────────
-
-  /// Total seats disponibles (incluye la plaza gratuita)
   int get totalSeats {
-    final cs = contractedSeats ?? 0;
-    if (cs >= 1) return cs;
-
-    final paid = purchasedEmployeeSlots < 0 ? 0 : purchasedEmployeeSlots;
-    return 1 + paid;
+    final cs = contractedSeats ?? 1;
+    return cs < 1 ? 1 : cs;
   }
 
-  /// Seats de pago (sin la gratuita)
   int get paidSeats => (totalSeats - 1).clamp(0, 999999);
 
-  bool get hasActiveSubscription =>
-      (stripeSubscriptionId ?? '').trim().isNotEmpty &&
-      (billingStatus ?? 'none') != 'none';
+  bool get hasActiveSubscription {
+    final s = billingStatus ?? 'none';
+    return s == 'active' || s == 'in_grace_period' || s == 'in_billing_retry';
+  }
 
-  // ─────────────────────────────────────────────────────────────
-  // Parsing helpers
-  // ─────────────────────────────────────────────────────────────
+  /// Estados del store que indican impago / cancelación. Una vez aquí,
+  /// arrancamos la ventana de gracia in-app de 30 días desde [canceledAt].
+  static const _canceledStatuses = {
+    'canceled',
+    'expired',
+    'revoked',
+    'on_hold',
+    'paused',
+  };
+
+  /// Días de gracia in-app tras la cancelación durante los que los empleados
+  /// siguen operativos. Debe coincidir con GRACE_DAYS en el backend
+  /// (functions/src/helpers/billingEmployees.js).
+  static const int gracePeriodDays = 30;
+
+  /// La suscripción está en periodo de gracia oficial del store
+  /// (Apple/Google reintentando el cobro). Sirve para mostrar el banner
+  /// "fallo en el pago" a la farmacia. Los empleados no se enteran.
+  bool get isInGracePeriod => billingStatus == 'in_grace_period';
+
+  /// Días transcurridos desde la cancelación. 0 si no hay [canceledAt].
+  int get daysSinceCanceled {
+    final c = canceledAt;
+    if (c == null) return 0;
+    return DateTime.now().difference(c).inDays;
+  }
+
+  /// La cuenta de farmacia debe ver la pantalla de renovación: la suscripción
+  /// está cancelada/expirada/revocada (cualquier antigüedad). Aunque también
+  /// se aplica fuera de la ventana de gracia, el cliente no necesita
+  /// distinguir: lo importante es que NO puede usar la app.
+  bool get isPharmacyBlocked {
+    final s = billingStatus ?? 'none';
+    return _canceledStatuses.contains(s);
+  }
+
+  /// Suscripción cancelada y se ha agotado la ventana de gracia in-app:
+  /// también los empleados pierden acceso. El backend habrá puesto sus
+  /// accountStatus a 'disabled' vía cron, pero contemplamos el caso edge en
+  /// el cliente por si entra antes de que corra el cron.
+  bool get isFullyBlocked {
+    if (!isPharmacyBlocked) return false;
+    final c = canceledAt;
+    if (c == null) return true; // sin fecha → tratamos como ya expirado
+    return DateTime.now().difference(c).inDays >= gracePeriodDays;
+  }
 
   static DateTime? _parseDate(dynamic v) {
     if (v == null) return null;
@@ -122,25 +137,15 @@ class CompanyModel {
     return null;
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // JSON / Firestore
-  // ─────────────────────────────────────────────────────────────
-
   factory CompanyModel.fromJson(Map<String, dynamic> json) {
-    final purchased = (json['purchasedEmployeeSlots'] as int?) ?? 0;
-
     final rawContracted = json['contractedSeats'];
-
     int? contracted;
     if (rawContracted is num) {
       contracted = rawContracted.toInt();
     } else if (rawContracted is String) {
       contracted = int.tryParse(rawContracted);
     }
-
-    if (contracted == null || contracted < 1) {
-      contracted = 1 + (purchased < 0 ? 0 : purchased);
-    }
+    if (contracted == null || contracted < 1) contracted = 1;
 
     return CompanyModel(
       id: json['id'],
@@ -156,17 +161,13 @@ class CompanyModel {
               orElse: () => AuthMethod.emailPassword,
             )
           : AuthMethod.emailPassword,
-      purchasedEmployeeSlots: purchased,
-      stripeCustomerId: json['stripeCustomerId'],
-      stripeSubscriptionId: json['stripeSubscriptionId'],
       contractedSeats: contracted,
       billingStatus: json['billingStatus'],
-      currentPeriodStart: _parseDate(json['currentPeriodStart']),
       currentPeriodEnd: _parseDate(json['currentPeriodEnd']),
-      pendingSeats: json['pendingSeats'],
-      scheduledSeats: json['scheduledSeats'],
-      scheduledPaidSeats: json['scheduledPaidSeats'],
-      scheduledForPeriodEnd: _parseDate(json['scheduledForPeriodEnd']),
+      canceledAt: _parseDate(
+        (json['subscription'] is Map ? (json['subscription'] as Map)['canceledAt'] : null) ??
+            json['canceledAt'],
+      ),
       verifiedEmail: json['verifiedEmail'] ?? false,
       verifiedPhone: json['verifiedPhone'] ?? false,
       createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
@@ -183,17 +184,13 @@ class CompanyModel {
         'address': address?.toJson(),
         'phoneNumber': phoneNumber?.toJson(),
         'authMethod': authMethod?.toString().split('.').last,
-        'purchasedEmployeeSlots': purchasedEmployeeSlots,
-        'stripeCustomerId': stripeCustomerId,
-        'stripeSubscriptionId': stripeSubscriptionId,
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
-        'currentPeriodStart': currentPeriodStart?.toIso8601String(),
         'currentPeriodEnd': currentPeriodEnd?.toIso8601String(),
-        'pendingSeats': pendingSeats,
-        'scheduledSeats': scheduledSeats,
-        'scheduledPaidSeats': scheduledPaidSeats,
-        'scheduledForPeriodEnd': scheduledForPeriodEnd?.toIso8601String(),
+        // Persistimos como campo top-level en el almacenamiento local
+        // (Brain/GetStorage) para que se pueda releer en el siguiente arranque.
+        // En Firestore vive bajo subscription.canceledAt y lo gestiona el backend.
+        'canceledAt': canceledAt?.toIso8601String(),
         'verifiedEmail': verifiedEmail,
         'verifiedPhone': verifiedPhone,
         'createdAt': createdAt.toIso8601String(),
@@ -209,17 +206,9 @@ class CompanyModel {
         'address': address?.toJson(),
         'phoneNumber': phoneNumber?.toJson(),
         'authMethod': authMethod?.toString().split('.').last,
-        'purchasedEmployeeSlots': purchasedEmployeeSlots,
-        'stripeCustomerId': stripeCustomerId,
-        'stripeSubscriptionId': stripeSubscriptionId,
         'contractedSeats': contractedSeats,
         'billingStatus': billingStatus,
         'currentPeriodEnd': currentPeriodEnd,
-        'currentPeriodStart': currentPeriodStart,
-        'pendingSeats': pendingSeats,
-        'scheduledSeats': scheduledSeats,
-        'scheduledPaidSeats': scheduledPaidSeats,
-        'scheduledForPeriodEnd': scheduledForPeriodEnd,
         'verifiedEmail': verifiedEmail,
         'verifiedPhone': verifiedPhone,
         'createdAt': createdAt,
@@ -235,17 +224,10 @@ class CompanyModel {
     Address? address,
     PhoneNumber? phoneNumber,
     AuthMethod? authMethod,
-    int? purchasedEmployeeSlots,
-    String? stripeCustomerId,
-    String? stripeSubscriptionId,
     int? contractedSeats,
     String? billingStatus,
-    DateTime? currentPeriodStart,
     DateTime? currentPeriodEnd,
-    int? pendingSeats,
-    int? scheduledSeats,
-    int? scheduledPaidSeats,
-    DateTime? scheduledForPeriodEnd,
+    DateTime? canceledAt,
     bool? verifiedEmail,
     bool? verifiedPhone,
     DateTime? createdAt,
@@ -260,17 +242,10 @@ class CompanyModel {
       address: address ?? this.address,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       authMethod: authMethod ?? this.authMethod,
-      purchasedEmployeeSlots: purchasedEmployeeSlots ?? this.purchasedEmployeeSlots,
-      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
-      stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
       contractedSeats: contractedSeats ?? this.contractedSeats,
       billingStatus: billingStatus ?? this.billingStatus,
-      currentPeriodStart: currentPeriodStart ?? this.currentPeriodStart,
       currentPeriodEnd: currentPeriodEnd ?? this.currentPeriodEnd,
-      pendingSeats: pendingSeats ?? this.pendingSeats,
-      scheduledSeats: scheduledSeats ?? this.scheduledSeats,
-      scheduledPaidSeats: scheduledPaidSeats ?? this.scheduledPaidSeats,
-      scheduledForPeriodEnd: scheduledForPeriodEnd ?? this.scheduledForPeriodEnd,
+      canceledAt: canceledAt ?? this.canceledAt,
       verifiedEmail: verifiedEmail ?? this.verifiedEmail,
       verifiedPhone: verifiedPhone ?? this.verifiedPhone,
       createdAt: createdAt ?? this.createdAt,

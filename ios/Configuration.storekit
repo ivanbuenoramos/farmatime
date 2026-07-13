@@ -1,0 +1,135 @@
+{
+  "identifier" : "FB12B3CD-DEFA-4E7B-9B22-FARMATIME01",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "es_ES",
+    "_storefront" : "ESP",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21500001",
+      "localizations" : [
+        {
+          "description" : "Suscripciones de Farmatime",
+          "displayName" : "Suscripciones Farmatime",
+          "locale" : "es_ES"
+        }
+      ],
+      "name" : "farmatime_subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "0.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "21500002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Plan para 2 empleados",
+              "displayName" : "2 empleados",
+              "locale" : "es_ES"
+            }
+          ],
+          "productID" : "plan_2_employees",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "plan_2_employees",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "1.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "21500003",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Plan para 3 empleados",
+              "displayName" : "3 empleados",
+              "locale" : "es_ES"
+            }
+          ],
+          "productID" : "plan_3_employees",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "plan_3_employees",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "3.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "21500004",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Plan para 5 empleados",
+              "displayName" : "5 empleados",
+              "locale" : "es_ES"
+            }
+          ],
+          "productID" : "plan_5_employees",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "plan_5_employees",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "8.99",
+          "familyShareable" : false,
+          "groupNumber" : 4,
+          "internalID" : "21500005",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Plan para 10 empleados",
+              "displayName" : "10 empleados",
+              "locale" : "es_ES"
+            }
+          ],
+          "productID" : "plan_10_employees",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "plan_10_employees",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "17.99",
+          "familyShareable" : false,
+          "groupNumber" : 5,
+          "internalID" : "21500006",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Plan para 20 empleados",
+              "displayName" : "20 empleados",
+              "locale" : "es_ES"
+            }
+          ],
+          "productID" : "plan_20_employees",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "plan_20_employees",
+          "subscriptionGroupID" : "21500001",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

@@ -15,9 +15,12 @@ import 'package:farmatime/presentation/widgets/modals/day_clockings_modal.dart';
 import 'package:farmatime/domain/usecases/clock/get_employee_day_clock_records_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/stream_company_clock_records_usecase.dart';
+import 'package:farmatime/domain/usecases/employee_schedule/get_expected_shift_usecase.dart';
+import 'package:farmatime/data/models/employee_shift_model.dart';
 
 class ClockRowView {
   final DateTime day;
+  final String employeeId;
   final String employeeName;
   final String rangeText;
   final int workedMinutes;
@@ -38,6 +41,7 @@ class ClockRowView {
 
   ClockRowView({
     required this.day,
+    required this.employeeId,
     required this.employeeName,
     required this.rangeText,
     required this.workedMinutes,
@@ -50,6 +54,7 @@ class CompanyEntriesController extends GetxController {
     required this.streamCompanyClockRecordsUseCase,
     required this.getEmployeeDayClockRecordsUseCase,
     required this.getEmployeesByCompanyIdUseCase,
+    required this.getExpectedShiftsForDayUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -58,11 +63,13 @@ class CompanyEntriesController extends GetxController {
   final StreamCompanyClockRecordsUseCase streamCompanyClockRecordsUseCase;
   final GetEmployeeDayClockRecordsUseCase getEmployeeDayClockRecordsUseCase;
   final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
+  final GetExpectedShiftsForDayUseCase getExpectedShiftsForDayUseCase;
 
   // Filtros
   final Rx<DateTime> from = Rx<DateTime>(_todayStart());
   final Rx<DateTime> to = Rx<DateTime>(_todayEnd());
-  final RxnString selectedEmployeeId = RxnString(null); // null = "Todos"
+  // Conjunto de empleados seleccionados. Vacío = "Todos".
+  final RxSet<String> selectedEmployeeIds = <String>{}.obs;
 
   // Datos soporte
   final RxList<EmployeeModel> employees = <EmployeeModel>[].obs;
@@ -72,8 +79,14 @@ class CompanyEntriesController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxnString errorText = RxnString();
 
-  // Config
-  final int expectedDailyMinutes = 480; // 8h
+  // Minutos esperados por defecto cuando no hay turno asignado y no podemos
+  // resolverlo (fallback de jornada completa: 8h).
+  static const int _defaultFullDayMinutes = 480;
+
+  // Cache de minutos esperados por día y empleado, resuelto desde el horario
+  // real (override → regla recurrente). Clave día = 'yyyy-MM-dd'.
+  // Se recalcula al cambiar de rango/records, NO en cada tick de 30s.
+  final Map<String, Map<String, int>> _expectedByDay = {};
 
   // Stream + cache + tick
   StreamSubscription<List<ClockInOutModel>>? _recordsSub;
@@ -123,10 +136,34 @@ class CompanyEntriesController extends GetxController {
     _bindRecordsStream();
   }
 
-  Future<void> setEmployee(String? employeeId) async {
-    if (!isBillingActive) return; // tu regla
-    selectedEmployeeId.value = employeeId; // null = todos
-    _bindRecordsStream();
+  /// Aplica una nueva selección de empleados. Conjunto vacío = "Todos".
+  Future<void> setSelectedEmployees(Set<String> ids) async {
+    if (!isBillingActive) return; // en plan gratuito la selección es fija
+    selectedEmployeeIds
+      ..clear()
+      ..addAll(ids);
+    // Filtrado en cliente: basta con reconstruir las filas.
+    _buildRowsFromRecords(_lastRecords);
+  }
+
+  /// Alterna un empleado dentro de la selección.
+  Future<void> toggleEmployee(String employeeId) async {
+    if (!isBillingActive) return;
+    if (selectedEmployeeIds.contains(employeeId)) {
+      selectedEmployeeIds.remove(employeeId);
+    } else {
+      selectedEmployeeIds.add(employeeId);
+    }
+    _buildRowsFromRecords(_lastRecords);
+  }
+
+  /// IDs de empleados efectivamente visibles según el plan y la selección.
+  /// Vacío = sin filtro (todos).
+  Set<String> get _effectiveEmployeeIds {
+    if (!isBillingActive) {
+      return employees.isNotEmpty ? {employees.first.uid} : <String>{};
+    }
+    return selectedEmployeeIds.toSet();
   }
 
   Future<void> _loadEmployees() async {
@@ -150,11 +187,6 @@ class CompanyEntriesController extends GetxController {
 
     employees.sort((a, b) =>
         (a.accountStatus?.index ?? 0).compareTo(b.accountStatus?.index ?? 0));
-
-    // Si billing NO activo: solo deja ver el primero (según tu lógica previa)
-    if (!isBillingActive && employees.isNotEmpty) {
-      selectedEmployeeId.value = employees.first.uid;
-    }
   }
 
   void _bindRecordsStream() {
@@ -164,15 +196,8 @@ class CompanyEntriesController extends GetxController {
       return;
     }
 
-    // decidir employeeId a filtrar (según facturación)
-    String? employeeIdFilter;
-    if (!isBillingActive) {
-      employeeIdFilter =
-          selectedEmployeeId.value ?? (employees.isNotEmpty ? employees.first.uid : null);
-    } else {
-      employeeIdFilter = selectedEmployeeId.value; // null = todos
-    }
-
+    // Traemos todos los registros del rango y filtramos por empleado en
+    // cliente (permite multi-selección sin el límite de whereIn de Firestore).
     isLoading.value = true;
     errorText.value = null;
 
@@ -181,19 +206,68 @@ class CompanyEntriesController extends GetxController {
       companyId: companyId,
       from: from.value,
       to: to.value,
-      employeeId: employeeIdFilter,
+      employeeId: null,
     ).listen(
-      (records) {
+      (records) async {
         _lastRecords = records;
+        await _resolveExpectedMinutes(records);
         _buildRowsFromRecords(records);
         isLoading.value = false;
       },
       onError: (e) {
-        print(to);
         isLoading.value = false;
         errorText.value = 'Error al cargar fichajes: $e';
       },
     );
+  }
+
+  /// Resuelve, para cada día con fichajes, los minutos esperados de cada
+  /// empleado a partir de su horario real (override → regla). Cachea el
+  /// resultado para que el tick de 30s no relance consultas.
+  Future<void> _resolveExpectedMinutes(List<ClockInOutModel> records) async {
+    final companyId = _companyId;
+    if (companyId == null || companyId.isEmpty) return;
+
+    // Agrupa empleados por día presentes en los fichajes.
+    final byDay = <String, Set<String>>{};
+    for (final r in records) {
+      final inDt = r.clockIn;
+      final key = DateFormat('yyyy-MM-dd')
+          .format(DateTime(inDt.year, inDt.month, inDt.day));
+      byDay.putIfAbsent(key, () => <String>{}).add(r.employeeId);
+    }
+
+    _expectedByDay.clear();
+    for (final entry in byDay.entries) {
+      final dayKey = entry.key;
+      final dayDate = DateTime.parse(dayKey);
+      final res = await getExpectedShiftsForDayUseCase.call(
+        companyId: companyId,
+        employeeIds: entry.value.toList(),
+        dayDate: dayDate,
+        dayKey: dayKey,
+      );
+      if (!res.success) continue;
+
+      final perEmp = <String, int>{};
+      res.data.forEach((empId, ExpectedShiftModel? shift) {
+        // Día libre (sin turno) → 0 minutos esperados (no penaliza al empleado).
+        perEmp[empId] = shift == null
+            ? 0
+            : shift.end.difference(shift.start).inMinutes.clamp(0, 24 * 60);
+      });
+      _expectedByDay[dayKey] = perEmp;
+    }
+  }
+
+  int _expectedMinutesFor(String employeeId, DateTime day) {
+    final key = DateFormat('yyyy-MM-dd').format(day);
+    final perEmp = _expectedByDay[key];
+    if (perEmp == null || !perEmp.containsKey(employeeId)) {
+      // Sin dato de horario resuelto: usamos jornada completa como fallback.
+      return _defaultFullDayMinutes;
+    }
+    return perEmp[employeeId]!;
   }
 
   void _buildRowsFromRecords(List<ClockInOutModel> records) {
@@ -207,7 +281,14 @@ class CompanyEntriesController extends GetxController {
     final now = DateTime.now();
     final newRows = <ClockRowView>[];
 
+    // Filtro en cliente: si hay IDs efectivos, solo esos; vacío = todos.
+    final allowedIds = _effectiveEmployeeIds;
+
     for (final item in records) {
+      if (allowedIds.isNotEmpty && !allowedIds.contains(item.employeeId)) {
+        continue;
+      }
+
       final inDt = item.clockIn;
       final outDt = item.clockOut ?? now;
 
@@ -218,13 +299,15 @@ class CompanyEntriesController extends GetxController {
       final rangeText =
           "${dateFmt.format(inDt)}–${item.clockOut == null ? '…' : dateFmt.format(outDt)}";
 
+      final day = DateTime(inDt.year, inDt.month, inDt.day);
       newRows.add(
         ClockRowView(
-          day: DateTime(inDt.year, inDt.month, inDt.day),
+          day: day,
+          employeeId: item.employeeId,
           employeeName: employeeName,
           rangeText: rangeText,
           workedMinutes: worked,
-          expectedMinutes: expectedDailyMinutes,
+          expectedMinutes: _expectedMinutesFor(item.employeeId, day),
         ),
       );
     }
@@ -247,21 +330,11 @@ class CompanyEntriesController extends GetxController {
     final companyId = _companyId;
     if (companyId == null || companyId.isEmpty) return;
 
-    String? employeeId = selectedEmployeeId.value;
-
-    // Si estás en "Todos", intentas resolver por nombre (tu lógica)
-    if (employeeId == null) {
-      try {
-        final match = employees.firstWhere((e) => e.name == row.employeeName);
-        employeeId = match.uid;
-      } catch (_) {
-        return;
-      }
-    }
+    if (row.employeeId.isEmpty) return;
 
     final records = await getEmployeeDayClockRecordsUseCase(
       companyId: companyId,
-      employeeId: employeeId,
+      employeeId: row.employeeId,
       day: row.day,
     );
 
@@ -271,6 +344,7 @@ class CompanyEntriesController extends GetxController {
       context: context,
       employeeName: row.employeeName,
       employeeEmail: null,
+      employeeUid: row.employeeId,
       day: row.day,
       records: records,
     );

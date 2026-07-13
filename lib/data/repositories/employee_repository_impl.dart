@@ -1,27 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart' hide Result;
+import 'package:farmatime/core/services/callable_http_client.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/employee_repository.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 class EmployeeRepositoryImpl implements EmployeeRepository {
-  
+
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
-    app: Firebase.app(),
-    region: 'europe-west1',
-  );
 
   @override
   Future<Result<EmployeeModel?>> createEmployee(EmployeeModel employee) async {
     try {
-      final callable = functions.httpsCallable('createEmployeeAccount');
-
       final payload = employee.toJson();
 
-      final resp = await callable.call(payload);
-      final data = (resp.data as Map?) ?? {};
+      // HTTP directo en lugar de httpsCallable: el SDK nativo de
+      // FirebaseFunctions aborta la app en release (ver CallableHttpClient).
+      final resp = await CallableHttpClient.call('createEmployeeAccount', payload);
+      final data = (resp as Map?) ?? {};
       final uid = data['uid']?.toString();
 
       if (uid == null || uid.isEmpty) {
@@ -92,6 +87,33 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
     } catch (e) {
       print(e);
       return Result(success: false, data: [], errorCode: e.toString());
+    }
+  }
+
+  @override
+  Future<EmailAvailability> checkEmailAvailability(String email) async {
+    try {
+      final resp = await CallableHttpClient.call(
+        'checkEmployeeEmailAvailability',
+        {'email': email},
+      );
+      final data = (resp as Map?) ?? {};
+
+      final available = data['available'] == true;
+      if (available) return EmailAvailability.available;
+
+      final reason = data['reason']?.toString();
+      switch (reason) {
+        case 'already-in-use':
+          return EmailAvailability.alreadyInUse;
+        case 'invalid-format':
+          return EmailAvailability.invalidFormat;
+        default:
+          return EmailAvailability.unknown;
+      }
+    } catch (e) {
+      print(e);
+      return EmailAvailability.unknown;
     }
   }
 

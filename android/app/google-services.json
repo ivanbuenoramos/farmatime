@@ -9,6 +9,25 @@
       "client_info": {
         "mobilesdk_app_id": "1:1079606530132:android:9e1cc4dee5269d96f29dc1",
         "android_client_info": {
+          "package_name": "com.example.farmatime"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOt4uMXmWEb4Af4eANgCUZRFcPhG3Ma6Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1079606530132:android:8faa11643cb4ef18f29dc1",
+        "android_client_info": {
           "package_name": "net.farmatime.app"
         }
       },

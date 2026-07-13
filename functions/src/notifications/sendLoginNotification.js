@@ -6,7 +6,6 @@ exports.sendLoginNotification = onCall(
     { region: 'europe-west1' }, // 👈 región explícita
     async (request) => {
       const { email, name } = request.data || {};
-      console.log('📩 Datos recibidos en sendLoginNotification:', request.data);
 
       if (!email) throw new HttpsError('invalid-argument', 'Email requerido');
 

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:farmatime/data/models/shift_template_model.dart';
 
-
-
-class PickShiftBottomSheet extends StatefulWidget {
+/// Hoja para elegir un turno preestablecido y aplicarlo a la selección.
+/// Tocar un turno lo aplica al instante. "Horario manual" permite horas libres.
+class PickShiftBottomSheet extends StatelessWidget {
   const PickShiftBottomSheet({
     super.key,
     required this.templates,
@@ -16,154 +16,156 @@ class PickShiftBottomSheet extends StatefulWidget {
   final void Function(TimeOfDay start, TimeOfDay end) onApply;
 
   @override
-  State<PickShiftBottomSheet> createState() => _PickShiftBottomSheetState();
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.outline,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Elige un turno', style: theme.textTheme.headlineMedium),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  color: theme.colorScheme.tertiary,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            if (templates.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No hay turnos guardados. Usa el horario manual o crea turnos.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              )
+            else
+              for (final t in templates) ...[
+                _ShiftTile(
+                  template: t,
+                  onTap: () {
+                    onApply(t.startTime, t.endTime);
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+
+            const SizedBox(height: 4),
+
+            // Horario manual (horas libres).
+            OutlinedButton.icon(
+              icon: const Icon(Icons.tune_rounded),
+              label: const Text('Horario manual'),
+              onPressed: () => _pickManual(context),
+            ),
+            const SizedBox(height: 8),
+
+            // Gestionar turnos (CRUD de plantillas).
+            Center(
+              child: TextButton.icon(
+                icon: Icon(Icons.settings_rounded,
+                    size: 18, color: theme.colorScheme.primary),
+                label: Text(
+                  'Gestionar turnos',
+                  style: TextStyle(color: theme.colorScheme.primary),
+                ),
+                onPressed: () => Get.toNamed(Routes.companyShiftTemplates),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickManual(BuildContext context) async {
+    final start = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 8, minute: 0),
+      helpText: 'Hora de inicio',
+    );
+    if (start == null || !context.mounted) return;
+
+    final end = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 16, minute: 0),
+      helpText: 'Hora de fin',
+    );
+    if (end == null) return;
+
+    onApply(start, end);
+    if (context.mounted) Navigator.pop(context);
+  }
 }
 
-class _PickShiftBottomSheetState extends State<PickShiftBottomSheet> {
-  ShiftTemplate? selected;
-  TimeOfDay? start;
-  TimeOfDay? end;
+class _ShiftTile extends StatelessWidget {
+  const _ShiftTile({required this.template, required this.onTap});
+  final ShiftTemplate template;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(children: [
-              const Icon(Icons.schedule),
-              const SizedBox(width: 8),
-              Text('Selecciona turno', style: Get.textTheme.titleMedium),
-              const Spacer(),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-            ]),
-            const SizedBox(height: 8),
+    final theme = Theme.of(context);
+    final accent =
+        template.color != null ? Color(template.color!) : theme.colorScheme.primary;
 
-            // Lista de turnos (ListView.separated) + botón "Gestionar turnos"
-            if (widget.templates.isEmpty)
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('No hay turnos. Crea alguno en "Turnos preestablecidos".'),
-              )
-            else ...[
-              // ListView.separated embebido en el modal
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: widget.templates.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final t = widget.templates[index];
-                  final isSel = selected?.id == t.id;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: t.color != null
-                          ? Color(t.color!)
-                          : Theme.of(context).colorScheme.primaryContainer,
-                      child: const Icon(Icons.schedule),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-                    title: Text(t.name),
-                    subtitle: Text(
-                      '${_fmt(t.startTime)}–${_fmt(t.endTime)}'
-                      '${t.breakMinutes != null && t.breakMinutes! > 0 ? ' · Pausa ${t.breakMinutes}m' : ''}',
-                    ),
-                    trailing: isSel ? const Icon(Icons.check) : null,
-                    onTap: () {
-                      setState(() {
-                        selected = t;
-                        start = t.startTime;
-                        end = t.endTime;
-                      });
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              // Botón de gestionar turnos (no hace nada por ahora)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Get.toNamed(
-                      Routes.companyShiftTemplates,
-                    );
-                  },
-                  icon: const Icon(Icons.settings),
-                  label: const Text('Gestionar turnos'),
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(template.name, style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_fmt(template.startTime)}–${_fmt(template.endTime)}'
+                      ' · ${template.totalDurationLabel}'
+                      '${template.breakMinutes != null && template.breakMinutes! > 0 ? ' · pausa ${template.breakMinutes}m' : ''}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: theme.colorScheme.tertiary),
             ],
-
-            const Divider(),
-
-            // Botones Manual / Aplicar turno
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.tune),
-                    label: const Text('Manual'),
-                    onPressed: () async {
-                      final s = await showTimePicker(
-                        context: context,
-                        initialTime: start ?? const TimeOfDay(hour: 8, minute: 0),
-                      );
-                      if (s == null) return;
-                      final e = await showTimePicker(
-                        context: context,
-                        initialTime: end ?? const TimeOfDay(hour: 16, minute: 0),
-                      );
-                      if (e == null) return;
-                      widget.onApply(s, e);
-                      if (mounted) Navigator.pop(context);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('Aplicar turno'),
-                    onPressed: (start != null && end != null)
-                        ? () {
-                            widget.onApply(start!, end!);
-                            Navigator.pop(context);
-                          }
-                        : null,
-                  ),
-                ),
-              ]
-            ),
-
-            // Edición rápida cuando hay turno seleccionado
-            if (selected != null) ...[
-              const SizedBox(height: 10),
-              Row(children: [
-                Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: () async {
-                      final t = await showTimePicker(context: context, initialTime: start!);
-                      if (t != null) setState(() => start = t);
-                    },
-                    child: Text('Inicio ${_fmt(start!)}'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.tonal(
-                    onPressed: () async {
-                      final t = await showTimePicker(context: context, initialTime: end!);
-                      if (t != null) setState(() => end = t);
-                    },
-                    child: Text('Fin ${_fmt(end!)}'),
-                  ),
-                ),
-              ]),
-            ],
-          ],
+          ),
         ),
       ),
     );

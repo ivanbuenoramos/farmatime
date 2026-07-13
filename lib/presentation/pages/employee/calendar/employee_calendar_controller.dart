@@ -11,6 +11,21 @@ import 'package:farmatime/data/models/schedule/recurring_shift_rule.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/get_employee_month_schedule_usecase.dart';
 import 'package:farmatime/domain/usecases/employee_schedule/list_recurring_rules_usecase.dart';
 
+/// Resumen agregado del mes enfocado para la cabecera del calendario.
+class MonthSummary {
+  final int workDays;
+  final int vacationDays;
+  final int personalDays;
+  final Duration totalWork;
+
+  const MonthSummary({
+    required this.workDays,
+    required this.vacationDays,
+    required this.personalDays,
+    required this.totalWork,
+  });
+}
+
 class EmployeeCalendarController extends GetxController {
   EmployeeCalendarController({
     required this.getMonthScheduleUseCase,
@@ -61,6 +76,21 @@ class EmployeeCalendarController extends GetxController {
     _rebuildOverrides();
   }
 
+  /// Pull-to-refresh: invalida la caché del mes enfocado (y el precargado) y
+  /// las reglas recurrentes, y vuelve a cargarlas desde el origen. Los datos no
+  /// son en tiempo real, así que esto permite ver cambios hechos por la empresa.
+  Future<void> reload() async {
+    final focused = focusedDay.value;
+    _monthCache.remove(_monthKey(focused));
+    _monthCache.remove(_monthKey(_addMonths(focused, 1)));
+    _rulesLoaded = false;
+
+    await _ensureDataForMonth(focused);
+    await _ensureRulesLoaded();
+    await _ensureDataForMonth(_addMonths(focused, 1), prefetch: true);
+    _rebuildOverrides();
+  }
+
   void onDaySelected(DateTime selected, DateTime focused) async {
     selectedDay.value = _dateOnly(selected);
 
@@ -87,6 +117,32 @@ class EmployeeCalendarController extends GetxController {
     }
 
     focusedDay.value = _dateOnly(newFocusedDay);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Navegación de mes (selector del AppBar)
+  // ─────────────────────────────────────────────────────────────
+
+  bool get canGoPrevMonth {
+    final prev = _addMonths(focusedDay.value, -1);
+    final lastOfPrev = DateTime(prev.year, prev.month + 1, 0);
+    return !lastOfPrev.isBefore(_dateOnly(firstDay.value));
+  }
+
+  bool get canGoNextMonth {
+    final next = _addMonths(focusedDay.value, 1);
+    final firstOfNext = DateTime(next.year, next.month, 1);
+    return !firstOfNext.isAfter(_dateOnly(lastDay.value));
+  }
+
+  Future<void> goToPrevMonth() async {
+    if (!canGoPrevMonth) return;
+    await onCalendarPageChanged(_addMonths(focusedDay.value, -1));
+  }
+
+  Future<void> goToNextMonth() async {
+    if (!canGoNextMonth) return;
+    await onCalendarPageChanged(_addMonths(focusedDay.value, 1));
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -194,6 +250,42 @@ class EmployeeCalendarController extends GetxController {
     return false;
   }
 
+  /// Entrada efectiva del día: el override si existe; si no, la regla
+  /// recurrente convertida a una jornada laboral. null = día libre sin turno.
+  DayEntry? effectiveEntryFor(DateTime day) {
+    final e = entryFor(day);
+    if (e != null) return e;
+
+    final r = ruleFor(day);
+    if (r == null) return null;
+    return DayEntry(type: DayType.work, start: r.startTime, end: r.endTime);
+  }
+
+  /// Tipo efectivo del día (work/off/vacation/personal).
+  DayType dayTypeFor(DateTime day) =>
+      effectiveEntryFor(day)?.type ?? DayType.off;
+
+  /// Rango horario del día como "HH:mm – HH:mm", o null si no es laboral
+  /// o no tiene horas definidas.
+  String? timeRangeFor(DateTime day) {
+    final e = effectiveEntryFor(day);
+    if (e == null || e.type != DayType.work) return null;
+    if (e.start == null || e.end == null) return null;
+    return '${_fmtTod(e.start!)} – ${_fmtTod(e.end!)}';
+  }
+
+  /// Duración del turno laboral del día (gestiona cruces de medianoche).
+  Duration? durationFor(DateTime day) {
+    final e = effectiveEntryFor(day);
+    if (e == null || e.type != DayType.work) return null;
+    if (e.start == null || e.end == null) return null;
+    final startM = e.start!.hour * 60 + e.start!.minute;
+    final endM = e.end!.hour * 60 + e.end!.minute;
+    final minutes = endM >= startM ? endM - startM : (24 * 60 - startM + endM);
+    if (minutes <= 0) return null;
+    return Duration(minutes: minutes);
+  }
+
   List<String> shiftsFor(DateTime day) {
     final e = entryFor(day);
     if (e != null) {
@@ -210,6 +302,47 @@ class EmployeeCalendarController extends GetxController {
 
   String _fmtTod(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  // ─────────────────────────────────────────────────────────────
+  // Resumen del mes enfocado
+  // ─────────────────────────────────────────────────────────────
+
+  /// Resumen del mes actualmente enfocado: días laborales, horas totales,
+  /// días de vacaciones y de asuntos propios.
+  MonthSummary get monthSummary {
+    final f = focusedDay.value;
+    final daysInMonth = DateTime(f.year, f.month + 1, 0).day;
+
+    int workDays = 0;
+    int vacationDays = 0;
+    int personalDays = 0;
+    int totalMinutes = 0;
+
+    for (var d = 1; d <= daysInMonth; d++) {
+      final day = DateTime(f.year, f.month, d);
+      switch (dayTypeFor(day)) {
+        case DayType.work:
+          workDays++;
+          totalMinutes += durationFor(day)?.inMinutes ?? 0;
+          break;
+        case DayType.vacation:
+          vacationDays++;
+          break;
+        case DayType.personal:
+          personalDays++;
+          break;
+        case DayType.off:
+          break;
+      }
+    }
+
+    return MonthSummary(
+      workDays: workDays,
+      vacationDays: vacationDays,
+      personalDays: personalDays,
+      totalWork: Duration(minutes: totalMinutes),
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────
   // Navegación

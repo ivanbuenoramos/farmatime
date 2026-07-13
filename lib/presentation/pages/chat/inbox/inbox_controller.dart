@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/chat/chat_models.dart';
 import 'package:farmatime/domain/repositories/chat_repository.dart';
 import 'package:get/get.dart';
@@ -19,9 +20,42 @@ class InboxController extends GetxController {
   final conversations = Rxn<List<Conversation>>();
   final isLoading = true.obs;
   final error = RxnString();
+  final searchQuery = ''.obs;
+
+  /// Conversaciones filtradas por la búsqueda y ordenadas con grupos primero.
+  List<Conversation> get filteredConversations {
+    final all = conversations.value ?? const <Conversation>[];
+    final q = searchQuery.value.trim().toLowerCase();
+    if (q.isEmpty) return all;
+    return all.where((c) {
+      final title = c.isGroup ? c.title : dmTitle(c);
+      if (title.toLowerCase().contains(q)) return true;
+      final last = c.lastMessageText?.toLowerCase() ?? '';
+      return last.contains(q);
+    }).toList();
+  }
 
   /// userId → nombre para mostrar
   final RxMap<String, String> userNames = <String, String>{}.obs;
+
+  /// userId → accountStatus ('active','pending','inactive','disabled','deleted').
+  /// Sólo se incluyen empleados (no la farmacia).
+  final RxMap<String, String> userStatuses = <String, String>{}.obs;
+
+  /// True si el empleado existe y NO está operativo (eliminado/desactivado).
+  bool isUserDisabled(String userId) {
+    // La farmacia siempre está operativa para el chat
+    if (userId == companyId.value) return false;
+    final s = userStatuses[userId];
+    if (s == null) return false; // sin info, asumimos operativo
+    return s == 'deleted' || s == 'disabled' || s == 'inactive';
+  }
+
+  /// True específicamente cuando el empleado fue eliminado por la empresa.
+  bool isUserDeleted(String userId) {
+    if (userId == companyId.value) return false;
+    return userStatuses[userId] == 'deleted';
+  }
 
   StreamSubscription<List<Conversation>>? _inboxSub;
 
@@ -88,9 +122,13 @@ class InboxController extends GetxController {
 
   Future<void> _bootstrap() async {
     try {
-      // 1. Obtener nombres de todos los miembros desde Firestore
-      final names = await repo.getMemberNames(companyId.value!);
-      userNames.addAll(names);
+      // 1. Obtener nombres y estados de todos los miembros desde Firestore
+      final results = await Future.wait([
+        repo.getMemberNames(companyId.value!),
+        repo.getMemberStatuses(companyId.value!),
+      ]);
+      userNames.addAll(results[0]);
+      userStatuses.addAll(results[1]);
 
       // 2. Asegurar que existe el chat grupal con todos los miembros
       await _ensureGroupChat();
@@ -149,6 +187,14 @@ class InboxController extends GetxController {
 
   /// Abre (o crea) un chat 1:1 con [otherUserId].
   Future<void> openDirectConversation(String otherUserId) async {
+    if (isUserDisabled(otherUserId)) {
+      ToastService().show(
+        title: 'No disponible',
+        message: 'Este empleado ya no forma parte de la empresa',
+        type: ToastType.warning,
+      );
+      return;
+    }
     try {
       final conv = await repo.ensureDirectConversation(
         companyId: companyId.value!,
@@ -161,12 +207,16 @@ class InboxController extends GetxController {
           'conversation': conv,
           'currentUserId': currentUserId.value,
           'displayName': nameForUser(otherUserId),
+          'userNames': Map<String, String>.from(userNames),
+          'userStatuses': Map<String, String>.from(userStatuses),
         },
       );
     } catch (_) {}
   }
 
   /// Abre una conversación existente (grupo o DM).
+  /// En DMs con un empleado no operativo permite ver el historial pero la
+  /// página del chat bloqueará el composer.
   void openConversation(Conversation c) {
     final displayName = c.isGroup
         ? c.title
@@ -178,6 +228,8 @@ class InboxController extends GetxController {
         'conversation': c,
         'currentUserId': currentUserId.value,
         'displayName': displayName,
+        'userNames': Map<String, String>.from(userNames),
+        'userStatuses': Map<String, String>.from(userStatuses),
       },
     );
   }
@@ -193,11 +245,20 @@ class InboxController extends GetxController {
     return 'Chat';
   }
 
+  /// Devuelve el id del otro participante en un DM, o null si es grupo o no se puede determinar.
+  String? otherUserIdOf(Conversation c) {
+    if (c.isGroup) return null;
+    if (c.memberIds.length != 2) return null;
+    final me = currentUserId.value ?? '';
+    return c.memberIds.first == me ? c.memberIds.last : c.memberIds.first;
+  }
+
   // ─────────────────────────────────────────────
   // Lista de contactos para nuevo DM
   // ─────────────────────────────────────────────
 
   /// Todos los usuarios con los que el usuario actual puede iniciar un DM.
+  /// Excluye empleados eliminados/desactivados (no se puede escribirles).
   List<({String id, String name})> get contactList {
     final me = currentUserId.value ?? '';
     final cId = companyId.value ?? '';
@@ -208,21 +269,20 @@ class InboxController extends GetxController {
       contacts.add((id: cId, name: userNames[cId] ?? 'Farmacia'));
     }
 
-    // Empleados (excepto yo mismo)
+    // Empleados (excepto yo mismo y los no operativos)
     for (final e in brain.companyEmployees) {
-      if (e.uid != me) {
-        contacts.add((id: e.uid, name: e.name));
-      }
+      if (e.uid == me) continue;
+      if (isUserDisabled(e.uid)) continue;
+      contacts.add((id: e.uid, name: e.name));
     }
 
     // Si no hay empleados en Brain pero tenemos nombres de Firestore
     if (brain.companyEmployees.isEmpty) {
       for (final entry in userNames.entries) {
-        if (entry.key != me && entry.key != cId) {
-          // Evitar duplicados
-          if (!contacts.any((c) => c.id == entry.key)) {
-            contacts.add((id: entry.key, name: entry.value));
-          }
+        if (entry.key == me || entry.key == cId) continue;
+        if (isUserDisabled(entry.key)) continue;
+        if (!contacts.any((c) => c.id == entry.key)) {
+          contacts.add((id: entry.key, name: entry.value));
         }
       }
     }

@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { db, admin } = require('../config/firebase');
 const { assertCompanyAccount } = require('../helpers/assertions');
+const { SEAT_OCCUPYING } = require('../helpers/seatPolicy');
 const logger = require('firebase-functions/logger');
 
 exports.createEmployeeAccount = onCall(async (request) => {
@@ -33,46 +34,84 @@ exports.createEmployeeAccount = onCall(async (request) => {
   // Autorización
   await assertCompanyAccount(callerUid, companyId);
 
-  // Helpers locales
-  const SEAT_STATUSES = ['pending', 'active', 'inactive', 'disabled'];
-
-  async function countActiveEmployees(companyId) {
-    // Cuenta todos los empleados que CONSUMEN plaza (no 'deleted')
-    const agg = await db
-        .collection('employees')
-        .where('companyId', '==', companyId)
-        .where('accountStatus', 'in', SEAT_STATUSES)
-        .count()
-        .get();
-
-    return agg.data().count || 0;
-  }
-
-  async function getContractedSeats(companyId) {
-    const snap = await db.collection('companies').doc(companyId).get();
-    if (!snap.exists) throw new HttpsError('not-found', 'Empresa no encontrada');
-    const data = snap.data() || {};
-    return (
-      (typeof data.contractedSeats === 'number' ?
-        data.contractedSeats :
-        data.purchasedEmployeeSlots) || 0
-    );
-  }
+  // Estados que CONSUMEN plaza (ver helpers/seatPolicy.js).
+  const SEAT_STATUSES = Array.from(SEAT_OCCUPYING);
 
   logger.info('[createEmployeeAccount] START', { companyId, email, role });
 
-  // Chequeo plazas (pre)
-  const maxSeats = await getContractedSeats(companyId);
-  const activeBefore = await countActiveEmployees(companyId);
-  logger.info('[createEmployeeAccount] seats/pre', { maxSeats, activeBefore });
-  if (activeBefore >= maxSeats) {
-    throw new HttpsError('failed-precondition', 'Sin plazas disponibles');
-  }
+  // 1) Reserva atómica de plaza.
+  //
+  // No basta con contar antes y después (dos peticiones concurrentes podían
+  // colarse en la ventana entre conteo y creación). Hacemos una transacción que
+  // (a) lee las plazas contratadas de la empresa, (b) cuenta los empleados que
+  // ocupan plaza y (c) crea el doc del empleado SOLO si queda hueco. Como la
+  // creación del doc forma parte de la misma transacción, dos altas simultáneas
+  // se serializan: la segunda relee el conteo ya incrementado por la primera.
+  //
+  // El UID definitivo lo asigna Auth, pero necesitamos reservar la plaza antes
+  // de crear el usuario. Usamos un id de documento autogenerado como reserva y,
+  // tras crear el Auth user, migramos el doc al UID real.
+  const reservationRef = db.collection('employees').doc();
+  const nowTs = admin.firestore.FieldValue.serverTimestamp();
+
+  // baseDoc se usa tanto para el doc de RESERVA (temporal, sin tempPassword)
+  // como para el doc FINAL bajo el UID de Auth (al que añadimos tempPassword).
+  // El doc temporal lleva _pendingReservation=true para que los triggers
+  // onDocumentCreated (sendEmployeeWelcome, onSeatsNearLimit, etc.) lo ignoren
+  // y no se disparen dos veces ni con datos incompletos.
+  const baseDoc = {
+    companyId,
+    name,
+    email,
+    photoUrl: null,
+    position: null,
+    accountStatus: 'pending', // EmployeeAccountStatus.pending — ocupa plaza
+    hireDate: nowTs,
+    createdAt: nowTs,
+    updatedAt: nowTs,
+    hourlyRate: Number(hourlyRate) || 0,
+    role,
+    roleOther: roleOther || null,
+    workdayType: workdayType || null,
+    vacationDaysPer30: Number(vacationDaysPer30) || 2.5,
+    personalDaysPerYear: Number(personalDaysPerYear) || 0,
+  };
+
+  const reservationDoc = { ...baseDoc, _pendingReservation: true };
+
+  await db.runTransaction(async (txn) => {
+    const companySnap = await txn.get(db.collection('companies').doc(companyId));
+    if (!companySnap.exists) {
+      throw new HttpsError('not-found', 'Empresa no encontrada');
+    }
+    const companyData = companySnap.data() || {};
+    const maxSeats =
+      (typeof companyData.contractedSeats === 'number' ?
+        companyData.contractedSeats :
+        companyData.purchasedEmployeeSlots) || 0;
+
+    const occupyingSnap = await txn.get(
+        db.collection('employees')
+            .where('companyId', '==', companyId)
+            .where('accountStatus', 'in', SEAT_STATUSES),
+    );
+
+    logger.info('[createEmployeeAccount] seats/txn', {
+      maxSeats,
+      occupying: occupyingSnap.size,
+    });
+
+    if (occupyingSnap.size >= maxSeats) {
+      throw new HttpsError('failed-precondition', 'Sin plazas disponibles');
+    }
+
+    txn.set(reservationRef, reservationDoc);
+  });
 
   let createdUser = null;
 
   try {
-    // Crear usuario en Auth
+    // 2) Crear usuario en Auth con la plaza ya reservada.
     const tempPass = Math.random().toString(36).slice(-10) + 'A!';
     createdUser = await admin.auth().createUser({
       email,
@@ -97,52 +136,74 @@ exports.createEmployeeAccount = onCall(async (request) => {
           });
         });
 
-    // Rechequeo plazas (por si entre medias se ha creado otro empleado)
-    const activeAfter = await countActiveEmployees(companyId);
-    logger.info('[createEmployeeAccount] seats/post-auth', {
-      maxSeats,
-      activeAfter,
-    });
-    if (activeAfter >= maxSeats) {
-      try {
-        await admin.auth().deleteUser(createdUser.uid);
-      } catch (_) {
-        // noop
-      }
-      throw new HttpsError('failed-precondition', 'Sin plazas disponibles');
-    }
-
-    const nowTs = admin.firestore.FieldValue.serverTimestamp();
-
-    // DOC EMPLEADO → alineado con EmployeeModel
-    const employeeDoc = {
+    // 3) Migrar la reserva al UID real de Auth (el modelo indexa por uid) y
+    // eliminar el doc temporal, en un batch atómico.
+    //
+    // SEGURIDAD (GDPR): NO escribimos `tempPassword` en el doc principal de
+    // `employees/{uid}` — sería legible por todos los compañeros (la regla de
+    // read de employees permite a la empresa entera leerse para chat/calendario,
+    // y Firestore no soporta read-rules a nivel de campo). En su lugar, lo
+    // guardamos en la subcolección privada `employees/{uid}/private/credentials`,
+    // protegida por reglas que solo permiten lectura al propio uid.
+    const finalRef = db.collection('employees').doc(createdUser.uid);
+    const privateRef = finalRef.collection('private').doc('credentials');
+    const batch = db.batch();
+    batch.set(finalRef, {
+      ...baseDoc,
       uid: createdUser.uid,
-      companyId,
-      name,
-      email,
-
-      // Nuevos campos del modelo
+      // Flag informativo: el cliente sabe que debe forzar set_password sin ver
+      // la contraseña en sí.
+      hasTempPassword: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.set(privateRef, {
       tempPassword: tempPass,
-      photoUrl: null,
-      position: null,
-      accountStatus: 'pending', // EmployeeAccountStatus.pending
-      hireDate: nowTs,
-
-      createdAt: nowTs,
-      updatedAt: nowTs,
-
-      hourlyRate: Number(hourlyRate) || 0,
-      role, // 'tecnico' | 'auxiliar' | 'farmaceutico' | 'otro'
-      roleOther: roleOther || null,
-      workdayType: workdayType || null, // 'completa' | 'media' | null
-      vacationDaysPer30: Number(vacationDaysPer30) || 2.5,
-      personalDaysPerYear: Number(personalDaysPerYear) || 0,
-    };
-
-    await db.collection('employees').doc(createdUser.uid).set(employeeDoc);
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    batch.delete(reservationRef);
+    await batch.commit();
     logger.info('[createEmployeeAccount] employee doc created', {
       uid: createdUser.uid,
     });
+
+    // 4) Enviar el email de bienvenida con la tempPassword DIRECTAMENTE desde
+    // aquí (antes lo hacía el trigger sendEmployeeWelcome al leer tempPassword
+    // del doc principal; ahora ese campo ya no está en el doc).
+    try {
+      const now = new Date()
+          .toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
+      const subject = 'Bienvenido a FarmaTime';
+      const html = `
+        <p>Hola${name ? ' ' + name : ''},</p>
+        <p>Tu cuenta de empleado en <b>FarmaTime</b> ha sido creada correctamente.</p>
+        <p>Estos son tus datos de acceso:</p>
+        <ul>
+          <li><b>Email:</b> ${email}</li>
+          <li><b>Contraseña temporal:</b> ${tempPass}</li>
+        </ul>
+        <p>Por seguridad, cambia la contraseña al iniciar sesión.</p>
+        <br/>
+        <p>Fecha de creación: ${now}</p>
+        <p>— Equipo FarmaTime</p>
+      `;
+      const text =
+        `Hola${name ? ' ' + name : ''},\n` +
+        `Tu cuenta de empleado en FarmaTime ha sido creada.\n` +
+        `Email: ${email}\n` +
+        `Contraseña temporal: ${tempPass}\n` +
+        `Por seguridad, cambia la contraseña al iniciar sesión.\n` +
+        `Fecha: ${now}\n`;
+      await db.collection('mail').add({
+        to: [email],
+        from: 'no-reply@farmatime.net',
+        message: { subject, html, text },
+      });
+      logger.info('[createEmployeeAccount] welcome email queued', { email });
+    } catch (e) {
+      logger.warn('[createEmployeeAccount] welcome email warn', {
+        msg: e?.message,
+      });
+    }
 
     // Reset link (no crítico)
     let resetLink = null;
@@ -171,9 +232,20 @@ exports.createEmployeeAccount = onCall(async (request) => {
       stack: err?.stack,
     });
 
+    // Rollback: liberamos la plaza reservada y el Auth user si se llegó a crear.
+    try {
+      await reservationRef.delete();
+    } catch (_) {
+      // noop (puede que ya se migrara al UID real)
+    }
     if (createdUser?.uid) {
       try {
         await admin.auth().deleteUser(createdUser.uid);
+      } catch (_) {
+        // noop
+      }
+      try {
+        await db.collection('employees').doc(createdUser.uid).delete();
       } catch (_) {
         // noop
       }

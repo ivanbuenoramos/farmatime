@@ -163,20 +163,7 @@ class ToastService {
         break;
     }
 
-    // toastification.show(
-    //   primaryColor: Get.theme.colorScheme.error,
-    //   padding: const EdgeInsets.all(10),
-    //   icon: SizedBox(),
-    //   alignment: Alignment.topCenter,
-    //   title: Text(errorTitle, style: TextStyle(color: Get.theme.colorScheme.error, fontWeight: FontWeight.bold, fontSize: 18)),
-    //   description: Text(errorMessage, style: TextStyle(color: Get.theme.colorScheme.error, fontSize: 16)),
-    //   style: ToastificationStyle.flatColored,
-    //   borderRadius: BorderRadius.circular(10),
-    //   showProgressBar: false,
-    //   foregroundColor: Get.theme.colorScheme.error,
-    //   backgroundColor: const Color(0xffFDDCDC),
-    //   autoCloseDuration: const Duration(seconds: 6),
-    // );
+    show(title: errorTitle, message: errorMessage, type: ToastType.error);
   }
 }
 

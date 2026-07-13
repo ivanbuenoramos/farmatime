@@ -72,31 +72,22 @@ class Routes {
   // COMPANY SUBSCRIPTION
   static const String companySubscription = '/company/subscription';
 
+  // COMPANY SUBSCRIPTION BLOCKED (cuenta cancelada → renovar para volver)
+  static const String companySubscriptionBlocked = '/company/subscription-blocked';
+
   // COMPANY ACCOUNT PROFILE
   static const String companyAccountProfile = '/company/account/profile';
 
   // COMPANY PROFILE
   static const String companyProfile = '/company/profile';
 
-  // COMPANY SUBSCRIPTION SEAT CHECKOUT
-  static const String companySubscriptionSeatCheckout = '/company/subscription/seat-checkout';
-
-  // COMPANY SUBSCRIPTION SELECT EMPLOYEES TO REMOVE
-  static const String companySubscriptionSelectEmployeesToRemove = '/company/subscription/select-employees-to-remove';
-
-  // COMPANY SUBSCRIPTION PAYMENT ISSUE
-  static const String companySubscriptionPaymentIssue = '/company/subscription/payment-issue';
-
-  // COMPANY SUBSCRIPTION INCOMPLETE PAYMENT
-  static const String companySubscriptionIncompletePayment = '/company/subscription/incomplete-payment';
-
-  // COMPANY SUBSCRIPTION CONFIRM SEAT CHANGE
-  static const String companySubscriptionConfirmSeatChange = '/company/subscription/confirm-seat-change';
-
-  // COMPANY PAYMENT METHODS
-  static const String companyPaymentMethods = '/company/payment-methods';
-
   // COMPANY SETTINGS
   static const String companySettings = '/company/settings';
+
+  // COMPANY NOTIFICATIONS
+  static const String companyNotifications = '/company/notifications';
+
+  // COMPANY TIME OFF (solicitudes de vacaciones / asuntos propios)
+  static const String companyTimeOff = '/company/time-off';
 
 }

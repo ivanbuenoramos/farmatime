@@ -1,0 +1,293 @@
+rules_version = '2';
+
+// Reglas de seguridad de Firestore para Farmatime.
+//
+// Modelo de cuentas:
+//   - EMPRESA (farmacia): el uid de Auth ES el id del documento companies/{uid}.
+//   - EMPLEADO: el uid de Auth ES el id del documento employees/{uid}; su doc
+//     tiene un campo companyId que lo vincula a su empresa.
+//
+// Principios:
+//   - Toda lectura/escritura exige usuario autenticado.
+//   - La empresa manda sobre los datos de su companyId.
+//   - El empleado solo actúa sobre lo suyo (y lee lo de su empresa cuando el
+//     producto lo necesita: lista de compañeros para chat/calendario).
+//   - El registro horario (clockRecords + auditLog) conserva su inmutabilidad
+//     reforzada por la normativa RD 8/2019.
+//   - El estado de facturación NO lo escribe el cliente (solo backend admin).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isCompany(companyId) {
+      // El uid de la empresa coincide con su companyId.
+      return isSignedIn() && request.auth.uid == companyId;
+    }
+
+    // Lee el doc del empleado autenticado (para conocer su companyId/estado).
+    function myEmployee() {
+      return get(/databases/$(database)/documents/employees/$(request.auth.uid)).data;
+    }
+
+    function employeeExists() {
+      return exists(/databases/$(database)/documents/employees/$(request.auth.uid));
+    }
+
+    // ¿El usuario autenticado pertenece (empresa o empleado) a companyId?
+    function belongsToCompany(companyId) {
+      return isCompany(companyId) ||
+             (employeeExists() && myEmployee().companyId == companyId);
+    }
+
+    function incomingCompanyId() {
+      return request.resource.data.companyId;
+    }
+
+    function existingCompanyId() {
+      return resource.data.companyId;
+    }
+
+    // ---------- Empresas ----------
+    match /companies/{companyId} {
+      // Empresa y sus empleados pueden leer la ficha de la empresa.
+      allow read: if belongsToCompany(companyId);
+
+      // Solo la propia empresa edita su ficha, pero NUNCA los campos de
+      // facturación (los gestiona el backend con privilegios admin, que se
+      // salta estas reglas). Esto cierra el agujero de falsear la suscripción.
+      allow create: if isCompany(companyId);
+      allow update: if isCompany(companyId)
+                    && request.resource.data.billingStatus == resource.data.billingStatus
+                    && request.resource.data.contractedSeats == resource.data.contractedSeats
+                    && request.resource.data.subscription == resource.data.subscription
+                    && request.resource.data.currentPeriodEnd == resource.data.currentPeriodEnd
+                    && request.resource.data.canceledAt == resource.data.canceledAt;
+      // El borrado lo hace la Cloud Function deleteCompanyAccount (admin).
+      allow delete: if false;
+
+      // Subcolección de suscripción: solo lectura para la empresa; la escritura
+      // es exclusiva del backend.
+      match /subscription/{docId} {
+        allow read: if isCompany(companyId);
+        allow write: if false;
+      }
+    }
+
+    // ---------- Empleados ----------
+    match /employees/{employeeId} {
+      // La empresa lee/gestiona; el empleado lee su propio doc y los de su
+      // empresa (necesario para chat, calendario de equipo, etc.).
+      allow read: if isSignedIn() &&
+                  (isCompany(resource.data.companyId) ||
+                   request.auth.uid == employeeId ||
+                   (employeeExists() && myEmployee().companyId == resource.data.companyId));
+
+      // Alta de empleados: solo vía Cloud Function (admin). El cliente no crea.
+      allow create: if false;
+
+      // La empresa puede actualizar a sus empleados, pero NUNCA cambiar el
+      // companyId del empleado (no se puede mover a otra empresa).
+      // El empleado puede editar su propio doc; solo se le permite UNA
+      // transición de accountStatus: pending → active, justo al activar la
+      // cuenta tras establecer su contraseña definitiva (`hasTempPassword`
+      // pasa a false). Cualquier otra promoción de estado queda bloqueada.
+      allow update: if (
+        isCompany(resource.data.companyId)
+        && request.resource.data.companyId == resource.data.companyId
+      ) || (
+        request.auth.uid == employeeId
+        && request.resource.data.companyId == resource.data.companyId
+        && (
+          request.resource.data.accountStatus == resource.data.accountStatus
+          || (
+            resource.data.accountStatus == 'pending'
+            && request.resource.data.accountStatus == 'active'
+            && request.resource.data.hasTempPassword == false
+          )
+        )
+      );
+      // El borrado real (cascada) lo hace el backend; el cliente solo marca
+      // accountStatus='deleted' vía el update de la empresa.
+      allow delete: if false;
+
+      // Subcolección de credenciales privadas (tempPassword). Solo el propio
+      // empleado puede leerla; nadie puede escribir desde cliente.
+      match /private/{docId} {
+        allow read: if isSignedIn() && request.auth.uid == employeeId;
+        allow write: if false;
+      }
+    }
+
+    // ---------- Fichajes (registro horario) ----------
+    match /clockRecords/{entryId} {
+      allow read: if belongsToCompany(resource.data.companyId);
+
+      // Crear: empleado de la empresa o la propia empresa. No puede llegar ya
+      // marcado como editado (la edición es un acto posterior y trazado).
+      allow create: if belongsToCompany(incomingCompanyId())
+                    && request.resource.data.isEdited == false;
+
+      // Editar: miembro de la empresa, sin alterar los campos de origen.
+      allow update: if belongsToCompany(existingCompanyId())
+                    && request.resource.data.id == resource.data.id
+                    && request.resource.data.employeeId == resource.data.employeeId
+                    && request.resource.data.companyId == resource.data.companyId
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Los fichajes no se borran (salvo cascada admin): solo se editan.
+      allow delete: if false;
+
+      // --- Log de auditoría inmutable de cada fichaje ---
+      match /auditLog/{logId} {
+        // Solo miembros de la empresa propietaria del fichaje pueden leer su
+        // auditoría (antes era cualquier autenticado: filtraba historial entre
+        // empresas si se conocía el entryId).
+        allow read: if belongsToCompany(
+          get(/databases/$(database)/documents/clockRecords/$(entryId)).data.companyId
+        );
+        allow create: if isSignedIn()
+                      && request.resource.data.entryId == entryId
+                      && request.resource.data.at != null
+                      && request.resource.data.actorUid != null;
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------- Reportes de fichajes (PDF) ----------
+    match /clockReports/{reportId} {
+      // Generados por backend; el cliente solo lee los de su empresa.
+      allow read: if belongsToCompany(resource.data.companyId);
+      allow write: if false;
+    }
+
+    // ---------- Plantillas de turnos ----------
+    match /company_shift_templates/{tplId} {
+      allow read: if belongsToCompany(resource.data.companyId);
+      allow create: if isCompany(incomingCompanyId());
+      allow update, delete: if isCompany(existingCompanyId());
+    }
+
+    // ---------- Reglas recurrentes de horario ----------
+    match /employee_schedule_rules/{ruleId} {
+      allow read: if belongsToCompany(resource.data.companyId);
+      allow create: if isCompany(incomingCompanyId());
+      allow update, delete: if isCompany(existingCompanyId());
+    }
+
+    // ---------- Overrides de horario por mes ----------
+    // id compuesto: {companyId}__{employeeId}__{month}
+    match /employee_schedule_months/{docId} {
+      allow read: if belongsToCompany(resource.data.companyId);
+      // Crea/actualiza la empresa, o el empleado dueño sobre su propio mes.
+      allow create: if isCompany(incomingCompanyId())
+                    || (employeeExists()
+                        && incomingCompanyId() == myEmployee().companyId
+                        && request.resource.data.employeeId == request.auth.uid);
+      allow update: if isCompany(existingCompanyId())
+                    || (employeeExists()
+                        && existingCompanyId() == myEmployee().companyId
+                        && resource.data.employeeId == request.auth.uid);
+      allow delete: if isCompany(existingCompanyId())
+                    || (employeeExists() && resource.data.employeeId == request.auth.uid);
+    }
+
+    // ---------- Solicitudes de ausencia ----------
+    match /time_off_requests/{reqId} {
+      allow read: if belongsToCompany(resource.data.companyId);
+
+      // El empleado crea sus propias solicitudes (estado inicial requested).
+      allow create: if employeeExists()
+                    && incomingCompanyId() == myEmployee().companyId
+                    && request.resource.data.employeeId == request.auth.uid
+                    && request.resource.data.status == 'requested';
+
+      // Actualizaciones:
+      //  - La empresa decide sin restricciones sobre las solicitudes de su
+      //    empresa (sin poder cambiar companyId/employeeId).
+      //  - El empleado solo sobre las suyas y con transiciones limitadas:
+      //      requested  → cancelled
+      //      proposed   → approved | rejected | cancelled
+      //    Cualquier otra transición (p.ej. auto-aprobarse una requested)
+      //    queda bloqueada en las reglas (no solo en cliente).
+      allow update: if (
+        isCompany(existingCompanyId())
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.employeeId == resource.data.employeeId
+      ) || (
+        request.auth.uid == resource.data.employeeId
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.employeeId == resource.data.employeeId
+        && (
+          (resource.data.status == 'requested'
+            && request.resource.data.status == 'cancelled')
+          || (resource.data.status == 'proposed'
+            && request.resource.data.status in ['approved', 'rejected', 'cancelled'])
+        )
+      );
+      allow delete: if false;
+    }
+
+    // ---------- Chat ----------
+    match /conversations/{convId} {
+      // Solo miembros de la conversación pueden leerla.
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+
+      // Crear conversación: el creador debe ser miembro y pertenecer a la empresa.
+      allow create: if isSignedIn()
+                    && request.auth.uid in request.resource.data.memberIds
+                    && belongsToCompany(incomingCompanyId());
+
+      // Actualizar metadatos (último mensaje, unreadCounts): solo miembros, y sin
+      // cambiar la membresía ni la empresa de la conversación.
+      allow update: if isSignedIn()
+                    && request.auth.uid in resource.data.memberIds
+                    && request.resource.data.memberIds == resource.data.memberIds
+                    && request.resource.data.companyId == resource.data.companyId;
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        // Leer: miembros de la conversación padre.
+        allow read: if isSignedIn() &&
+                    request.auth.uid in
+                    get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+
+        // Enviar: el remitente debe ser él mismo y miembro de la conversación.
+        // Cierra el agujero de escribir como otro o en una conversación ajena.
+        allow create: if isSignedIn()
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.auth.uid in
+                         get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------- Tokens FCM ----------
+    // user_fcm_tokens/{uid}/tokens/{token}
+    match /user_fcm_tokens/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+      match /tokens/{token} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // ---------- Email transaccional (extensión SendGrid) ----------
+    // Lo escribe el backend; el cliente no debe tocarlo.
+    match /mail/{docId} {
+      allow read, write: if false;
+    }
+
+    // ---------- Eventos de Apple (idempotencia IAP) ----------
+    match /_appleEvents/{docId} {
+      allow read, write: if false;
+    }
+
+    // Por defecto: denegar todo lo no contemplado explícitamente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

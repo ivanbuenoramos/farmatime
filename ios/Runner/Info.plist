@@ -36,6 +36,10 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Usamos la cámara para que puedas adjuntar imagenes de incidencias.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

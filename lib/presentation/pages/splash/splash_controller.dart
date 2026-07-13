@@ -2,6 +2,7 @@ import 'package:farmatime/domain/usecases/company/get_company_by_id_usecase.dart
 import 'package:get/get.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 
 class SplashController extends GetxController {
 
@@ -36,7 +37,7 @@ class SplashController extends GetxController {
     if (result.success && result.data != null) {
       brain.company.value = result.data;
     } else {
-      Get.snackbar('Error', 'No se pudo obtener la empresa');
+      ToastService().show(title: 'Error', message: 'No se pudo obtener la empresa', type: ToastType.error);
     }
   }
 }

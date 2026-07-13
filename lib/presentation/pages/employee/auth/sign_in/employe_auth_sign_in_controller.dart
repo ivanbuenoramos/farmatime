@@ -1,15 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/callable_http_client.dart';
+import 'package:farmatime/core/services/push_notification_service.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/domain/repositories/chat_repository.dart';
 import 'package:farmatime/presentation/pages/chat/chat/chat_binding.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart' hide Result;
 
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/data/models/result.dart';
@@ -27,11 +29,6 @@ class EmployeeAuthSignInController extends GetxController {
   final GetEmployeeByIdUseCase getEmployeeByIdUseCase;
   final GetCompanyByIdUseCase getCompanyByIdUseCase;
   final GetEmployeesByCompanyIdUseCase getEmployeesByCompanyIdUseCase;
-
-  final FirebaseFunctions functions = FirebaseFunctions.instanceFor(
-    app: Firebase.app(),
-    region: 'europe-west1',
-  );
 
   EmployeeAuthSignInController({
     required this.signInWithEmailUseCase,
@@ -56,7 +53,7 @@ class EmployeeAuthSignInController extends GetxController {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      Get.snackbar('Error', 'Por favor, rellena todos los campos');
+      ToastService().show(title: 'Error', message: 'Por favor, rellena todos los campos', type: ToastType.error);
       return;
     }
 
@@ -64,13 +61,13 @@ class EmployeeAuthSignInController extends GetxController {
         await signInWithEmailUseCase.call(email, password);
 
     if (!signInResult.success || signInResult.data == null) {
-      Get.snackbar('Error', 'Credenciales incorrectas o cuenta inexistente');
+      ToastService().show(title: 'Error', message: 'Credenciales incorrectas o cuenta inexistente', type: ToastType.error);
       return;
     }
 
     final user = firebaseAuth.currentUser;
     if (user == null) {
-      Get.snackbar('Error', 'No se pudo obtener el usuario actual');
+      ToastService().show(title: 'Error', message: 'No se pudo obtener el usuario actual', type: ToastType.error);
       return;
     }
 
@@ -80,6 +77,7 @@ class EmployeeAuthSignInController extends GetxController {
     if (employeeResult.success && employeeResult.data != null) {
       brain.employee.value = employeeResult.data;
       await GetStorage().write('employee', json.encode(employeeResult.data!.toJson()));
+      await _registerPushToken(employeeResult.data!.uid);
       Get.offAllNamed(Routes.employeeMain);
       return;
     }
@@ -103,12 +101,19 @@ class EmployeeAuthSignInController extends GetxController {
         debugPrint('Seed chat error: $e\n$st');
       }
 
+      await _registerPushToken(company.id);
       Get.offAllNamed(Routes.companyMain);
-      _notifyLogin(company.email, company.legalName);
+      unawaited(_notifyLogin(company.email, company.legalName));
       return;
     }
 
-    Get.snackbar('Error', 'No se encontró ninguna cuenta asociada a este email');
+    ToastService().show(title: 'Error', message: 'No se encontró ninguna cuenta asociada a este email', type: ToastType.error);
+  }
+
+  /// Registra el token FCM de este dispositivo para el usuario recién logueado.
+  Future<void> _registerPushToken(String uid) async {
+    if (!Get.isRegistered<PushNotificationService>()) return;
+    await Get.find<PushNotificationService>().registerTokenForUser(uid);
   }
 
   void recoverPassword() => Get.toNamed(Routes.recoverPassword);
@@ -121,8 +126,16 @@ class EmployeeAuthSignInController extends GetxController {
   }
 
   Future<void> _notifyLogin(String email, String name) async {
-    final callable = functions.httpsCallable('sendLoginNotification');
-    await callable.call({'email': email, 'name': name});
+    try {
+      // HTTP directo en lugar de httpsCallable: el SDK nativo de
+      // FirebaseFunctions aborta la app en release (ver CallableHttpClient).
+      await CallableHttpClient.call(
+        'sendLoginNotification',
+        {'email': email, 'name': name},
+      );
+    } catch (e, st) {
+      debugPrint('notifyLogin error (no-fatal): $e\n$st');
+    }
   }
 
   Future<void> _seedChatForExistingCompany({

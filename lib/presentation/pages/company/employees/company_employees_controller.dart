@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/usecases/employee/get_employees_by_company_id_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/update_employee_usecase.dart';
 import 'package:farmatime/domain/usecases/employee/stream_employees_by_company_id_usecase.dart';
+import 'package:farmatime/data/models/schedule/time_off_model.dart';
+import 'package:farmatime/domain/usecases/time_off/stream_time_off_by_company_usecase.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
@@ -17,25 +20,34 @@ class CompanyEmployeesController extends GetxController {
   // ✅ nuevo
   final StreamEmployeesByCompanyIdUseCase streamEmployeesByCompanyIdUseCase;
 
+  // Solicitudes de ausencia (para el contador de pendientes)
+  final StreamTimeOffByCompanyUseCase streamTimeOffByCompanyUseCase;
+
   CompanyEmployeesController({
     required this.getEmployeesByCompanyIdUseCase,
     required this.updateEmployeeUseCase,
     required this.streamEmployeesByCompanyIdUseCase,
+    required this.streamTimeOffByCompanyUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
 
   final RxList<EmployeeModel> employees = <EmployeeModel>[].obs;
 
-  /// plazas contratadas (Stripe) cuando la suscripción está bien
+  /// plazas contratadas (incluye la plaza gratuita)
   final RxInt contractedSeats = 1.obs;
 
   final RxBool isLoading = false.obs;
+
+  /// Solicitudes de ausencia pendientes de respuesta de la empresa.
+  final RxInt pendingTimeOff = 0.obs;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _companySub;
 
   // ✅ nuevo
   StreamSubscription<List<EmployeeModel>>? _employeesSub;
+
+  StreamSubscription<List<TimeOffModel>>? _timeOffSub;
 
   String get companyId => brain.company.value?.id ?? '';
 
@@ -98,7 +110,7 @@ class CompanyEmployeesController extends GetxController {
 
     final id = companyId;
     if (id.isEmpty) {
-      Get.snackbar('Error', 'Falta el ID de empresa');
+      ToastService().show(title: 'Error', message: 'Falta el ID de empresa', type: ToastType.error);
       return;
     }
 
@@ -127,8 +139,13 @@ class CompanyEmployeesController extends GetxController {
           .where((e) => e.accountStatus != EmployeeAccountStatus.deleted)
           .toList();
 
-      // orden “bonito”
-      filtered.sort((a, b) => a.accountStatus!.index.compareTo(b.accountStatus!.index));
+      // orden “bonito” (toleramos accountStatus null al final)
+      const lastIdx = 1 << 30;
+      filtered.sort((a, b) {
+        final ai = a.accountStatus?.index ?? lastIdx;
+        final bi = b.accountStatus?.index ?? lastIdx;
+        return ai.compareTo(bi);
+      });
 
       employees.value = filtered;
 
@@ -137,7 +154,15 @@ class CompanyEmployeesController extends GetxController {
         ..clear()
         ..addAll(filtered);
     }, onError: (e) {
-      Get.snackbar('Error', 'Stream empleados falló: $e');
+      debugPrint('Stream empleados error: $e');
+      ToastService().show(title: 'Error', message: 'No se pudieron cargar los empleados. Inténtalo de nuevo.', type: ToastType.error);
+    });
+
+    // ✅ Listener solicitudes de ausencia (contador de pendientes)
+    _timeOffSub = streamTimeOffByCompanyUseCase(companyId: id).listen((list) {
+      pendingTimeOff.value = list.where((r) => r.awaitingCompany).length;
+    }, onError: (_) {
+      // El contador es informativo; no rompemos la UI si falla.
     });
 
     // Si quieres mantener también la carga inicial por fetch (opcional):
@@ -248,11 +273,13 @@ class CompanyEmployeesController extends GetxController {
   void reditectToUpsertEmployee() => Get.toNamed(Routes.companyUpsertEmployee);
   void reditectToEmployeeDetail(EmployeeModel employee) =>
       Get.toNamed(Routes.companyEmployeeDetail, arguments: employee);
+  void redirectToTimeOff() => Get.toNamed(Routes.companyTimeOff);
 
   @override
   void onClose() {
     _companySub?.cancel();
     _employeesSub?.cancel(); // ✅ importante
+    _timeOffSub?.cancel();
     super.onClose();
   }
 }

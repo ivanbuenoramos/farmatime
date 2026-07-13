@@ -16,8 +16,57 @@ class ChatController extends GetxController {
 
   final messages = Rxn<List<ChatMessage>>();
   final isSending = false.obs;
+  final showScrollToBottom = false.obs;
+
+  /// userId → displayName (necesario para mostrar nombre en chats grupales)
+  final RxMap<String, String> userNames = <String, String>{}.obs;
+
+  /// userId → accountStatus para detectar empleados eliminados/no operativos.
+  final RxMap<String, String> userStatuses = <String, String>{}.obs;
 
   final scrollController = ScrollController();
+
+  String nameForUser(String userId) =>
+      userNames[userId] ?? userId.substring(0, userId.length.clamp(0, 6));
+
+  /// Estado del status para un userId. Devuelve null si es la farmacia o no se conoce.
+  String? statusForUser(String userId) => userStatuses[userId];
+
+  /// True si el otro participante de un DM no está operativo (eliminado/desactivado).
+  /// Para grupos siempre devuelve false (el grupo sigue siendo escribible).
+  bool get isOtherUserDisabled {
+    final conv = conversation.value;
+    if (conv == null || conv.isGroup) return false;
+    final me = currentUserId.value;
+    if (me == null) return false;
+    final other = conv.memberIds.firstWhere(
+      (id) => id != me,
+      orElse: () => '',
+    );
+    if (other.isEmpty) return false;
+    final s = userStatuses[other];
+    if (s == null) return false;
+    return s == 'deleted' || s == 'disabled' || s == 'inactive';
+  }
+
+  /// Mensaje legible para mostrar al usuario sobre por qué no puede escribir.
+  String get disabledReason {
+    final conv = conversation.value;
+    if (conv == null || conv.isGroup) return '';
+    final me = currentUserId.value;
+    if (me == null) return '';
+    final other = conv.memberIds.firstWhere(
+      (id) => id != me,
+      orElse: () => '',
+    );
+    final s = userStatuses[other];
+    return switch (s) {
+      'deleted' => 'Este empleado ya no forma parte de la empresa',
+      'disabled' => 'Este empleado está deshabilitado',
+      'inactive' => 'Este empleado está inactivo',
+      _ => 'Este chat está deshabilitado',
+    };
+  }
 
   StreamSubscription<List<ChatMessage>>? _msgSub;
 
@@ -34,6 +83,14 @@ class ChatController extends GetxController {
     );
   }
 
+  void _onScroll() {
+    if (!scrollController.hasClients) return;
+    final shouldShow = scrollController.position.pixels > 200;
+    if (shouldShow != showScrollToBottom.value) {
+      showScrollToBottom.value = shouldShow;
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -48,10 +105,25 @@ class ChatController extends GetxController {
     conversation.value = args['conversation'] as Conversation?;
     displayName.value = args['displayName'] as String?;
 
+    final names = args['userNames'];
+    if (names is Map) {
+      userNames.addAll(names.map((k, v) => MapEntry(k.toString(), v.toString())));
+    }
+
+    final statuses = args['userStatuses'];
+    if (statuses is Map) {
+      userStatuses.addAll(
+        statuses.map((k, v) => MapEntry(k.toString(), v.toString())),
+      );
+    }
+
     if (currentUserId.value == null || conversation.value == null) {
       Get.back();
       return;
     }
+
+    scrollController.addListener(_onScroll);
+    _markRead();
 
     _msgSub = repo
         .streamMessages(conversation.value!.id)
@@ -68,19 +140,35 @@ class ChatController extends GetxController {
             if (isMine || _isNearBottom) {
               WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
             }
+            // Si recibo un mensaje ajeno mientras estoy abierto, lo marco leído
+            if (!isMine) _markRead();
           }
         });
+  }
+
+  Future<void> _markRead() async {
+    final convId = conversation.value?.id;
+    final uid = currentUserId.value;
+    if (convId == null || uid == null) return;
+    try {
+      await repo.markConversationAsRead(
+        conversationId: convId,
+        userId: uid,
+      );
+    } catch (_) {}
   }
 
   @override
   void onClose() {
     _msgSub?.cancel();
+    scrollController.removeListener(_onScroll);
     scrollController.dispose();
     super.onClose();
   }
 
   Future<void> send(String text) async {
     if (text.trim().isEmpty) return;
+    if (isOtherUserDisabled) return;
     isSending.value = true;
     try {
       await repo.sendMessage(

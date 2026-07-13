@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:farmatime/data/models/result.dart';
@@ -51,7 +53,6 @@ class CompanyRepositoryImpl implements CompanyRepository {
     try {
       final doc = await firestore.collection('companies').doc(companyId).get();
 
-      print(doc.data());
       if (!doc.exists) {
         return Result(
           success: false,
@@ -64,7 +65,7 @@ class CompanyRepositoryImpl implements CompanyRepository {
         data: CompanyModel.fromJson(doc.data()!),
       );
     } catch (e) {
-      print(e);
+      developer.log('getCompanyById error', name: 'CompanyRepository', error: e);
       return Result(
         success: false,
         data: null,

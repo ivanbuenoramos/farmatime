@@ -8,6 +8,7 @@ import 'package:farmatime/data/repositories/clock_repository_impl.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/create_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/log_clock_creation_usecase.dart';
 import 'package:farmatime/presentation/pages/employee/my_day/employee_may_day_controller.dart';
 
 class EmployeeMyDayBinding extends Bindings {
@@ -30,6 +31,10 @@ class EmployeeMyDayBinding extends Bindings {
       () => CreateEntryUseCase(Get.find<ClockRepository>()),
     );
 
+    Get.lazyPut<LogClockCreationUseCase>(
+      () => LogClockCreationUseCase(Get.find<ClockRepository>()),
+    );
+
     // Usecase que internamente resuelve override mensual + reglas (según tu repo impl)
     Get.lazyPut<GetExpectedShiftsForDayUseCase>(
       () => GetExpectedShiftsForDayUseCase(Get.find<EmployeeScheduleRepository>()),
@@ -40,6 +45,7 @@ class EmployeeMyDayBinding extends Bindings {
       updateEntryUseCase: Get.find<UpdateEntryUseCase>(),
       getEntriesByEmployeeUseCase: Get.find<GetEntriesByEmployeeUseCase>(),
       getExpectedShiftUseCase: Get.find<GetExpectedShiftsForDayUseCase>(),
+      logClockCreationUseCase: Get.find<LogClockCreationUseCase>(),
     ));
   }
 }

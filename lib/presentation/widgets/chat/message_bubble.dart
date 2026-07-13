@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:farmatime/data/models/chat/chat_models.dart';
+import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
 
+  /// Mostrar el nombre del remitente sobre la burbuja (grupos, primer mensaje del bloque)
+  final String? senderName;
+
+  /// Mostrar el avatar a la izquierda (último mensaje del bloque del otro)
+  final bool showAvatar;
+
+  /// El primer mensaje de un bloque consecutivo del mismo remitente
+  final bool isFirstInGroup;
+
+  /// El último mensaje del bloque (define la "cola" del bubble y la hora)
+  final bool isLastInGroup;
+
   const MessageBubble({
     super.key,
     required this.message,
     required this.isMine,
+    this.senderName,
+    this.showAvatar = false,
+    this.isFirstInGroup = true,
+    this.isLastInGroup = true,
   });
 
   @override
@@ -19,44 +36,109 @@ class MessageBubble extends StatelessWidget {
 
     final bgColor = isMine
         ? theme.colorScheme.primary
-        : theme.colorScheme.secondary;
-
+        : Colors.white;
     final textColor = isMine
         ? theme.colorScheme.onPrimary
-        : theme.colorScheme.onSecondary;
+        : const Color(0xff1F2937);
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        constraints: const BoxConstraints(maxWidth: 320),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isMine ? 14 : 4),
-            bottomRight: Radius.circular(isMine ? 4 : 14),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
+    const radiusLarge = Radius.circular(18);
+    const radiusSmall = Radius.circular(6);
+
+    final borderRadius = BorderRadius.only(
+      topLeft: !isMine && !isFirstInGroup ? radiusSmall : radiusLarge,
+      topRight: isMine && !isFirstInGroup ? radiusSmall : radiusLarge,
+      bottomLeft: !isMine && isLastInGroup ? radiusSmall : radiusLarge,
+      bottomRight: isMine && isLastInGroup ? radiusSmall : radiusLarge,
+    );
+
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 13),
+      constraints: const BoxConstraints(maxWidth: 280),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: borderRadius,
+        border: isMine
+            ? null
+            : Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.6),
+              ),
+        boxShadow: isMine
+            ? [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (senderName != null && !isMine && isFirstInGroup) ...[
             Text(
-              message.text,
-              style: theme.textTheme.bodyMedium?.copyWith(color: textColor),
+              senderName!,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
+          ],
+          Text(
+            message.text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+          if (isLastInGroup) ...[
+            const SizedBox(height: 2),
             Text(
               time,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: textColor.withOpacity(0.9),
+                color: isMine
+                    ? Colors.white.withValues(alpha: 0.85)
+                    : theme.colorScheme.tertiary,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
-        ),
+        ],
+      ),
+    );
+
+    final avatarSlot = SizedBox(
+      width: 32,
+      child: showAvatar && !isMine
+          ? ProfileAvatar(
+              name: senderName ?? '?',
+              uid: message.senderId,
+              size: 28,
+            )
+          : null,
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isMine ? 56 : 8,
+        right: isMine ? 8 : 56,
+        top: isFirstInGroup ? 8 : 2,
+        bottom: isLastInGroup ? 4 : 0,
+      ),
+      child: Row(
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMine) ...[avatarSlot, const SizedBox(width: 6)],
+          Flexible(child: bubble),
+        ],
       ),
     );
   }

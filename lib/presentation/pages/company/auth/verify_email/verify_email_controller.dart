@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:farmatime/core/routes/routes.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/log_out_usecase.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -70,7 +72,8 @@ class VerifyEmailController extends GetxController {
       _startPolling();
       _startCooldown(seconds: 60);
     } catch (e) {
-      Get.snackbar('Error', 'No se pudo enviar el email: $e');
+      debugPrint('sendEmailVerification error: $e');
+      ToastService().show(title: 'Error', message: 'No se pudo enviar el email de verificación. Inténtalo de nuevo.', type: ToastType.error);
     } finally {
       isSending.value = false;
     }
@@ -131,7 +134,7 @@ class VerifyEmailController extends GetxController {
 
     await _ensureCompanyLoaded();
     if (company == null) {
-      Get.snackbar('Error', 'No se encontró la compañía.');
+      ToastService().show(title: 'Error', message: 'No se encontró la compañía.', type: ToastType.error);
       return;
     }
 
@@ -141,10 +144,13 @@ class VerifyEmailController extends GetxController {
       company = updatedCompany;
       brain.company.value = updatedCompany;
 
-      Get.snackbar('¡Listo!', 'Email verificado correctamente.');
-      Get.back();
+      ToastService().show(title: '¡Listo!', message: 'Email verificado correctamente.', type: ToastType.success);
+      // Llegamos aquí por offAllNamed (sin pila atrás), así que entramos a la
+      // app de empresa explícitamente en vez de Get.back().
+      Get.offAllNamed(Routes.companyMain);
     } catch (e) {
-      Get.snackbar('Error', 'No se pudo actualizar la compañía: $e');
+      debugPrint('verifyEmail update error: $e');
+      ToastService().show(title: 'Error', message: 'No se pudo actualizar la empresa. Inténtalo de nuevo.', type: ToastType.error);
     }
   }
 }

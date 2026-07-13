@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:farmatime/domain/repositories/clock_repository.dart';
 import 'package:farmatime/data/repositories/clock_repository_impl.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/get_clock_audit_log_usecase.dart';
 
 
 
@@ -15,6 +16,11 @@ class EditEntryBinding extends Bindings {
     // Usecase
     Get.lazyPut<UpdateEntryUseCase>(
       () => UpdateEntryUseCase(Get.find<ClockRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut<GetClockAuditLogUseCase>(
+      () => GetClockAuditLogUseCase(Get.find<ClockRepository>()),
       fenix: true,
     );
   }

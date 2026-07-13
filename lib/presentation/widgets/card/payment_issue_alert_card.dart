@@ -92,13 +92,7 @@ class PaymentIssueAlertCard extends StatelessWidget {
                     : Get.theme.colorScheme.error,
               ),
               onPressed: onTap ?? () {
-                if (billingStatus == 'canceled') {
-                  Get.toNamed(Routes.companySubscription);
-                  return;
-                } else if (billingStatus == 'past_due' || billingStatus == 'unpaid') {
-                  Get.toNamed(Routes.companySubscriptionPaymentIssue);
-                  return;
-                }
+                Get.toNamed(Routes.companySubscription);
               },
               child: Text(
                   billingStatus == 'active'

@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import 'package:farmatime/domain/repositories/firebase_auth_repository.dart';
 import 'package:farmatime/domain/usecases/firebase_auth/log_out_usecase.dart';
+import 'package:farmatime/domain/usecases/firebase_auth/delete_account_usecase.dart';
 import 'package:farmatime/data/repositories/firebase_auth_repository_impl.dart';
 import 'package:farmatime/presentation/pages/company/settings/settings_controller.dart';
 
@@ -17,8 +18,13 @@ class SettingsBinding extends Bindings {
       () => LogOutUseCase(Get.find<FirebaseAuthRepository>()),
     );
 
+    Get.lazyPut<DeleteAccountUseCase>(
+      () => DeleteAccountUseCase(Get.find<FirebaseAuthRepository>()),
+    );
+
     Get.lazyPut<SettingsController>(() => SettingsController(
       logOutUseCase: Get.find<LogOutUseCase>(),
+      deleteAccountUseCase: Get.find<DeleteAccountUseCase>(),
     ));
   }
 }

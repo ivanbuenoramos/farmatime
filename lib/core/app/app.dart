@@ -31,6 +31,12 @@ class FarmatimeApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            supportedLocales: const [
+              Locale('es', 'ES'),
+              Locale('es'),
+              Locale('en'),
+            ],
+            locale: const Locale('es', 'ES'),
             localeResolutionCallback: (locale, supportedLocales) {
               for (var supportedLocale in supportedLocales) {
                 if (supportedLocale.languageCode == locale?.languageCode) {

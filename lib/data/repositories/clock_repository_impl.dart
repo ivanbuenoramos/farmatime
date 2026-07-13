@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:farmatime/data/models/clock_in_out_model.dart';
+import 'package:farmatime/data/models/clock_audit_log_model.dart';
 import 'package:farmatime/data/models/result.dart';
 import 'package:farmatime/domain/repositories/clock_repository.dart';
 
@@ -66,6 +67,64 @@ class ClockRepositoryImpl implements ClockRepository {
     } catch (e) {
       return Result(success: false, data: null, errorCode: e.toString());
     }
+  }
+
+  @override
+  Future<Result<ClockInOutModel?>> updateEntryWithAudit({
+    required ClockInOutModel entry,
+    required ClockAuditLogModel auditLog,
+  }) async {
+    try {
+      final entryRef = firestore.collection('clockRecords').doc(entry.id);
+      final logRef = entryRef.collection('auditLog').doc(auditLog.id);
+
+      // Transacción atómica: o se actualiza el fichaje Y se crea su entrada de
+      // auditoría, o no se hace nada. Así el histórico nunca queda incompleto.
+      await firestore.runTransaction((txn) async {
+        final snap = await txn.get(entryRef);
+        if (!snap.exists) {
+          throw FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'not-found',
+            message: 'El fichaje ya no existe',
+          );
+        }
+        txn.update(entryRef, entry.toJson());
+        txn.set(logRef, auditLog.toJson());
+      });
+
+      return Result(success: true, data: entry);
+    } catch (e) {
+      return Result(success: false, data: null, errorCode: e.toString());
+    }
+  }
+
+  @override
+  Future<void> logCreation(ClockAuditLogModel auditLog) async {
+    try {
+      await firestore
+          .collection('clockRecords')
+          .doc(auditLog.entryId)
+          .collection('auditLog')
+          .doc(auditLog.id)
+          .set(auditLog.toJson());
+    } catch (_) {
+      // Best-effort: no debe bloquear el fichaje si el log de creación falla.
+    }
+  }
+
+  @override
+  Future<List<ClockAuditLogModel>> getAuditLog(String entryId) async {
+    final snap = await firestore
+        .collection('clockRecords')
+        .doc(entryId)
+        .collection('auditLog')
+        .orderBy('at')
+        .get();
+
+    return snap.docs
+        .map((d) => ClockAuditLogModel.fromJson(d.data()))
+        .toList();
   }
 
   @override

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:farmatime/data/models/clock_in_out_model.dart';
 import 'package:farmatime/presentation/pages/company/edit_entry/edit_entry_binding.dart';
 import 'package:farmatime/presentation/pages/company/edit_entry/edit_entry_page.dart';
+import 'package:farmatime/presentation/widgets/modals/clock_audit_history_modal.dart';
 import 'package:farmatime/presentation/widgets/card/base_card.dart';
 import 'package:farmatime/presentation/widgets/card/profile_avatar.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ Future<void> showClockingsDayModal({
   required BuildContext context,
   required String employeeName,
   String? employeeEmail,
+  String? employeeUid,
   required DateTime day,
   required List<ClockInOutModel> records,
 }) async {
@@ -33,6 +35,7 @@ Future<void> showClockingsDayModal({
     builder: (_) => _DayClockingsSheet(
       employeeName: employeeName,
       employeeEmail: employeeEmail,
+      employeeUid: employeeUid,
       day: day,
       records: records,
     ),
@@ -42,6 +45,7 @@ Future<void> showClockingsDayModal({
 class _DayClockingsSheet extends StatefulWidget {
   final String employeeName;
   final String? employeeEmail;
+  final String? employeeUid;
   final DateTime day;
   final List<ClockInOutModel> records;
 
@@ -50,6 +54,7 @@ class _DayClockingsSheet extends StatefulWidget {
     required this.day,
     required this.records,
     this.employeeEmail,
+    this.employeeUid,
   });
 
   @override
@@ -240,6 +245,7 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                 children: [
                   ProfileAvatar(
                     name: widget.employeeName,
+                    uid: widget.employeeUid,
                     size: 50,
                   ),
                   const SizedBox(width: 12),
@@ -524,16 +530,48 @@ class _DayClockingsSheetState extends State<_DayClockingsSheet> {
                                           const SizedBox(height: 4),
                                           Text(
                                             'Editado por ${
-                                              s.editedBy == 'company' 
-                                                ? 'farmacia' 
+                                              s.editedBy == 'company'
+                                                ? 'farmacia'
                                                 : s.editedBy == 'employee'
-                                                    ? 'empleado' 
-                                                    : s.editedBy ?? 'desconocido' 
+                                                    ? 'empleado'
+                                                    : s.editedBy ?? 'desconocido'
                                             } el ${s.editedAt != null ? DateFormat('d/M/y - HH:mm').format(s.editedAt!) : 'desconocida'}',
                                             style: textTheme.bodySmall?.copyWith(
                                               fontStyle: FontStyle.italic,
-                                            ),  
-                                          )
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          // Acceso al historial completo e
+                                          // inmutable de cambios (trazabilidad
+                                          // normativa).
+                                          InkWell(
+                                            onTap: () {
+                                              EditEntryBinding().dependencies();
+                                              showClockAuditHistoryModal(
+                                                context: context,
+                                                entryId: s.id,
+                                              );
+                                            },
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.history_rounded,
+                                                  size: 16,
+                                                  color: colorScheme.primary,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Ver historial de cambios',
+                                                  style: textTheme.bodySmall
+                                                      ?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ],
                                       ],
                                     ),
