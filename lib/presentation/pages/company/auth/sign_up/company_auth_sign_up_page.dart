@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/presentation/pages/company/auth/sign_up/company_auth_sign_up_controller.dart';
+import 'package:farmatime/presentation/widgets/legal_links_row.dart';
 
 
 
@@ -83,6 +84,21 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                   onPressed: controller.register,
                   label: 'Crear cuenta',
                 )),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Column(
+                  children: [
+                    Text(
+                      'Al crear la cuenta aceptas',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const LegalLinksRow(fontSize: 12),
+                  ],
+                ),
               ),
               Spacer(),
               Column(

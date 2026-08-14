@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:farmatime/core/legal_links.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/services/toast_service.dart';
 
@@ -70,6 +71,12 @@ class SettingsController extends GetxController {
   void redirectToChangePassword() {
     Get.toNamed(Routes.changePassword);
   }
+
+  /// Abrir la política de privacidad en el navegador
+  Future<void> openPrivacy() => LegalLinks.openPrivacyPolicy();
+
+  /// Abrir los términos y condiciones de uso en el navegador
+  Future<void> openTerms() => LegalLinks.openTermsOfUse();
 
   /// Cambiar idioma
   void changeLanguage(Locale locale) {

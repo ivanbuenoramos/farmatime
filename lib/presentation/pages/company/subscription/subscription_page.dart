@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import 'package:farmatime/core/iap/iap_plans.dart';
 import 'package:farmatime/data/models/employee_model.dart';
+import 'package:farmatime/presentation/widgets/legal_links_row.dart';
 
 import 'subscription_controller.dart';
 
@@ -1134,6 +1135,8 @@ class _LegalNote extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 6),
+        const LegalLinksRow(color: _kSubtle, fontSize: 11.5),
       ],
     );
   }

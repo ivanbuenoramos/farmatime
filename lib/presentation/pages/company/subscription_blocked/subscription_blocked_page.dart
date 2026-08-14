@@ -4,6 +4,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'package:farmatime/core/iap/iap_plans.dart';
 import 'package:farmatime/presentation/pages/company/subscription/subscription_controller.dart';
+import 'package:farmatime/presentation/widgets/legal_links_row.dart';
 
 import 'subscription_blocked_controller.dart';
 
@@ -387,20 +388,26 @@ class _LegalNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        'El pago se procesa a través de tu cuenta de la App Store o '
-        'Google Play. Las suscripciones se renuevan automáticamente.',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 11.5,
-          fontWeight: FontWeight.w500,
-          color: _kSubtle,
-          height: 1.5,
+    return const Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'El pago se procesa a través de tu cuenta de la App Store o '
+            'Google Play. Las suscripciones se renuevan automáticamente.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: _kSubtle,
+              height: 1.5,
+            ),
+          ),
         ),
-      ),
+        SizedBox(height: 6),
+        LegalLinksRow(color: _kSubtle, fontSize: 11.5),
+      ],
     );
   }
 }
