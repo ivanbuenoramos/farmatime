@@ -91,12 +91,20 @@ class SettingsController extends GetxController {
     brain.clearSession();
   }
 
+  /// Solo las cuentas de farmacia pueden eliminarse a sí mismas: las de
+  /// empleado las gestiona la farmacia y comparten esta misma pantalla.
+  bool get isCompanyAccount => brain.company.value != null;
+
   /// Eliminar cuenta
   Future<void> deleteAccount() async {
     final confirm = await _confirm(
       title: 'Eliminar cuenta',
-      message: 'Esta acción es permanente y borrará tus datos. ¿Deseas continuar?',
-      confirmText: 'Eliminar',
+      message: 'Se eliminarán de forma permanente la cuenta de la farmacia, '
+          'las cuentas de tus empleados y todos los datos asociados: fichajes, '
+          'horarios, ausencias y mensajes. Esta acción no se puede deshacer.\n\n'
+          'Si tienes una suscripción activa, cancélala desde los ajustes de tu '
+          'dispositivo para evitar nuevos cobros.',
+      confirmText: 'Eliminar cuenta',
       destructive: true,
     );
     if (confirm != true) return;

@@ -2,7 +2,6 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="com.android.vending.BILLING" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -10,7 +9,7 @@
                android:value="AIzaSyC00CKKmwNiEfs0uUDGCrfcYbz51HbuUuE"/>
 
     <application
-        android:label="farmatime"
+        android:label="Farmatime"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity
@@ -59,6 +58,15 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- url_launcher: sin esto, en Android 11+ no se resuelve el navegador
+             y launchUrl(externalApplication) devuelve false. Lo usamos para
+             abrir la gestión de suscripciones de Google Play y la web de
+             gestión de suscripciones de Apple (farmacias que contrataron en
+             iOS y abren la app en Android). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

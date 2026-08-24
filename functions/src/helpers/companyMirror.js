@@ -5,6 +5,17 @@ const { logger } = require('firebase-functions');
 
 const CANCELED_STATUSES = new Set(['canceled', 'expired', 'revoked', 'on_hold', 'paused']);
 
+// Estados en los que la suscripción sigue VIVA en su tienda (aunque el cobro
+// esté fallando): mientras lo esté, una compra en la OTRA tienda no reemplaza
+// nada, crea una segunda suscripción en paralelo.
+const LIVE_STATUSES = new Set([
+  'active',
+  'in_grace_period',
+  'in_billing_retry',
+  'on_hold',
+  'paused',
+]);
+
 function tsFromMillis(ms) {
   if (!ms || typeof ms !== 'number') return null;
   return admin.firestore.Timestamp.fromMillis(ms);
@@ -51,6 +62,9 @@ async function updateCompanyMirror(companyId, payload, options = {}) {
   if ('currentPeriodStartMs' in payload) sub.currentPeriodStart = tsFromMillis(payload.currentPeriodStartMs);
   if ('autoRenewing' in payload) sub.autoRenewing = !!payload.autoRenewing;
   if ('environment' in payload) sub.environment = payload.environment ?? null;
+  // Rastro de una suscripción de la otra tienda que queda sin vincular (ver
+  // detectOrphanedSubscription en iap/verifyPurchase.js).
+  if ('orphaned' in payload) sub.orphaned = payload.orphaned ?? null;
 
   // Mantenemos estos campos top-level para compatibilidad con el resto del código
   // (billingEmployees.js lee billingStatus y contractedSeats).
@@ -213,6 +227,14 @@ async function resetCompanyToFree(companyId) {
   );
 }
 
+// Estado de suscripción actualmente guardado en la empresa (o null).
+async function getSubscriptionSnapshot(companyId) {
+  if (!companyId) return null;
+  const snap = await db.collection('companies').doc(companyId).get();
+  if (!snap.exists) return null;
+  return snap.data()?.subscription || null;
+}
+
 async function getCompanyIdFromOriginalTransactionId(originalTransactionId) {
   if (!originalTransactionId) return '';
   const q = await db
@@ -248,6 +270,8 @@ async function getCompanyIdFromPurchaseToken(purchaseToken) {
 }
 
 module.exports = {
+  LIVE_STATUSES,
+  getSubscriptionSnapshot,
   updateCompanyMirror,
   markCompanyAsCanceled,
   resetCompanyToFree,

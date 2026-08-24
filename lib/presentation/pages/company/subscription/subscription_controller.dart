@@ -37,6 +37,11 @@ class SubscriptionController extends GetxController {
   final Rx<DateTime?> expiresAt = Rx<DateTime?>(null);
   final RxBool autoRenewing = false.obs;
 
+  /// Tienda en la que se contrató la suscripción ('ios' | 'android' | '').
+  /// La escribe el backend al verificar la compra y es la ÚNICA fuente fiable:
+  /// una farmacia puede pagar en un iPhone y abrir luego la app en Android.
+  final RxString subscriptionPlatform = ''.obs;
+
   final RxList<EmployeeModel> employees = <EmployeeModel>[].obs;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _companySub;
@@ -71,6 +76,61 @@ class SubscriptionController extends GetxController {
       .toList();
 
   int get billableEmployeeCount => billableEmployees.length;
+
+  /// Tienda de ESTE dispositivo.
+  String get _devicePlatform => Platform.isIOS ? 'ios' : 'android';
+
+  /// Estados en los que la suscripción sigue VIVA en la tienda, aunque el
+  /// cobro esté fallando. Mientras lo esté, comprar en la otra tienda no
+  /// reemplaza nada: crea una segunda suscripción en paralelo y la farmacia
+  /// acaba pagando a Apple y a Google a la vez.
+  static const Set<String> _liveStoreStatuses = {
+    'active',
+    'in_grace_period',
+    'in_billing_retry',
+    'on_hold',
+    'paused',
+  };
+
+  /// La suscripción viva se contrató en una tienda distinta a la de este
+  /// dispositivo (pagaron en un iPhone y abren la app en Android, o al revés).
+  bool get isManagedByOtherStore {
+    final p = subscriptionPlatform.value;
+    if (p.isEmpty || p == _devicePlatform) return false;
+    return _liveStoreStatuses.contains(billingStatus.value);
+  }
+
+  /// Nombre de la tienda donde vive la suscripción.
+  String get subscriptionStoreName =>
+      subscriptionPlatform.value == 'ios' ? 'App Store' : 'Google Play';
+
+  /// Tienda a la que debe apuntar "Gestionar suscripción": la que contrató la
+  /// suscripción y, si aún no hay ninguna, la del dispositivo.
+  String get _managementStore => subscriptionPlatform.value.isNotEmpty
+      ? subscriptionPlatform.value
+      : _devicePlatform;
+
+  String get managementStoreName =>
+      _managementStore == 'ios' ? 'App Store' : 'Google Play';
+
+  /// Dispositivo desde el que sí se puede cambiar o cancelar el plan.
+  String get subscriptionDeviceName =>
+      subscriptionPlatform.value == 'ios' ? 'iPhone o iPad' : 'Android';
+
+  /// Corta cualquier compra cuando la suscripción vive en la otra tienda.
+  /// Devuelve true si hay que abortar. La UI ya deshabilita los planes; esto
+  /// es la red de seguridad (rutas alternativas, estado que cambia a mitad).
+  bool _blockedByOtherStore() {
+    if (!isManagedByOtherStore) return false;
+    ToastService().show(
+      title: 'Suscripción en $subscriptionStoreName',
+      message: 'Tu suscripción se contrató en $subscriptionStoreName. Cambia '
+          'de plan desde un $subscriptionDeviceName, o cancélala allí antes de '
+          'suscribirte en esta tienda.',
+      type: ToastType.warning,
+    );
+    return true;
+  }
 
   @override
   void onInit() {
@@ -138,6 +198,7 @@ class SubscriptionController extends GetxController {
       final raw = sub['expiresAt'] ?? data['currentPeriodEnd'];
       if (raw is Timestamp) expiresAt.value = raw.toDate();
       autoRenewing.value = sub['autoRenewing'] == true;
+      subscriptionPlatform.value = (sub['platform'] ?? '') as String;
     });
   }
 
@@ -225,6 +286,7 @@ class SubscriptionController extends GetxController {
   }
 
   Future<void> buyPlan(String productId) async {
+    if (_blockedByOtherStore()) return;
     final product = iapRepository.findProduct(productId);
     if (product == null) {
       ToastService().show(
@@ -269,6 +331,7 @@ class SubscriptionController extends GetxController {
     required String productId,
     required List<String> employeeUidsToDisable,
   }) async {
+    if (_blockedByOtherStore()) return;
     final product = iapRepository.findProduct(productId);
     if (product == null) {
       ToastService().show(
@@ -312,6 +375,17 @@ class SubscriptionController extends GetxController {
     }
   }
 
+  /// Acción del botón "Restaurar" y del pull-to-refresh. Restaurar consulta la
+  /// tienda del dispositivo: si la suscripción está en la otra, ahí no hay nada
+  /// que restaurar, así que nos limitamos a recargar los productos.
+  Future<void> refreshFromStore() async {
+    if (isManagedByOtherStore) {
+      await reloadProducts();
+      return;
+    }
+    await restorePurchases();
+  }
+
   Future<void> restorePurchases() async {
     _restoreFlagTimer?.cancel();
     _awaitingUserPurchase = true;
@@ -329,9 +403,21 @@ class SubscriptionController extends GetxController {
   }
 
   Future<void> openStoreSubscriptionManagement() async {
-    final url = Platform.isIOS
-        ? Uri.parse('itms-apps://apps.apple.com/account/subscriptions')
-        : Uri.parse('https://play.google.com/store/account/subscriptions');
+    // El destino depende de DÓNDE se contrató la suscripción, no del
+    // dispositivo: una suscripción de App Store no aparece en la lista de
+    // Google Play (y viceversa), así que abrir la tienda del dispositivo
+    // dejaba al usuario sin poder cancelar. Si aún no hay suscripción,
+    // caemos en la tienda del dispositivo, que es donde comprará.
+    final Uri url;
+    if (_managementStore == 'ios') {
+      // El esquema itms-apps:// solo lo entiende iOS; desde Android abrimos
+      // la versión web de la gestión de suscripciones de Apple.
+      url = Platform.isIOS
+          ? Uri.parse('itms-apps://apps.apple.com/account/subscriptions')
+          : Uri.parse('https://apps.apple.com/account/subscriptions');
+    } else {
+      url = Uri.parse('https://play.google.com/store/account/subscriptions');
+    }
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       ToastService().show(
         title: 'Error',

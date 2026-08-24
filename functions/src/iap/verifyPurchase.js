@@ -5,6 +5,8 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const { assertAuth, assertCompanyAccount } = require('../helpers/assertions');
 const {
+  LIVE_STATUSES,
+  getSubscriptionSnapshot,
   updateCompanyMirror,
   getCompanyIdFromOriginalTransactionId,
   getCompanyIdFromPurchaseToken,
@@ -64,6 +66,37 @@ async function assertNotClaimedByOther({ companyId, originalTransactionId, purch
   }
 }
 
+// Si la empresa YA tenía una suscripción viva en la otra tienda, este pago no
+// la reemplaza: crea una segunda en paralelo (Apple y Google no se hablan) y la
+// farmacia paga dos veces. La app lo impide antes de comprar
+// (isManagedByOtherStore en SubscriptionController), así que llegar aquí es
+// anómalo: versión vieja de la app, o compra hecha desde otro dispositivo.
+//
+// NO rechazamos la verificación: el usuario YA ha pagado en la tienda y
+// devolverle un error le dejaría sin plazas además de con el doble cargo. Lo
+// que hacemos es guardar el identificador que estamos a punto de borrar (para
+// que soporte pueda cancelar/reembolsar la huérfana) y dejarlo en los logs.
+async function detectOrphanedSubscription(companyId, newPlatform) {
+  const prev = await getSubscriptionSnapshot(companyId);
+  if (!prev || !prev.platform || prev.platform === newPlatform) return null;
+  if (!LIVE_STATUSES.has(prev.status)) return null;
+
+  const orphaned = {
+    platform: prev.platform,
+    productId: prev.productId || null,
+    originalTransactionId: prev.originalTransactionId || null,
+    purchaseToken: prev.purchaseToken || null,
+    status: prev.status,
+    detectedAt: new Date(),
+  };
+  logger.error(
+      '[verifyPurchase] POSIBLE DOBLE SUSCRIPCIÓN: la empresa ya tenía una ' +
+      'suscripción viva en la otra tienda',
+      { companyId, from: prev.platform, to: newPlatform, orphaned },
+  );
+  return orphaned;
+}
+
 // Sanea la lista de uids que el admin eligió desactivar en un downgrade:
 // solo strings no vacíos, sin duplicados, con un tope defensivo.
 function sanitizeDisableUids(raw) {
@@ -113,9 +146,11 @@ async function verifyIosViaServerApi({ companyId, productId, transactionId, disa
   const autoRenewing = !!(latest?.signedRenewalInfo?.autoRenewStatus);
 
   await assertNotClaimedByOther({ companyId, originalTransactionId });
+  const orphaned = await detectOrphanedSubscription(companyId, 'ios');
 
   await updateCompanyMirror(companyId, {
     platform: 'ios',
+    ...(orphaned ? { orphaned } : {}),
     productId,
     status,
     totalSeats: plan.totalSeats,
@@ -156,9 +191,11 @@ async function verifyIosViaReceipt({ companyId, productId, receiptData, disableU
     companyId,
     originalTransactionId: fb.originalTransactionId,
   });
+  const orphaned = await detectOrphanedSubscription(companyId, 'ios');
 
   await updateCompanyMirror(companyId, {
     platform: 'ios',
+    ...(orphaned ? { orphaned } : {}),
     productId,
     status: fb.status,
     totalSeats: plan.totalSeats,
@@ -225,6 +262,7 @@ async function verifyAndroid({ companyId, productId, purchaseToken, disableUids 
   const autoRenewing = !!line.autoRenewingPlan;
 
   await assertNotClaimedByOther({ companyId, purchaseToken });
+  const orphaned = await detectOrphanedSubscription(companyId, 'android');
 
   // Acknowledge obligatorio por Google (si no, Google reembolsa en 3 días).
   try {
@@ -235,6 +273,7 @@ async function verifyAndroid({ companyId, productId, purchaseToken, disableUids 
 
   await updateCompanyMirror(companyId, {
     platform: 'android',
+    ...(orphaned ? { orphaned } : {}),
     productId,
     status,
     totalSeats: plan.totalSeats,

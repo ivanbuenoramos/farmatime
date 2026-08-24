@@ -21,94 +21,116 @@ class SettingsPage extends GetView<SettingsController> {
       body: Obx(
         () => Stack(
           children: [
-            SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: SizedBox(
-                height: Get.height - MediaQuery.of(context).padding.vertical - kToolbarHeight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Section(
-                      title: 'General',
+            LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                // minHeight en vez de alto fijo: con la fila de "Eliminar
+                // cuenta" el contenido no cabe en móviles pequeños, así hace
+                // scroll en vez de desbordar y el Spacer sigue empujando el
+                // bloque de sesión al fondo en las pantallas grandes.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 24),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _Tile(
-                          leading: Icon(Icons.notifications_none_rounded, color: Get.theme.colorScheme.primary),
-                          title: 'Notificaciones',
-                          trailing: trailing,
-                          onTap: () => Get.toNamed(Routes.companyNotifications),
+                        _Section(
+                          title: 'General',
+                          children: [
+                            _Tile(
+                              leading: Icon(Icons.notifications_none_rounded, color: Get.theme.colorScheme.primary),
+                              title: 'Notificaciones',
+                              trailing: trailing,
+                              onTap: () => Get.toNamed(Routes.companyNotifications),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 12),
+                        _Section(
+                          title: 'Ajustes de la app',
+                          children: [
+                            // _Tile(
+                            //   leading: Icon(Icons.language_rounded, color: Get.theme.colorScheme.primary),
+                            //   title: 'Idioma',
+                            //   subtitle: controller.languageName(controller.currentLocale.value),
+                            //   trailing: const Icon(Icons.chevron_right_rounded),
+                            //   onTap: () => _showLanguageSheet(context),
+                            // ),
+                            // _DividerInset(),
+                            _Tile(
+                              leading: Icon(Icons.app_settings_alt_rounded, color: Get.theme.colorScheme.primary),
+                              title: 'Permisos del dispositivo',
+                              subtitle: controller.platformSettingsHint,
+                              trailing: trailing,
+                              onTap: controller.openSystemSettings,
+                            ),
+                            _DividerInset(),
+                            _Tile(
+                              leading: Icon(Icons.password_rounded, color: Get.theme.colorScheme.primary),
+                              title: 'Cambiar contraseña',
+                              subtitle: 'Actualizar la contraseña de la cuenta',
+                              trailing: trailing,
+                              onTap: controller.redirectToChangePassword,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _Section(
+                          title: 'Más información y ayuda',
+                          children: [
+                            _Tile(
+                              leading: Icon(Icons.policy_outlined, color: Get.theme.colorScheme.primary),
+                              title: 'Política de privacidad',
+                              trailing: Icon(Icons.open_in_new_rounded, color: Get.theme.colorScheme.outline),
+                              onTap: controller.openPrivacy,
+                            ),
+                            _DividerInset(),
+                            _Tile(
+                              leading: Icon(Icons.description_outlined, color: Get.theme.colorScheme.primary),
+                              title: 'Términos y condiciones de uso',
+                              trailing: Icon(Icons.open_in_new_rounded, color: Get.theme.colorScheme.outline),
+                              onTap: controller.openTerms,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Spacer(),
+                        _Section(
+                          children: [
+                            _Tile(
+                              leading: Icon(Icons.logout_rounded, color: Get.theme.colorScheme.error),
+                              title: 'Cerrar sesión',
+                              trailing: trailing,
+                              onTap: controller.logOut,
+                            ),
+                            // Borrado de cuenta: obligatorio para App Store en
+                            // cualquier app que permita crear cuenta (5.1.1(v)).
+                            // Solo la farmacia puede eliminarse: los empleados
+                            // comparten esta pantalla pero no su propia cuenta.
+                            if (controller.isCompanyAccount) ...[
+                              _DividerInset(),
+                              _Tile(
+                                leading: Icon(Icons.delete_forever_rounded, color: Get.theme.colorScheme.error),
+                                title: 'Eliminar cuenta',
+                                subtitle: 'Borra la cuenta y todos tus datos de forma permanente',
+                                trailing: trailing,
+                                onTap: controller.deleteAccount,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: Text(
+                            controller.appVersion.value,
+                            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _Section(
-                      title: 'Ajustes de la app',
-                      children: [
-                        // _Tile(
-                        //   leading: Icon(Icons.language_rounded, color: Get.theme.colorScheme.primary),
-                        //   title: 'Idioma',
-                        //   subtitle: controller.languageName(controller.currentLocale.value),
-                        //   trailing: const Icon(Icons.chevron_right_rounded),
-                        //   onTap: () => _showLanguageSheet(context),
-                        // ),
-                        // _DividerInset(),
-                        _Tile(
-                          leading: Icon(Icons.app_settings_alt_rounded, color: Get.theme.colorScheme.primary),
-                          title: 'Permisos del dispositivo',
-                          subtitle: controller.platformSettingsHint,
-                          trailing: trailing,
-                          onTap: controller.openSystemSettings,
-                        ),
-                        _DividerInset(),
-                        _Tile(
-                          leading: Icon(Icons.password_rounded, color: Get.theme.colorScheme.primary),
-                          title: 'Cambiar contraseña',
-                          subtitle: 'Actualizar la contraseña de la cuenta',
-                          trailing: trailing,
-                          onTap: controller.redirectToChangePassword,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _Section(
-                      title: 'Más información y ayuda',
-                      children: [
-                        _Tile(
-                          leading: Icon(Icons.policy_outlined, color: Get.theme.colorScheme.primary),
-                          title: 'Política de privacidad',
-                          trailing: Icon(Icons.open_in_new_rounded, color: Get.theme.colorScheme.outline),
-                          onTap: controller.openPrivacy,
-                        ),
-                        _DividerInset(),
-                        _Tile(
-                          leading: Icon(Icons.description_outlined, color: Get.theme.colorScheme.primary),
-                          title: 'Términos y condiciones de uso',
-                          trailing: Icon(Icons.open_in_new_rounded, color: Get.theme.colorScheme.outline),
-                          onTap: controller.openTerms,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Spacer(),
-                    _Section(
-                      children: [
-                        _Tile(
-                          leading: Icon(Icons.logout_rounded, color: Get.theme.colorScheme.error),
-                          title: 'Cerrar sesión',
-                          trailing: trailing,
-                          onTap: controller.logOut,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        controller.appVersion.value,
-                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                  ),
                 ),
               ),
             ),

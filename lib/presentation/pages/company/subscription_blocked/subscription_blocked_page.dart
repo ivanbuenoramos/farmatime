@@ -17,6 +17,8 @@ const Color _kBorder = Color(0xffE5E5E5);
 const Color _kSurface = Color(0xffFFFFFF);
 const Color _kCanvas = Color(0xffF5F5F8);
 const Color _kDanger = Color(0xffFF0004);
+const Color _kWarning = Color(0xffF59E0B);
+const Color _kWarningInk = Color(0xffB45309);
 
 /// Pantalla bloqueante para cuentas de farmacia con la suscripción
 /// cancelada/expirada/revocada. No deja navegar al resto de la app:
@@ -45,6 +47,15 @@ class SubscriptionBlockedPage extends StatelessWidget {
                 children: [
                   const _BlockedHero(),
                   const SizedBox(height: 22),
+                  Obx(() {
+                    if (!sub.isManagedByOtherStore) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 22),
+                      child: _OtherStoreNotice(controller: sub),
+                    );
+                  }),
                   Obx(() {
                     if (sub.isLoading.value) {
                       return const _PlansSkeleton();
@@ -180,6 +191,7 @@ class _PlanTile extends StatelessWidget {
       final ProductDetails? product =
           controller.iapRepository.findProduct(plan.productId);
       final isBuying = controller.isBuying.value;
+      final otherStore = controller.isManagedByOtherStore;
       final price = product?.price ?? '—';
       final priceAvailable = product != null;
 
@@ -200,7 +212,7 @@ class _PlanTile extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
-            onTap: (isBuying || !priceAvailable)
+            onTap: (isBuying || !priceAvailable || otherStore)
                 ? null
                 : () => controller.buyPlan(plan.productId),
             borderRadius: BorderRadius.circular(16),
@@ -261,7 +273,7 @@ class _PlanTile extends StatelessWidget {
                   SizedBox(
                     height: 38,
                     child: FilledButton(
-                      onPressed: (isBuying || !priceAvailable)
+                      onPressed: (isBuying || !priceAvailable || otherStore)
                           ? null
                           : () => controller.buyPlan(plan.productId),
                       style: FilledButton.styleFrom(
@@ -292,6 +304,88 @@ class _PlanTile extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+/// La suscripción sigue existiendo en la OTRA tienda (retenida por impago o
+/// pausada). Renovar aquí crearía una segunda suscripción en paralelo, así que
+/// bloqueamos los planes y les mandamos a arreglarla donde la contrataron.
+class _OtherStoreNotice extends StatelessWidget {
+  final SubscriptionController controller;
+  const _OtherStoreNotice({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = controller.subscriptionStoreName;
+    final device = controller.subscriptionDeviceName;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: _kWarning.withAlpha(20),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kWarning.withAlpha(70), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.store_mall_directory_outlined,
+                  size: 18, color: _kWarningInk),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Tu suscripción está en $store',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _kWarningInk,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Para reactivarla, actualiza el pago desde un $device o desde tu '
+            'cuenta de $store. Si te suscribes aquí tendrías dos '
+            'suscripciones y pagarías dos veces.',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: _kWarningInk,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: controller.openStoreSubscriptionManagement,
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: Text('Gestionar en $store'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _kWarningInk,
+                side: const BorderSide(color: Color(0x66B45309)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

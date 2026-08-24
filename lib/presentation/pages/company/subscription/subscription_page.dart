@@ -35,6 +35,9 @@ class SubscriptionPage extends GetView<SubscriptionController> {
         actions: [
           Obx(() {
             if (controller.isLoading.value) return const SizedBox.shrink();
+            if (controller.isManagedByOtherStore) {
+              return const SizedBox.shrink();
+            }
             return IconButton(
               tooltip: 'Restaurar compras',
               onPressed: controller.restorePurchases,
@@ -51,7 +54,7 @@ class SubscriptionPage extends GetView<SubscriptionController> {
         return Stack(
           children: [
             RefreshIndicator(
-              onRefresh: controller.restorePurchases,
+              onRefresh: controller.refreshFromStore,
               color: _kPrimary,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(
@@ -61,6 +64,15 @@ class SubscriptionPage extends GetView<SubscriptionController> {
                 children: [
                   _StatusHeroCard(controller: controller),
                   const SizedBox(height: 24),
+                  Obx(() {
+                    if (!controller.isManagedByOtherStore) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: _OtherStoreNotice(controller: controller),
+                    );
+                  }),
                   _SectionHeader(controller: controller),
                   const SizedBox(height: 12),
                   Obx(() {
@@ -87,6 +99,7 @@ class SubscriptionPage extends GetView<SubscriptionController> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 18),
                       child: _ManageTile(
+                        storeName: controller.managementStoreName,
                         onPressed: controller.openStoreSubscriptionManagement,
                       ),
                     );
@@ -623,6 +636,7 @@ class _PlanTile extends StatelessWidget {
           status == 'in_grace_period' ||
           status == 'in_billing_retry';
       final isBuying = controller.isBuying.value;
+      final otherStore = controller.isManagedByOtherStore;
       final price = product?.price ?? '—';
       final priceAvailable = product != null;
 
@@ -660,7 +674,7 @@ class _PlanTile extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
-            onTap: (isCurrent || isBuying || !priceAvailable)
+            onTap: (isCurrent || isBuying || !priceAvailable || otherStore)
                 ? null
                 : handleTap,
             borderRadius: BorderRadius.circular(16),
@@ -726,12 +740,12 @@ class _PlanTile extends StatelessWidget {
                       _PlanAction(
                         isCurrent: isCurrent,
                         hasActive: hasActive,
-                        disabled: isBuying || !priceAvailable,
+                        disabled: isBuying || !priceAvailable || otherStore,
                         onTap: handleTap,
                       ),
                     ],
                   ),
-                  if (!isCurrent && seatsToFree > 0)
+                  if (!isCurrent && !otherStore && seatsToFree > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: _DowngradeWarning(
@@ -862,12 +876,102 @@ class _PlanAction extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Aviso: la suscripción viva se contrató en la otra tienda
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// La farmacia contrató en una tienda y abre la app en la otra (pagaron en un
+/// iPhone y entran desde Android, o al revés). El acceso funciona igual —el
+/// estado vive en Firestore—, pero comprar aquí crearía una SEGUNDA
+/// suscripción en paralelo y pagarían dos veces, así que bloqueamos los planes
+/// y explicamos dónde gestionar la que ya tienen.
+class _OtherStoreNotice extends StatelessWidget {
+  final SubscriptionController controller;
+  const _OtherStoreNotice({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = controller.subscriptionStoreName;
+    final device = controller.subscriptionDeviceName;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: _kWarning.withAlpha(20),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _kWarning.withAlpha(70), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.store_mall_directory_outlined,
+                  size: 18, color: Color(0xffB45309)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Tu suscripción se contrató en $store',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xffB45309),
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sigue activa y puedes usar la app con normalidad desde este '
+            'dispositivo. Para cambiar de plan o cancelar, hazlo desde un '
+            '$device o desde tu cuenta de $store: si te suscribes aquí '
+            'tendrías dos suscripciones y pagarías dos veces.',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: Color(0xffB45309),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: controller.openStoreSubscriptionManagement,
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: Text('Gestionar en $store'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xffB45309),
+                side: const BorderSide(color: Color(0x66B45309)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Manage tile
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ManageTile extends StatelessWidget {
+  final String storeName;
   final VoidCallback onPressed;
-  const _ManageTile({required this.onPressed});
+  const _ManageTile({required this.storeName, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -899,12 +1003,12 @@ class _ManageTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    const Text(
                       'Gestionar suscripción',
                       style: TextStyle(
                         fontFamily: 'Inter',
@@ -914,10 +1018,10 @@ class _ManageTile extends StatelessWidget {
                         letterSpacing: -0.2,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'Cancelar, cambiar método de pago o ver historial',
-                      style: TextStyle(
+                      'Cancelar o cambiar el pago en $storeName',
+                      style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
