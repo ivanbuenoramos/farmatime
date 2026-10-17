@@ -63,21 +63,9 @@ class ForgotPasswordController extends GetxController {
           await _sendPasswordResetEmailUseCase(email);
 
       // Ajusta estos campos a tu implementación real de Result
+      // El repositorio ya muestra el toast de éxito o de error.
       if (result.success) {
-        ToastService().show(
-          title: 'Correo enviado',
-          message:
-              'Hemos enviado un enlace para restablecer tu contraseña a $email',
-          type: ToastType.success,
-        );
-        // Si quieres volver automáticamente:
         // Get.back();
-      } else {
-        ToastService().show(
-          title: 'Error',
-          message: 'No se ha podido enviar el correo',
-          type: ToastType.error,
-        );
       }
     } catch (e) {
       ToastService().show(

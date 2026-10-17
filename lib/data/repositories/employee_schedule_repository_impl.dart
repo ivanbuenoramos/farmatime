@@ -315,6 +315,9 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     final monthStr = DateFormat('yyyy-MM').format(dayDate);
 
     final out = <String, ExpectedShiftModel?>{};
+    // Empleados con override explícito ese día (libre/vacaciones/etc. también):
+    // el override manda sobre las reglas recurrentes.
+    final overridden = <String>{};
 
     try {
       // 0) init
@@ -347,6 +350,7 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
           if (raw == null) continue;
 
           final entry = DayEntry.fromJson(Map<String, dynamic>.from(raw as Map));
+          overridden.add(empId);
           // Solo si es work con horas
           if (entry.type == DayType.work && entry.start != null && entry.end != null) {
             out[empId] = _shiftFromDayEntry(entry, dayDate);
@@ -357,7 +361,7 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
       }
 
       // 2) Reglas: para los que siguen null, query por whereIn (10 max)
-      final pending = out.entries.where((e) => e.value == null).map((e) => e.key).toList();
+      final pending = out.entries.where((e) => e.value == null && !overridden.contains(e.key)).map((e) => e.key).toList();
 
       for (int i = 0; i < pending.length; i += kBatch) {
         final slice = pending.sublist(

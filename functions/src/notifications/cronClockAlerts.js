@@ -92,10 +92,16 @@ exports.cronClockAlerts = onSchedule(
             .get();
         const records = recSnap.docs.map((d) => d.data() || {});
 
+        // Ventana de 15 min (= periodo del cron) para avisar UNA sola vez en vez
+        // de repetir la notificación en cada ejecución durante todo el día.
+        const lateBy = nowMin - startMin;
+        const afterEnd = nowMin - endMin;
+
         // #1 Sin fichar: turno empezó hace >=30 min y no hay ningún fichaje hoy.
         if (
           startMin != null &&
-          nowMin - startMin >= LATE_THRESHOLD_MIN &&
+          lateBy >= LATE_THRESHOLD_MIN &&
+          lateBy < LATE_THRESHOLD_MIN + 15 &&
           records.length === 0
         ) {
           await sendPushToUsers({
@@ -113,7 +119,8 @@ exports.cronClockAlerts = onSchedule(
         if (
           openRecord &&
           endMin != null &&
-          nowMin - endMin >= LATE_THRESHOLD_MIN
+          afterEnd >= LATE_THRESHOLD_MIN &&
+          afterEnd < LATE_THRESHOLD_MIN + 15
         ) {
           await sendPushToUsers({
             uids: [emp.uid],

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.0.32+32
+version: 1.0.0+1010
 
 environment:
   sdk: ^3.8.1
@@ -45,21 +45,21 @@ dependencies:
   toastification: ^3.0.3
   cached_network_image: ^3.4.1
   intl: ^0.20.2
-  firebase_core: ^3.14.0
-  firebase_auth: ^5.6.0
-  firebase_storage: ^12.4.7
-  cloud_firestore: ^5.6.9
-  firebase_messaging: ^15.1.6
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  firebase_storage: ^13.6.0
+  cloud_firestore: ^6.10.0
+  firebase_messaging: ^16.7.0
   flutter_local_notifications: ^18.0.1
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.6
   uuid: ^4.5.1
   table_calendar: ^3.2.0
   smooth_corner: ^1.1.1
-  cloud_functions: ^5.6.2
+  cloud_functions: ^6.5.0
   url_launcher: ^6.3.2
   in_app_purchase: ^3.2.0
-  in_app_purchase_android: ^0.4.0
+  in_app_purchase_android: ^0.5.0
   in_app_purchase_storekit: ^0.3.0
   collection: ^1.19.1
   permission_handler: ^12.0.1
@@ -77,6 +77,12 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+dependency_overrides:
+  # Google Play exige Billing Library 8.0.0+ (in_app_purchase_android 0.5.x).
+  # in_app_purchase 3.3.0+ ya lo pide, pero arrastra in_app_purchase_storekit
+  # 0.4.x (StoreKit 2 por defecto) y el flujo iOS está hecho sobre StoreKit 1.
+  in_app_purchase_android: ^0.5.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

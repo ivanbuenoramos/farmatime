@@ -154,8 +154,8 @@ class ToastService {
         errorMessage = 'Por favor, verifica tu correo electrónico antes de continuar.';
         break;
       case 'invalid-credential':
-        errorTitle = 'Credencial inválida';
-        errorMessage = 'La credencial proporcionada no es válida.';
+        errorTitle = 'Error de autenticación';
+        errorMessage = 'Correo o contraseña incorrectos';
         break;
       default:
         errorTitle = 'Error';

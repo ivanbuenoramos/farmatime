@@ -76,7 +76,11 @@ class CompanyDashboardController extends GetxController {
 
   // cache interno
   Map<String, ExpectedShiftModel?> _expectedMap = {};
+  // Turnos de AYER que cruzan medianoche y siguen en curso hoy (nocturnos).
+  Map<String, ExpectedShiftModel?> _expectedPrevMap = {};
   Map<String, ClockSnap> _clocks = {};
+  // Día para el que están cargados el stream y los turnos esperados.
+  DateTime? _boundDay;
 
   StreamSubscription<Map<String, (DateTime?, bool)>>? _clocksSub;
   Worker? _employeesWorker;
@@ -167,8 +171,14 @@ class CompanyDashboardController extends GetxController {
   void _startNowTick() {
     _nowTimer?.cancel();
 
-    _nowTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _nowTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
       now.value = DateTime.now();
+      if (_boundDay != null && _boundDay != _todayStart) {
+        // Cambio de día con el dashboard abierto: el stream y los turnos
+        // esperados eran los de ayer.
+        await _reloadExpected();
+        _bindClocksStream();
+      }
       _recompute();
     });
   }
@@ -190,6 +200,9 @@ class CompanyDashboardController extends GetxController {
         _recompute();
         isLoading.value = false;
       });
+    } else {
+      // Sin empleados (aún) no hay nada que cargar: evita spinner infinito.
+      isLoading.value = false;
     }
   }
 
@@ -203,25 +216,52 @@ class CompanyDashboardController extends GetxController {
 
     if (employees.isEmpty) {
       _expectedMap = {};
+      _expectedPrevMap = {};
       return;
     }
 
     errorText.value = null;
 
-    final Result<Map<String, ExpectedShiftModel?>> res =
-        await getExpectedShiftsForDayUseCase.call(
-      companyId: companyId,
-      employeeIds: employees.map((e) => e.uid).toList(),
-      dayDate: _todayStart,
-    );
+    final ids = employees.map((e) => e.uid).toList();
+    final todayStart = _todayStart;
 
-    if (!res.success) {
+    Result<Map<String, ExpectedShiftModel?>>? res;
+    Result<Map<String, ExpectedShiftModel?>>? resPrev;
+    try {
+      // Cargamos también AYER: un turno nocturno (p.ej. 22:00→06:00) sigue en
+      // curso de madrugada y el de hoy no lo refleja.
+      final results = await Future.wait([
+        getExpectedShiftsForDayUseCase.call(
+          companyId: companyId,
+          employeeIds: ids,
+          dayDate: todayStart,
+        ),
+        getExpectedShiftsForDayUseCase.call(
+          companyId: companyId,
+          employeeIds: ids,
+          dayDate: todayStart.subtract(const Duration(days: 1)),
+        ),
+      ]);
+      res = results[0];
+      resPrev = results[1];
+    } catch (_) {
+      res = null;
+    }
+
+    if (res == null || !res.success) {
       _expectedMap = {};
+      _expectedPrevMap = {};
       errorText.value = 'Error al cargar turnos esperados';
       return;
     }
 
     _expectedMap = res.data;
+    // De ayer solo interesan los turnos que terminan ya en el día de hoy.
+    _expectedPrevMap = {
+      if (resPrev != null && resPrev.success)
+        for (final e in resPrev.data.entries)
+          if (e.value != null && e.value!.end.isAfter(todayStart)) e.key: e.value,
+    };
   }
 
   void _bindClocksStream() {
@@ -229,6 +269,7 @@ class CompanyDashboardController extends GetxController {
     if (companyId == null || companyId.isEmpty) return;
 
     _clocksSub?.cancel();
+    _boundDay = _todayStart;
 
     _clocksSub = streamTodayLastClocksUseCase(
       companyId,
@@ -260,7 +301,11 @@ class CompanyDashboardController extends GetxController {
     final n = now.value;
 
     for (final emp in employees) {
-      final exp = _expectedMap[emp.uid];
+      // Si el turno nocturno de ayer sigue en curso, manda sobre el de hoy.
+      final expPrev = _expectedPrevMap[emp.uid];
+      final prevRunning = expPrev != null &&
+          n.isBefore(expPrev.end.add(const Duration(minutes: 1)));
+      final exp = prevRunning ? expPrev : _expectedMap[emp.uid];
       final snap = _clocks[emp.uid];
       final isActive = snap?.isActive == true;
       final lastClockIn = snap?.lastClockIn;

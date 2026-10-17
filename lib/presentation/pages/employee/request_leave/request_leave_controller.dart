@@ -252,7 +252,11 @@ class RequestLeaveController extends GetxController {
       final s = startDate.value;
       final e = endDate.value;
       if (s == null || e == null) return 0;
-      return e.difference(s).inDays + 1; // inclusivo
+      // inclusivo; en UTC para evitar errores por cambios de hora (DST)
+      return DateTime.utc(e.year, e.month, e.day)
+              .difference(DateTime.utc(s.year, s.month, s.day))
+              .inDays +
+          1;
     } else {
       return selectedDays.length;
     }
@@ -338,10 +342,17 @@ class RequestLeaveController extends GetxController {
       note: note.isEmpty ? null : note,
     );
 
-    final res = await createTimeOffUseCase.call(request);
-    submitting.value = false;
+    var ok = false;
+    try {
+      final res = await createTimeOffUseCase.call(request);
+      ok = res.success;
+    } catch (_) {
+      ok = false;
+    } finally {
+      submitting.value = false;
+    }
 
-    if (res.success) {
+    if (ok) {
       _clearForm();
       toast.show(
         title: 'Solicitud enviada',
@@ -357,18 +368,39 @@ class RequestLeaveController extends GetxController {
     }
   }
 
+  /// Ejecuta una decisión sobre una solicitud, libera [decidingId] siempre y
+  /// avisa al usuario si falla (antes el fallo era silencioso).
+  Future<bool> _safeDecide(Future<dynamic> Function() action) async {
+    var ok = false;
+    try {
+      final res = await action();
+      ok = res.success == true;
+    } catch (_) {
+      ok = false;
+    } finally {
+      decidingId.value = null;
+    }
+    if (!ok) {
+      toast.show(
+        title: 'No se pudo completar',
+        message: 'Inténtalo de nuevo en unos instantes.',
+        type: ToastType.error,
+      );
+    }
+    return ok;
+  }
+
   // ─────────────────────────────────────────────
   // Respuesta del empleado a una contrapropuesta
   // ─────────────────────────────────────────────
   Future<void> acceptProposal(TimeOffModel request) async {
     if (decidingId.value != null) return;
     decidingId.value = request.id;
-    final res = await decideTimeOffUseCase.employeeAcceptProposal(
-      request: request,
-      decidedBy: _employeeId,
-    );
-    decidingId.value = null;
-    if (res.success) {
+    final ok = await _safeDecide(() => decideTimeOffUseCase.employeeAcceptProposal(
+          request: request,
+          decidedBy: _employeeId,
+        ));
+    if (ok) {
       toast.show(
         title: 'Propuesta aceptada',
         message: 'Tus días quedan confirmados en el calendario.',
@@ -380,12 +412,11 @@ class RequestLeaveController extends GetxController {
   Future<void> rejectProposal(TimeOffModel request) async {
     if (decidingId.value != null) return;
     decidingId.value = request.id;
-    final res = await decideTimeOffUseCase.employeeRejectProposal(
-      request: request,
-      decidedBy: _employeeId,
-    );
-    decidingId.value = null;
-    if (res.success) {
+    final ok = await _safeDecide(() => decideTimeOffUseCase.employeeRejectProposal(
+          request: request,
+          decidedBy: _employeeId,
+        ));
+    if (ok) {
       toast.show(
         title: 'Propuesta rechazada',
         message: 'La solicitud se ha cerrado.',
@@ -420,12 +451,11 @@ class RequestLeaveController extends GetxController {
     if (confirmed != true) return;
 
     decidingId.value = request.id;
-    final res = await decideTimeOffUseCase.employeeCancel(
-      request: request,
-      decidedBy: _employeeId,
-    );
-    decidingId.value = null;
-    if (res.success) {
+    final ok = await _safeDecide(() => decideTimeOffUseCase.employeeCancel(
+          request: request,
+          decidedBy: _employeeId,
+        ));
+    if (ok) {
       toast.show(
         title: 'Solicitud cancelada',
         message: 'Tu solicitud ya no está pendiente.',

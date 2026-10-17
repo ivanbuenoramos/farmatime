@@ -29,9 +29,9 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 48,
+            minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 48,
           ),
-          child: Column(
+          child: IntrinsicHeight(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -118,7 +118,7 @@ class CompanyAuthSignUpPage extends GetView<CompanyAuthSignUpController> {
                 ],
               ),
             ],
-          ),
+          )),
         ),
       ),
     );

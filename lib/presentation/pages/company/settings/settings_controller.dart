@@ -87,8 +87,8 @@ class SettingsController extends GetxController {
   /// Cerrar sesión
   void logOut() async {
     Get.offNamed(Routes.index);
-    await logOutUseCase.call();
     brain.clearSession();
+    await logOutUseCase.call();
   }
 
   /// Solo las cuentas de farmacia pueden eliminarse a sí mismas: las de
@@ -127,6 +127,12 @@ class SettingsController extends GetxController {
         title: 'Cuenta eliminada',
         message: 'Tu cuenta ha sido eliminada correctamente.',
         type: ToastType.success,
+      );
+    } catch (_) {
+      ToastService().show(
+        title: 'No se pudo eliminar',
+        message: 'Inténtalo de nuevo en unos instantes.',
+        type: ToastType.error,
       );
     } finally {
       isBusy.value = false;

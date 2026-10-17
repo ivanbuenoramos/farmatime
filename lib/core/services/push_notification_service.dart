@@ -88,7 +88,12 @@ class PushNotificationService extends GetxService {
         FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedMessage);
 
     // Mensaje que abrió la app desde estado terminado.
-    final initialMessage = await _messaging.getInitialMessage();
+    // Con timeout: en iOS el plugin solo resuelve esta llamada cuando recibe el
+    // evento de arranque nativo; si no llega (p.ej. versiones sin soporte
+    // UIScene) el Future no completaría nunca.
+    final initialMessage = await _messaging
+        .getInitialMessage()
+        .timeout(const Duration(seconds: 5), onTimeout: () => null);
     if (initialMessage != null) {
       // Pequeño delay para asegurar que GetX y las rutas están listas.
       Future.delayed(const Duration(milliseconds: 800), () {

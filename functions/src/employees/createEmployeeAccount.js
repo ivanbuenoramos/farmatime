@@ -209,7 +209,7 @@ exports.createEmployeeAccount = onCall(async (request) => {
     let resetLink = null;
     try {
       resetLink = await admin.auth().generatePasswordResetLink(email, {
-        url: 'https://tudominio.com/onboarding',
+        url: 'https://farmatime.net/onboarding',
         handleCodeInApp: true,
       });
       logger.info('[createEmployeeAccount] resetLink generated');

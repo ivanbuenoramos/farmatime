@@ -56,29 +56,32 @@ class EmployeeProfileController extends GetxController {
 
   Future<void> pickLogo() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
-
-    final file = File(picked.path);
+    if (isUploadingLogo.value) return;
     isUploadingLogo.value = true;
+    try {
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) return;
 
-    final fileUrl = await uploadFileUseCase.call(
-      file: file,
-      path: 'employees/${originalEmployee.uid}',
-      fileName: 'photo.jpg',
-    );
-    if (fileUrl == null) {
-      ToastService().show(title: 'Error', message: 'No se pudo subir la imagen', type: ToastType.error);
-      isUploadingLogo.value = false;
-      return;
-    } else {
+      final file = File(picked.path);
+
+      final fileUrl = await uploadFileUseCase.call(
+        file: file,
+        path: 'employees/${originalEmployee.uid}',
+        fileName: 'photo.jpg',
+      );
+      if (fileUrl == null) {
+        ToastService().show(title: 'Error', message: 'No se pudo subir la imagen', type: ToastType.error);
+        return;
+      }
       photoUrl.value = fileUrl;
+
+      // Persistimos la nueva foto inmediatamente.
+      await _persist(silent: false);
+    } catch (_) {
+      ToastService().show(title: 'Error', message: 'No se pudo cambiar la foto', type: ToastType.error);
+    } finally {
+      isUploadingLogo.value = false;
     }
-
-    // Persistimos la nueva foto inmediatamente.
-    await _persist(silent: false);
-
-    isUploadingLogo.value = false;
   }
 
   String? _validate() {
@@ -96,8 +99,13 @@ class EmployeeProfileController extends GetxController {
     }
     if (isSaving.value) return;
     isSaving.value = true;
-    await _persist(silent: false);
-    isSaving.value = false;
+    try {
+      await _persist(silent: false);
+    } catch (_) {
+      ToastService().show(title: 'Error', message: 'No se pudieron actualizar tus datos', type: ToastType.error);
+    } finally {
+      isSaving.value = false;
+    }
   }
 
   Future<void> _persist({required bool silent}) async {
@@ -122,6 +130,7 @@ class EmployeeProfileController extends GetxController {
   }
 
   void logOut() async {
+    brain.clearSession();
     await logOutUseCase.call();
     Get.offAllNamed(Routes.index);
   }

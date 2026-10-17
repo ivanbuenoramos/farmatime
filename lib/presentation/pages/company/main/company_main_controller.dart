@@ -99,6 +99,8 @@ class CompanyMainController extends GetxController {
         // Si el doc tiene un shape inesperado, ignoramos: el cliente quedará
         // con el último modelo válido conocido.
       }
+    }, onError: (_) {
+      // p.ej. permission-denied al cerrar sesión: no propagamos el error.
     });
   }
 

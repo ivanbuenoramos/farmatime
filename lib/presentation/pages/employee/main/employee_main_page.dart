@@ -7,6 +7,7 @@ import 'package:farmatime/presentation/presentation.dart';
 import 'package:farmatime/presentation/pages/chat/inbox/inbox_page.dart';
 import 'package:farmatime/presentation/pages/employee/my_day/employee_may_day_page.dart';
 import 'package:farmatime/presentation/pages/employee/entries/employee_entries_page.dart';
+import 'package:farmatime/presentation/pages/employee/entries/employee_entries_controller.dart';
 
 
 
@@ -159,6 +160,11 @@ class EmployeeMainPage extends StatelessWidget {
         showUnselectedLabels: true,
         onTap: (index) {
           controller.indexTab.value = index;
+          // El historial se mantiene vivo en el IndexedStack: refrescarlo al
+          // entrar para que muestre los fichajes recién hechos.
+          if (index == 1 && Get.isRegistered<EmployeeEntriesController>()) {
+            Get.find<EmployeeEntriesController>().fetch();
+          }
         },
         type: BottomNavigationBarType.fixed,
         selectedLabelStyle: const TextStyle(fontSize: 12),

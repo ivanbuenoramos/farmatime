@@ -599,13 +599,20 @@ const reportsScheduleMonthly = onSchedule(
           .where('billingStatus', '==', 'active')
           .get();
 
-      const ref = new Date();
-      ref.setDate(1);
-      ref.setMonth(ref.getMonth() - 1);
-      const year = ref.getFullYear();
-      const month = ref.getMonth() + 1;
+      // Mes anterior según la fecha de MADRID. El servidor corre en UTC: a la
+      // 01:00 CEST del día 1 en UTC aún es el último día del mes anterior, y
+      // con new Date() se generaba el informe de hace dos meses.
+      const madrid = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit',
+      }).formatToParts(new Date());
+      let year = Number(madrid.find((p) => p.type === 'year').value);
+      let month = Number(madrid.find((p) => p.type === 'month').value) - 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
 
-      const monthLabel = format(ref, 'MM/yyyy');
+      const monthLabel = `${String(month).padStart(2, '0')}/${year}`;
 
       for (const c of companies.docs) {
         // eslint-disable-next-line no-await-in-loop
@@ -648,6 +655,15 @@ const reportsGenerateRange = onCall(async (request) => {
   try {
     const data = request.data || {};
     const companyId = data.companyId;
+    // Sin esta comprobación cualquiera (incluso sin sesión) podía generar
+    // informes de cualquier empresa.
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Login requerido');
+    if (companyId && request.auth.uid !== companyId) {
+      const emp = await db.collection('employees').doc(request.auth.uid).get();
+      if (!emp.exists || emp.get('companyId') !== companyId) {
+        throw new HttpsError('permission-denied', 'Sin acceso a esta empresa');
+      }
+    }
     const startStr = data.startDate;
     const endStr = data.endDate;
 

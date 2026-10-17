@@ -121,7 +121,7 @@ class EmployeeDetailController extends GetxController {
       initWithEmployee(arg);
       _loadBalances();
     } else {
-      ToastService().show(title: 'Error', message: 'No employee data provided', type: ToastType.error);
+      ToastService().show(title: 'Error', message: 'No se han proporcionado los datos del empleado', type: ToastType.error);
     }
   }
 
@@ -358,12 +358,19 @@ class EmployeeDetailController extends GetxController {
     return DayEntry(type: DayType.work, start: r.startTime, end: r.endTime);
   }
 
-  void reditectToUpsertEmployee(EmployeeModel? employee) {
-    Get.toNamed(Routes.companyUpsertEmployee, arguments: employee);
+  Future<void> reditectToUpsertEmployee(EmployeeModel? employee) async {
+    final res = await Get.toNamed(Routes.companyUpsertEmployee, arguments: employee);
+    // Refresca la ficha con los datos recién guardados.
+    if (res is EmployeeModel) {
+      this.employee.value = res;
+      _loadBalances();
+    }
   }
 
-  void redirectToDeleteEmployee(EmployeeModel employee) {
-    Get.toNamed(Routes.companyDeleteEmployee, arguments: employee);
+  Future<void> redirectToDeleteEmployee(EmployeeModel employee) async {
+    final res = await Get.toNamed(Routes.companyDeleteEmployee, arguments: employee);
+    // Empleado eliminado: la ficha ya no tiene sentido, volvemos a la lista.
+    if (res == true) Get.back();
   }
 }
 

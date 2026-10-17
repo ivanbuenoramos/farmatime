@@ -67,20 +67,22 @@ class CompanyAccountController extends GetxController {
     final file = File(picked.path);
     isUploadingLogo.value = true;
 
-    final fileUrl = await uploadFileUseCase.call(
-      file: file,
-      path: 'companies/${originalCompany.id}',
-      fileName: 'logo.jpg',
-    );
-    if (fileUrl == null) {
+    try {
+      final fileUrl = await uploadFileUseCase.call(
+        file: file,
+        path: 'companies/${originalCompany.id}',
+        fileName: 'logo.jpg',
+      );
+      if (fileUrl == null) {
+        ToastService().show(title: 'Error', message: 'No se pudo subir la imagen', type: ToastType.error);
+      } else {
+        logoUrl.value = fileUrl;
+      }
+    } catch (_) {
       ToastService().show(title: 'Error', message: 'No se pudo subir la imagen', type: ToastType.error);
+    } finally {
       isUploadingLogo.value = false;
-      return;
-    } else {
-      logoUrl.value = fileUrl;
     }
-    
-    isUploadingLogo.value = false;
   }
 
   Future<void> saveChanges() async {
@@ -115,8 +117,8 @@ class CompanyAccountController extends GetxController {
 
   void logOut() async {
     Get.offNamed(Routes.index);
-    await logOutUseCase.call();
     brain.clearSession();
+    await logOutUseCase.call();
   }
 
   @override

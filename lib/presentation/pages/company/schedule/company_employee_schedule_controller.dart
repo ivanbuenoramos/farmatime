@@ -105,14 +105,21 @@ class EmployeeScheduleController extends GetxController {
   Future<void> loadAll() async {
     isLoading.value = true;
 
-    await Future.wait([
-      loadMonth(focusedDay.value.year, focusedDay.value.month),
-      loadRules(),
-      loadShiftTemplates(),
-      loadBalances(),
-    ]);
-
-    isLoading.value = false;
+    try {
+      await Future.wait([
+        loadMonth(focusedDay.value.year, focusedDay.value.month),
+        loadRules(),
+        loadShiftTemplates(),
+        loadBalances(),
+      ]);
+    } catch (_) {
+      ToastService().show(
+          title: 'Error',
+          message: 'No se pudo cargar el horario. Inténtalo de nuevo.',
+          type: ToastType.error);
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   // ── Saldos de vacaciones / asuntos propios ─────────────────────────────────
@@ -369,15 +376,20 @@ class EmployeeScheduleController extends GetxController {
         out[_yMd(date)] = entry;
       });
 
-      final res = await upsertMonthUC.call(
-        companyId: _companyId,
-        employeeId: employeeId,
-        year: year,
-        month: month,
-        entries: out,
-      );
+      Result<bool>? res;
+      try {
+        res = await upsertMonthUC.call(
+          companyId: _companyId,
+          employeeId: employeeId,
+          year: year,
+          month: month,
+          entries: out,
+        );
+      } catch (_) {
+        res = null;
+      }
 
-      if (!res.success) {
+      if (res == null || !res.success) {
         isSaving.value = false;
         error.value = 'No se pudo guardar ($mk)';
         ToastService().show(

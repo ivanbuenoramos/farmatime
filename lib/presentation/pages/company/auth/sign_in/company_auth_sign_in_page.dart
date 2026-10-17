@@ -29,9 +29,9 @@ class CompanyAuthSignInPage extends GetView<CompanyAuthSignInController> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 48,
+            minHeight: MediaQuery.of(context).size.height - kToolbarHeight - MediaQuery.of(context).padding.top - 48,
           ),
-          child: Column(
+          child: IntrinsicHeight(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -72,10 +72,11 @@ class CompanyAuthSignInPage extends GetView<CompanyAuthSignInController> {
               
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: BlockButton(
-                  onPressed: controller.login,
+                child: Obx(() => BlockButton(
+                  loading: controller.isLoading.value,
+                  onPressed: controller.isLoading.value ? null : controller.login,
                   label: 'INICIAR SESIÓN',
-                ),
+                )),
               ),
           
               const SizedBox(height: 16),
@@ -119,7 +120,7 @@ class CompanyAuthSignInPage extends GetView<CompanyAuthSignInController> {
                 ],
               ),
             ],
-          ),
+          )),
         ),
       ),
     );

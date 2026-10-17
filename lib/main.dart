@@ -43,16 +43,32 @@ Future<void> main() async {
     await brain.loadSession();
 
     // Servicio de notificaciones push (FCM + notificaciones locales).
+    // Se registra antes de runApp para que esté disponible vía Get.find, pero
+    // se inicializa DESPUÉS del primer frame y sin bloquear: el arranque de la
+    // app nunca debe depender del plugin nativo de push (si tarda o se queda
+    // colgado esperando el permiso o el mensaje inicial, la UI se pinta igual).
     final pushService = Get.put(PushNotificationService(), permanent: true);
+
+    runApp(const FarmatimeApp());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initPush(pushService, brain));
+    });
+  }, (Object error, StackTrace stack) {
+    debugPrint('🔴 Uncaught zone error: $error\n$stack');
+  });
+}
+
+/// Inicializa push y, si ya hay sesión, registra el token del usuario actual.
+/// Cualquier fallo se registra y no afecta al resto de la app.
+Future<void> _initPush(PushNotificationService pushService, Brain brain) async {
+  try {
     await pushService.init();
-    // Si ya hay sesión iniciada, refrescamos el token para el usuario actual.
     final loggedUid = brain.employee.value?.uid ?? brain.company.value?.id;
     if (loggedUid != null) {
       await pushService.registerTokenForUser(loggedUid);
     }
-
-    runApp(const FarmatimeApp());
-  }, (Object error, StackTrace stack) {
-    debugPrint('🔴 Uncaught zone error: $error\n$stack');
-  });
+  } catch (error, stack) {
+    debugPrint('🔴 Push init error: $error\n$stack');
+  }
 }

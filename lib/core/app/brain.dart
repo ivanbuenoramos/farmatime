@@ -64,6 +64,7 @@ class Brain {
     }
     employee = Rx<EmployeeModel?>(null);
     company = Rx<CompanyModel?>(null);
+    companyEmployees.clear();
     Future.delayed(Duration.zero, () => Get.forceAppUpdate());
     GetStorage().remove('employee');
     GetStorage().remove('company');

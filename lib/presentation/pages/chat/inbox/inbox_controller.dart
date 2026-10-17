@@ -211,7 +211,9 @@ class InboxController extends GetxController {
           'userStatuses': Map<String, String>.from(userStatuses),
         },
       );
-    } catch (_) {}
+    } catch (_) {
+      ToastService().show(title: 'Error', message: 'No se pudo abrir el chat. Inténtalo de nuevo.', type: ToastType.error);
+    }
   }
 
   /// Abre una conversación existente (grupo o DM).

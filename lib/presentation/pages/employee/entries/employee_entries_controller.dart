@@ -31,11 +31,28 @@ class EmployeeEntriesController extends GetxController {
   }
 
   Future<void> fetch() async {
-    isLoading.value = true;
+    // Si ya hay datos (refresco), no tapamos la lista con el spinner.
+    if (groupedByDay.isEmpty) isLoading.value = true;
     hasError.value = false;
 
-    final result =
-        await getEntriesByEmployeeUseCase.call(brain.employee.value?.uid ?? '');
+    final uid = brain.employee.value?.uid;
+    if (uid == null) {
+      hasError.value = true;
+      isLoading.value = false;
+      return;
+    }
+
+    try {
+      await _load(uid);
+    } catch (_) {
+      hasError.value = true;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> _load(String uid) async {
+    final result = await getEntriesByEmployeeUseCase.call(uid);
 
     if (result.success) {
       final records = [...result.data]
@@ -55,8 +72,6 @@ class EmployeeEntriesController extends GetxController {
     } else {
       hasError.value = true;
     }
-
-    isLoading.value = false;
   }
 
   /// Minutos trabajados en un día. Los turnos sin salida (en curso) cuentan

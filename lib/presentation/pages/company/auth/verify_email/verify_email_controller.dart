@@ -85,6 +85,9 @@ class VerifyEmailController extends GetxController {
   }
 
   void logOut() async {
+    _pollTimer?.cancel();
+    _cooldownTimer?.cancel();
+    brain.clearSession();
     await logoutUseCase();
     Get.offAllNamed(Routes.index);
   }
@@ -112,6 +115,8 @@ class VerifyEmailController extends GetxController {
         _pollTimer?.cancel();
         _onVerified();
       }
+    } catch (e) {
+      debugPrint('checkNow error: $e');
     } finally {
       isChecking.value = false;
     }

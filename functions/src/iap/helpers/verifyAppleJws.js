@@ -11,7 +11,6 @@
 //
 // Ref: https://developer.apple.com/documentation/appstoreservernotifications/responsebodyv2
 const crypto = require('crypto');
-const forge = require('node-forge');
 const { importX509, compactVerify } = require('jose');
 
 // Apple Root CA - G3 (https://www.apple.com/certificateauthority/).
@@ -21,10 +20,8 @@ const { importX509, compactVerify } = require('jose');
 const APPLE_ROOT_CA_G3_SHA256 =
   '63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179';
 
-function derToForgeCert(derBase64) {
-  const der = forge.util.decode64(derBase64);
-  const asn1 = forge.asn1.fromDer(der);
-  return forge.pki.certificateFromAsn1(asn1);
+function derToX509(derBase64) {
+  return new crypto.X509Certificate(Buffer.from(derBase64, 'base64'));
 }
 
 function certSha256(derBase64) {
@@ -50,18 +47,18 @@ function verifyCertificateChain(x5c) {
     throw new Error('la raíz de la cadena no es el Apple Root CA - G3');
   }
 
-  const certs = x5c.map(derToForgeCert);
+  const certs = x5c.map(derToX509);
   const now = new Date();
 
   for (let i = 0; i < certs.length; i++) {
     const cert = certs[i];
-    if (now < cert.validity.notBefore || now > cert.validity.notAfter) {
+    if (now < new Date(cert.validFrom) || now > new Date(cert.validTo)) {
       throw new Error('certificado de la cadena fuera de vigencia');
     }
-    // Cada certificado debe estar firmado por el siguiente (el último es raíz
-    // autofirmada, ya anclada por el pin SHA-256).
+    // Cada certificado debe estar emitido y firmado por el siguiente (el
+    // último es la raíz autofirmada, ya anclada por el pin SHA-256).
     const issuer = certs[i + 1];
-    if (issuer && !issuer.verify(cert)) {
+    if (issuer && !(cert.checkIssued(issuer) && cert.verify(issuer.publicKey))) {
       throw new Error('eslabón de la cadena de certificados inválido');
     }
   }

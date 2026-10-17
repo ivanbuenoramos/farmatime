@@ -190,18 +190,6 @@ class FirebaseAuthRepositoryImpl implements FirebaseAuthRepository {
   }
 
   @override
-  Future<Result<String?>> checkUserExistsByEmail(String email) async {
-    try {
-      final methods = await _auth.fetchSignInMethodsForEmail(email);
-      return Result(success: true, data: methods.isNotEmpty ? 'Email exists' : null);
-    } on FirebaseAuthException catch (e) {
-      return Result(success: false, data: null, errorCode: e.code);
-    } catch (e) {
-      return Result(success: false, data: null, errorCode: 'unknown-error');
-    }
-  }
-
-  @override
   Future<Result<void>> changePassword({
     required String currentPassword,
     required String newPassword,

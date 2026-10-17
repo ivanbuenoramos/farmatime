@@ -171,7 +171,7 @@ class EmployeeCalendarController extends GetxController {
         if (!prefetch) {
           errorText.value = 'No se pudo cargar el calendario ($monthKey)';
         }
-        _monthCache[monthKey] = {};
+        // No cacheamos el fallo: se reintentará al volver a ese mes.
         return;
       }
 
@@ -185,9 +185,8 @@ class EmployeeCalendarController extends GetxController {
       _monthCache[monthKey] = mapped;
     } catch (e) {
       if (!prefetch) {
-        errorText.value = 'Error al cargar calendario: $e';
+        errorText.value = 'No se pudo cargar el calendario ($monthKey)';
       }
-      _monthCache[monthKey] = {};
     } finally {
       if (!prefetch) isLoading.value = false;
     }
@@ -208,7 +207,7 @@ class EmployeeCalendarController extends GetxController {
         errorText.value = 'No se pudieron cargar las reglas';
       }
     } catch (e) {
-      errorText.value = 'Error al cargar reglas: $e';
+      errorText.value = 'No se pudieron cargar las reglas';
     } finally {
       _rulesLoaded = true;
     }

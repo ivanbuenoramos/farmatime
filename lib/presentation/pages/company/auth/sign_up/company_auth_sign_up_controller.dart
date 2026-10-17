@@ -72,7 +72,7 @@ class CompanyAuthSignUpController extends GetxController {
   }
 
   Future<void> register() async {
-    if (!validateForm()) return;
+    if (isLoading.value || !validateForm()) return;
 
     isLoading.value = true;
 
@@ -84,10 +84,8 @@ class CompanyAuthSignUpController extends GetxController {
       final Result<UserCredential?> signUpResult =
           await signUpWithEmailUseCase.call(email, password);
 
-      if (!signUpResult.success || signUpResult.data == null) {
-        ToastService().show(title: 'Error', message: 'No se pudo crear la cuenta', type: ToastType.error);
-        return;
-      }
+      // El repositorio ya muestra el toast con el motivo del fallo.
+      if (!signUpResult.success || signUpResult.data == null) return;
 
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {

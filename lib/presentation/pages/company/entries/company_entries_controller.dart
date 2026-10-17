@@ -210,7 +210,11 @@ class CompanyEntriesController extends GetxController {
     ).listen(
       (records) async {
         _lastRecords = records;
-        await _resolveExpectedMinutes(records);
+        try {
+          await _resolveExpectedMinutes(records);
+        } catch (_) {
+          // Sin horario resuelto se usa el fallback de jornada completa.
+        }
         _buildRowsFromRecords(records);
         isLoading.value = false;
       },

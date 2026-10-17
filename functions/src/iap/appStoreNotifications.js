@@ -31,7 +31,10 @@ function mapNotificationToStatus(notificationType, subtype) {
       return 'expired';
 
     case 'DID_FAIL_TO_RENEW':
-      return subtype === 'GRACE_PERIOD' ? 'in_grace_period' : 'expired';
+      // Sin subtipo Apple sigue reintentando el cobro (hasta 60 días) y puede
+      // recuperarse con DID_RENEW/BILLING_RECOVERY. No es una caducidad: si
+      // el reintento falla llegará EXPIRED/BILLING_RETRY, que sí expira.
+      return subtype === 'GRACE_PERIOD' ? 'in_grace_period' : 'in_billing_retry';
 
     case 'EXPIRED':
       return 'expired';
@@ -170,7 +173,7 @@ exports.iap_appStoreNotifications = onRequest(
           return res.json({ received: true, status });
         }
 
-        if (status === 'active' || status === 'in_grace_period') {
+        if (status === 'active' || status === 'in_grace_period' || status === 'in_billing_retry') {
           if (!plan) {
             logger.warn('[appleNotif] productId no está en catálogo', { productId });
             return res.json({ received: true });

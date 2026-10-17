@@ -155,6 +155,13 @@ class SubscriptionController extends GetxController {
       final loaded = await iapRepository.loadProducts();
       products.assignAll(_sortedProducts(loaded));
       loadDiagnostic.value = iapRepository.lastLoadDiagnostic ?? '';
+    } catch (e) {
+      loadDiagnostic.value = friendlyIapError(e);
+      ToastService().show(
+        title: 'Error',
+        message: friendlyIapError(e),
+        type: ToastType.error,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -166,6 +173,8 @@ class SubscriptionController extends GetxController {
       final loaded = await iapRepository.loadProducts();
       products.assignAll(_sortedProducts(loaded));
       loadDiagnostic.value = iapRepository.lastLoadDiagnostic ?? '';
+    } catch (e) {
+      loadDiagnostic.value = friendlyIapError(e);
     } finally {
       isLoading.value = false;
     }
@@ -392,6 +401,13 @@ class SubscriptionController extends GetxController {
     isLoading.value = true;
     try {
       await iapRepository.restorePurchases();
+    } catch (e) {
+      _awaitingUserPurchase = false;
+      ToastService().show(
+        title: 'Error',
+        message: friendlyIapError(e),
+        type: ToastType.error,
+      );
     } finally {
       isLoading.value = false;
       // Si no había nada que restaurar, el purchaseStream no emite ningún
@@ -418,7 +434,13 @@ class SubscriptionController extends GetxController {
     } else {
       url = Uri.parse('https://play.google.com/store/account/subscriptions');
     }
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+    bool opened;
+    try {
+      opened = await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened) {
       ToastService().show(
         title: 'Error',
         message: 'No se pudo abrir la tienda',

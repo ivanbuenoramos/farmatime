@@ -70,10 +70,11 @@ class EmployeeAuthSignInPage extends GetView<EmployeeAuthSignInController> {
             
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: BlockButton(
-                onPressed: controller.login,
+              child: Obx(() => BlockButton(
+                loading: controller.isLoading.value,
+                onPressed: controller.isLoading.value ? null : controller.login,
                 label: 'INICIAR SESIÓN',
-              ),
+              )),
             ),
 
             const SizedBox(height: 16),

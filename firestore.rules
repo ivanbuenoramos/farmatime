@@ -59,13 +59,19 @@ service cloud.firestore {
       // Solo la propia empresa edita su ficha, pero NUNCA los campos de
       // facturación (los gestiona el backend con privilegios admin, que se
       // salta estas reglas). Esto cierra el agujero de falsear la suscripción.
-      allow create: if isCompany(companyId);
+      // En la creación el cliente no puede autoconcederse plan de pago.
+      allow create: if isCompany(companyId)
+                    && request.resource.data.get('billingStatus', null) in [null, 'none']
+                    && request.resource.data.get('contractedSeats', null) in [null, 1];
+      // Se usa get(campo, default) porque una empresa sin suscripción no tiene
+      // esos campos y leerlos directamente haría fallar la regla (bloqueando
+      // cualquier edición de perfil).
       allow update: if isCompany(companyId)
-                    && request.resource.data.billingStatus == resource.data.billingStatus
-                    && request.resource.data.contractedSeats == resource.data.contractedSeats
-                    && request.resource.data.subscription == resource.data.subscription
-                    && request.resource.data.currentPeriodEnd == resource.data.currentPeriodEnd
-                    && request.resource.data.canceledAt == resource.data.canceledAt;
+                    && request.resource.data.get('billingStatus', null) == resource.data.get('billingStatus', null)
+                    && request.resource.data.get('contractedSeats', 1) == resource.data.get('contractedSeats', 1)
+                    && request.resource.data.get('subscription', null) == resource.data.get('subscription', null)
+                    && request.resource.data.get('currentPeriodEnd', null) == resource.data.get('currentPeriodEnd', null)
+                    && request.resource.data.get('canceledAt', null) == resource.data.get('canceledAt', null);
       // El borrado lo hace la Cloud Function deleteCompanyAccount (admin).
       allow delete: if false;
 
@@ -91,16 +97,28 @@ service cloud.firestore {
 
       // La empresa puede actualizar a sus empleados, pero NUNCA cambiar el
       // companyId del empleado (no se puede mover a otra empresa).
-      // El empleado puede editar su propio doc; solo se le permite UNA
-      // transición de accountStatus: pending → active, justo al activar la
-      // cuenta tras establecer su contraseña definitiva (`hasTempPassword`
-      // pasa a false). Cualquier otra promoción de estado queda bloqueada.
+      // El empleado puede editar su propio doc (nombre, foto...), pero no las
+      // condiciones laborales que fija la empresa (tarifa, rol, jornada, días
+      // de vacaciones). hireDate no se compara: el backend lo crea como
+      // Timestamp y el cliente lo reescribe como texto ISO en su primer
+      // guardado, lo que contaría como cambio. Solo se le permite UNA transición de
+      // accountStatus: pending → active, justo al activar la cuenta tras
+      // establecer su contraseña definitiva (`hasTempPassword` pasa a false).
+      // Cualquier otra promoción de estado queda bloqueada.
       allow update: if (
         isCompany(resource.data.companyId)
         && request.resource.data.companyId == resource.data.companyId
       ) || (
         request.auth.uid == employeeId
         && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.get('email', null) == resource.data.get('email', null)
+        && request.resource.data.get('hourlyRate', null) == resource.data.get('hourlyRate', null)
+        && request.resource.data.get('role', null) == resource.data.get('role', null)
+        && request.resource.data.get('roleOther', null) == resource.data.get('roleOther', null)
+        && request.resource.data.get('workdayType', null) == resource.data.get('workdayType', null)
+        && request.resource.data.get('vacationDaysPer30', null) == resource.data.get('vacationDaysPer30', null)
+        && request.resource.data.get('personalDaysPerYear', null) == resource.data.get('personalDaysPerYear', null)
+        && request.resource.data.get('position', null) == resource.data.get('position', null)
         && (
           request.resource.data.accountStatus == resource.data.accountStatus
           || (
@@ -124,15 +142,26 @@ service cloud.firestore {
 
     // ---------- Fichajes (registro horario) ----------
     match /clockRecords/{entryId} {
-      allow read: if belongsToCompany(resource.data.companyId);
+      // `employeeId == uid` permite al empleado consultar sus fichajes solo por
+      // employeeId (las queries deben poder probarse contra la regla).
+      allow read: if isSignedIn()
+                  && (resource.data.employeeId == request.auth.uid
+                      || belongsToCompany(resource.data.companyId));
 
       // Crear: empleado de la empresa o la propia empresa. No puede llegar ya
       // marcado como editado (la edición es un acto posterior y trazado).
       allow create: if belongsToCompany(incomingCompanyId())
                     && request.resource.data.isEdited == false;
 
-      // Editar: miembro de la empresa, sin alterar los campos de origen.
-      allow update: if belongsToCompany(existingCompanyId())
+      // Editar: la empresa (edición trazada con auditLog) o el propio empleado
+      // sobre su fichaje (salida/pausas), que NO puede marcarlo como editado:
+      // las correcciones a posteriori son solo de la empresa. Un empleado no
+      // toca fichajes de compañeros. Sin alterar los campos de origen.
+      allow update: if (
+                      isCompany(existingCompanyId())
+                      || (request.auth.uid == resource.data.employeeId
+                          && request.resource.data.isEdited == false)
+                    )
                     && request.resource.data.id == resource.data.id
                     && request.resource.data.employeeId == resource.data.employeeId
                     && request.resource.data.companyId == resource.data.companyId
@@ -149,10 +178,16 @@ service cloud.firestore {
         allow read: if belongsToCompany(
           get(/databases/$(database)/documents/clockRecords/$(entryId)).data.companyId
         );
+        // Solo la empresa o el empleado dueño del fichaje, y siempre firmando
+        // como ellos mismos (actorUid), para que la auditoría sea fiable.
         allow create: if isSignedIn()
                       && request.resource.data.entryId == entryId
                       && request.resource.data.at != null
-                      && request.resource.data.actorUid != null;
+                      && request.resource.data.actorUid == request.auth.uid
+                      && (
+                        isCompany(get(/databases/$(database)/documents/clockRecords/$(entryId)).data.companyId)
+                        || request.auth.uid == get(/databases/$(database)/documents/clockRecords/$(entryId)).data.employeeId
+                      );
         allow update, delete: if false;
       }
     }
@@ -234,7 +269,13 @@ service cloud.firestore {
     // ---------- Chat ----------
     match /conversations/{convId} {
       // Solo miembros de la conversación pueden leerla.
-      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      // Los grupos de empresa también los puede consultar cualquier miembro de
+      // la empresa (ensureDefaultGroup busca por companyId+isGroup+title sin
+      // filtrar por memberIds, y la query debe poder probarse).
+      allow read: if isSignedIn()
+                  && (request.auth.uid in resource.data.memberIds
+                      || (resource.data.isGroup == true
+                          && belongsToCompany(resource.data.companyId)));
 
       // Crear conversación: el creador debe ser miembro y pertenecer a la empresa.
       allow create: if isSignedIn()
@@ -243,10 +284,14 @@ service cloud.firestore {
 
       // Actualizar metadatos (último mensaje, unreadCounts): solo miembros, y sin
       // cambiar la membresía ni la empresa de la conversación.
+      // La empresa sí puede cambiar la membresía (alta de empleados en "Todos").
       allow update: if isSignedIn()
-                    && request.auth.uid in resource.data.memberIds
-                    && request.resource.data.memberIds == resource.data.memberIds
-                    && request.resource.data.companyId == resource.data.companyId;
+                    && request.resource.data.companyId == resource.data.companyId
+                    && (
+                      isCompany(resource.data.companyId)
+                      || (request.auth.uid in resource.data.memberIds
+                          && request.resource.data.memberIds == resource.data.memberIds)
+                    );
       allow delete: if false;
 
       match /messages/{msgId} {

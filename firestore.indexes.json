@@ -20,8 +20,24 @@
       "collectionGroup": "clockRecords",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "clockIn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clockRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "employeeId", "order": "ASCENDING" },
         { "fieldPath": "clockIn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clockRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "clockIn", "order": "ASCENDING" }
       ]
     },
     {
@@ -149,6 +165,14 @@
       "fields": [
         { "fieldPath": "companyId", "order": "ASCENDING" },
         { "fieldPath": "isGroup", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "companies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "billingStatus", "order": "ASCENDING" },
+        { "fieldPath": "subscription.canceledAt", "order": "ASCENDING" }
       ]
     }
   ],
