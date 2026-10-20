@@ -65,6 +65,8 @@ void main() {
 
     testWidgets('CHAT-002 enviar mensaje al grupo: aparece en pantalla y se persiste con senderId correcto', (tester) async {
       await launchApp(tester);
+      await tapText(tester, 'Chat');
+      await waitFor(tester, find.text('Chat interno'));
       await tapText(tester, 'Todos');
       await waitFor(tester, find.widgetWithText(TextField, 'Escribe un mensaje…'), timeout: const Duration(seconds: 20));
       // Botón de enviar deshabilitado sin texto: no crea mensajes.
@@ -122,6 +124,7 @@ void main() {
 
     testWidgets('CHAT-004 chat directo empleado → farmacia: se crea una sola conversación 1:1', (tester) async {
       await launchApp(tester);
+      await tapText(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await tester.tap(find.byType(FloatingActionButton));
       await pumpFor(tester, const Duration(milliseconds: 800));

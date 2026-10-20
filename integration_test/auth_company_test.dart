@@ -20,7 +20,7 @@ void main() {
 
     testWidgets('AUTH-C-002 contraseña incorrecta → mensaje claro, sin datos técnicos', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Acceso para farmacias'));
+      await gotoCompanyLogin(tester);
       await typeInto(tester, 'Correo electrónico', Seed.companyPaidEmail);
       await typeInto(tester, 'Contraseña', 'incorrecta-123');
       await tapText(tester, 'INICIAR SESIÓN');
@@ -34,7 +34,7 @@ void main() {
 
     testWidgets('AUTH-C-003 email con formato inválido → no entra', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Acceso para farmacias'));
+      await gotoCompanyLogin(tester);
       await typeInto(tester, 'Correo electrónico', 'esto-no-es-un-email');
       await typeInto(tester, 'Contraseña', Seed.password);
       await tapText(tester, 'INICIAR SESIÓN');
@@ -47,7 +47,7 @@ void main() {
 
     testWidgets('AUTH-C-004 doble tap en INICIAR SESIÓN no rompe nada', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Acceso para farmacias'));
+      await gotoCompanyLogin(tester);
       await typeInto(tester, 'Correo electrónico', Seed.companyPaidEmail);
       await typeInto(tester, 'Contraseña', Seed.password);
       final btn = find.text('INICIAR SESIÓN');

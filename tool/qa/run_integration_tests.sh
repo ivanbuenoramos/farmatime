@@ -45,7 +45,10 @@ if ! curl -s -o /dev/null "http://127.0.0.1:8080/"; then
 fi
 
 seed() {
-  node tool/qa/seed_emulator.js > "$RESULTS_DIR/seed-$1.log" 2>&1 || { echo "✖ seed falló (ver $RESULTS_DIR/seed-$1.log)"; return 1; }
+  # Los archivos perf_* reciben además el historial masivo (--big).
+  local extra=""
+  case "$1" in *perf_*) extra="--big" ;; esac
+  node tool/qa/seed_emulator.js $extra > "$RESULTS_DIR/seed-$1.log" 2>&1 || { echo "✖ seed falló (ver $RESULTS_DIR/seed-$1.log)"; return 1; }
 }
 
 run_platform() {

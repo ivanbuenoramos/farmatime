@@ -146,6 +146,37 @@ Future<void> tapText(WidgetTester tester, String text) async {
   await tester.pump(const Duration(milliseconds: 200));
 }
 
+/// Si la app está en la pantalla de inicio, abre el formulario de farmacia.
+Future<void> gotoCompanyLogin(WidgetTester tester) async {
+  if (find.text('Acceso para farmacias').evaluate().isNotEmpty) return;
+  await tapText(tester, 'ACCESO PARA FARMACIAS');
+  await waitFor(tester, find.text('Acceso para farmacias'));
+}
+
+/// Si la app está en la pantalla de inicio, abre el formulario de empleado.
+Future<void> gotoEmployeeLogin(WidgetTester tester) async {
+  if (find.text('¡Bienvenido!').evaluate().isNotEmpty) return;
+  await tapText(tester, 'INICIAR SESIÓN');
+  await waitFor(tester, find.text('¡Bienvenido!'));
+}
+
+/// Vuelve atrás hasta ver la pantalla de inicio (máx. [maxPops] veces).
+Future<void> backToIndex(WidgetTester tester, {int maxPops = 4}) async {
+  for (var i = 0; i < maxPops; i++) {
+    if (find.text('ACCESO PARA FARMACIAS').evaluate().isNotEmpty) return;
+    final rounded = find.byIcon(Icons.arrow_back_rounded);
+    if (rounded.evaluate().isNotEmpty) {
+      await tester.tap(rounded.first);
+    } else if (find.byType(BackButton).evaluate().isNotEmpty) {
+      await tester.tap(find.byType(BackButton).first);
+    } else {
+      await tester.pageBack();
+    }
+    await pumpFor(tester, const Duration(milliseconds: 600));
+  }
+  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
+}
+
 /// Desde la pantalla de inicio, entra como farmacia.
 Future<void> loginAsCompany(WidgetTester tester,
     {String email = Seed.companyPaidEmail, String password = Seed.password}) async {

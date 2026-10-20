@@ -126,6 +126,30 @@ async function seed() {
   });
 
   await b.commit();
+
+  // --big: historial masivo de fichajes para Luis (pruebas de rendimiento/listas
+  // extensas). N registros cerrados de 8 h repartidos hacia atrás, 1 por día.
+  if (process.argv.includes('--big')) {
+    const n = Number((process.argv.find((a) => a.startsWith('--big=')) || '--big=3000').split('=')[1]) || 3000;
+    let batch = db.batch(); let count = 0;
+    for (let i = 1; i <= n; i++) {
+      const day = new Date(Date.now() - i * 86400000);
+      const cin = new Date(day); cin.setHours(9, 0, 0, 0);
+      const cout = new Date(day); cout.setHours(17, 0, 0, 0);
+      const id = `qa-big-luis-${i}`;
+      batch.set(db.doc(`clockRecords/${id}`), {
+        id, employeeId: SEED.employees.luis.uid, companyId: SEED.companyPaid.uid,
+        clockIn: Timestamp.fromDate(cin), clockOut: Timestamp.fromDate(cout),
+        clockInLat: 40.4168, clockInLng: -3.7038, clockOutLat: 40.4168, clockOutLng: -3.7038,
+        isEdited: false, editedBy: null, editedAt: null, editReason: null, editedFields: [],
+        createdAt: Timestamp.fromDate(cin), updatedAt: Timestamp.fromDate(cout),
+      });
+      count++;
+      if (count % 400 === 0) { await batch.commit(); batch = db.batch(); }
+    }
+    await batch.commit();
+    console.log(`seed: +${n} fichajes historicos para Luis (--big)`);
+  }
   console.log('seed: ok');
   console.log(JSON.stringify(SEED, null, 2));
 }

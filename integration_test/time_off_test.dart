@@ -76,7 +76,7 @@ void main() {
 
     testWidgets('TO-002 solicitud de vacaciones (día suelto) → Pendiente y persistida con status requested', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Solicitar vacaciones y permisos'));
+      await _openRequestLeave(tester);
       await tapText(tester, 'Días sueltos');
       await tapText(tester, 'Añadir día');
       await _pickDayInDialog(tester, vacationDay);
@@ -96,7 +96,7 @@ void main() {
 
     testWidgets('TO-003 segunda solicitud (asuntos propios) y cancelación con confirmación → cancelled', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Solicitar vacaciones y permisos'));
+      await _openRequestLeave(tester);
       await tapText(tester, 'Asuntos propios');
       await tapText(tester, 'Días sueltos');
       await tapText(tester, 'Añadir día');

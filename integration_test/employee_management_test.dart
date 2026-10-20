@@ -39,7 +39,7 @@ void main() {
 
     testWidgets('EMP-002 correo ya en uso → "Correo en uso" y no se crea', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Nuevo empleado'));
+      await _openNewEmployeeForm(tester);
       await tester.enterText(find.widgetWithText(TextFormField, 'Nombre del empleado'), 'Duplicado QA');
       await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), Seed.empAnaEmail);
       // Deja actuar al debounce (600 ms) + callable checkEmployeeEmailAvailability.
@@ -51,7 +51,7 @@ void main() {
 
     testWidgets('EMP-003 tarifa negativa → aviso', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Nuevo empleado'));
+      await _openNewEmployeeForm(tester);
       await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
       final rate = find.widgetWithText(TextFormField, 'Precio por hora');
@@ -64,7 +64,7 @@ void main() {
 
     testWidgets('EMP-004 alta válida → Cloud Function crea Auth + doc pending + credenciales privadas', (tester) async {
       await launchApp(tester);
-      await waitFor(tester, find.text('Nuevo empleado'));
+      await _openNewEmployeeForm(tester);
       await tester.enterText(find.widgetWithText(TextFormField, 'Nombre del empleado'), 'Nuevo QA');
       await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
@@ -104,6 +104,7 @@ void main() {
 
     testWidgets('EMP-005 el contador de plazas refleja la ocupación (4/5)', (tester) async {
       await launchApp(tester);
+      await tapText(tester, 'Empleados');
       await waitFor(tester, find.text('Lista de empleados'));
       await pumpFor(tester, const Duration(seconds: 2));
       expect(find.text('4/5'), findsOneWidget, reason: 'Ana, Luis, Marta y Nuevo QA ocupan plaza; el borrado no');

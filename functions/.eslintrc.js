@@ -21,7 +21,11 @@ module.exports = {
       env: {
         mocha: true,
       },
-      rules: {},
+      rules: {
+        // mocha usa `this.timeout(...)` en los hooks; los specs llevan tablas largas.
+        'no-invalid-this': 'off',
+        'max-len': 'off',
+      },
     },
   ],
   globals: {},

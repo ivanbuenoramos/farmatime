@@ -2,7 +2,6 @@
 // navegación básica (inicio ↔ accesos) funciona en ambas plataformas.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'helpers/qa_harness.dart';
@@ -46,17 +45,8 @@ void main() {
       // La pantalla debe aparecer sin excepciones; volvemos.
       await pumpFor(tester, const Duration(milliseconds: 600));
       expect(tester.takeException(), isNull);
-      final back = find.byIcon(Icons.arrow_back_rounded);
-      if (back.evaluate().isNotEmpty) {
-        await tester.tap(back.first);
-      } else if (find.byType(BackButton).evaluate().isNotEmpty) {
-        await tester.tap(find.byType(BackButton).first);
-      } else {
-        Get.back();
-      }
-      await waitFor(tester, find.text('¡Bienvenido!'));
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
-      await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
+      expect(find.text('¡Bienvenido!'), findsNothing, reason: 'debe haber navegado a recuperar contraseña');
+      await backToIndex(tester);
     });
   });
 }

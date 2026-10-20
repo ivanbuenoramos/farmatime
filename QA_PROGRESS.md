@@ -4,7 +4,7 @@
 > Metodología: `.claude/skills/flutter-deep-qa/SKILL.md`. Informe final: `QA_AUDIT_REPORT.md`.
 
 ## Fase actual
-**Fase 1 — Descubrimiento** (workflow de 11 lectores + síntesis en curso) y **Fase 3 — Infraestructura de pruebas** (en paralelo) · Fase 0 completada.
+**Fase 1 — Descubrimiento** (8/11 áreas leídas; 3 áreas + síntesis se reanudaron el 2026-10-20 tras un límite de uso del modelo) · **Fase 3/4** pruebas de integración ejecutándose en iOS · **Fase 6** reglas Firestore probadas y endurecidas.
 
 ## Infraestructura de pruebas (2026-10-17)
 - `firebase.json`: bloque `emulators` (auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000). **Bloqueo resuelto:** firebase-tools 15 exige Java 21 → se usa el JBR de Android Studio (`/Applications/Android Studio.app/Contents/jbr`). Emuladores arrancados; crons/pubsub ignorados (sin emulador Pub/Sub) — limitación documentada.
@@ -31,13 +31,17 @@
 Todas (descubrimiento en curso).
 
 ## Bugs descubiertos
-(pendiente)
+- **SEC-001..SEC-009 (reglas Firestore, severidad alta/media)** — confirmados por tests unitarios de reglas (fallaban): empleado podía crear fichajes a nombre de un compañero; alterar `clockIn` sin marcar edición; modificar `hireDate`/`createdAt` (base del devengo); auto-aprobarse otras fechas al aceptar una propuesta; reasignar `employeeId` de su mes de horario; la empresa podía reasignar plantillas/reglas/meses a otra empresa.
+- Candidatos del descubrimiento (8 áreas, ~190 issues candidatos sin verificar) en el journal del workflow; pendiente síntesis y verificación adversarial (Fase 2).
 
 ## Bugs corregidos
-(pendiente)
+- SEC-001..SEC-009 → `firestore.rules` endurecido + `EmployeeRepositoryImpl.updateEmployee` ya no reescribe `hireDate`/`createdAt` (commit en rama de auditoría). Verificación: `cd functions && npm test` → 380 passing.
 
 ## Pruebas realizadas
 - 2026-10-17 baseline: `flutter analyze`, `flutter test`, `npm run lint` (functions). Ver arriba.
+- 2026-10-17 iOS (iPhone 18 Pro, iOS 27): smoke SMOKE-001 verde contra el Emulator Suite (arranque + emulador OK). SMOKE-002..004 fallaron por el harness (flutter_test desmonta la app tras cada test; `main()` pisaba `FlutterError.onError`) → corregido; cuelgue de `tearDownAll` → watchdog en el runner.
+- 2026-10-20 functions: `npm test` → 380 passing (370 reglas + 10 unitarios).
+- 2026-10-20 iOS: batch smoke + auth farmacia + auth empleado en ejecución (`docs/qa/results/2026-10-20/`).
 
 ## Próximas acciones
 1. Terminar matriz de funcionalidades (workflow en curso).

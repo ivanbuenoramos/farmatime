@@ -140,6 +140,23 @@ y una CLI global. Los estados de permiso se cubren de forma determinista con `si
 `adb pm`, así que no se añadió. Si en el futuro hace falta pulsar diálogos nativos, añadir
 `patrol` como dev_dependency y seguir https://patrol.leancode.co/getting-started.
 
+### Lecciones del harness de integración (aprendidas el 2026-10-17/20)
+
+- `flutter_test` **desmonta la app al terminar cada `testWidgets`**: el harness vuelve a ejecutar
+  `app.main()` en cada test (`launchApp`). Por eso `main()` es idempotente (`Firebase.apps.isEmpty`,
+  `FirebaseEmulator` con flag) y cada test navega desde el inicio o desde el main del rol
+  (la sesión persiste en GetStorage; solo se borra la primera vez por proceso).
+- `main()` instala `FlutterError.onError`; el harness lo **restaura** tras `app.main()` o
+  flutter_test aborta con "A test overrode FlutterError.onError".
+- Un test colgado (`tearDownAll did not complete`) bloqueó el runner 2 días → watchdog por
+  archivo (`FILE_TIMEOUT`, 1500 s por defecto).
+- Nunca `tester.pumpAndSettle()` con spinners: usar `waitFor/waitForAny/pumpFor`.
+- Verificar SIEMPRE el efecto en el backend por REST del emulador (`emulatorGetDoc`,
+  `emulatorRunQuery`, `Authorization: Bearer owner`), no solo la UI.
+- Semilla `--big` (3000 fichajes de Luis) para `perf_*`: el runner la aplica automáticamente.
+- iOS y Android **no pueden correr a la vez** contra el mismo Emulator Suite (cada archivo resetea
+  y siembra los datos).
+
 ## 6. Criterios de aceptación / cierre de auditoría
 
 1. Todas las funcionalidades de la matriz auditadas o con limitación documentada.
