@@ -71,7 +71,11 @@ run_platform() {
       [ -d "$app" ] && xcrun simctl install "$device" "$app" >/dev/null 2>&1 || true
     fi
     # Android: `pm grant` exige la app instalada; instalamos la última build.
+    # Antes, limpiamos reenvíos de puertos y procesos de un archivo anterior
+    # (evita 'VmServiceDisappearedException' al conectar el VM service).
     if [ "$platform" = "android" ]; then
+      adb -s "$device" forward --remove-all >/dev/null 2>&1 || true
+      adb -s "$device" shell am force-stop net.farmatime.app >/dev/null 2>&1 || true
       local apk="build/app/outputs/flutter-apk/app-debug.apk"
       if [ ! -f "$apk" ]; then
         echo "   (build inicial del APK)"
