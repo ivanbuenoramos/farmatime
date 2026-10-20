@@ -44,13 +44,14 @@ class ClockRepositoryImpl implements ClockRepository {
   }
 
   @override
-  Future<Result<List<ClockInOutModel>>> getEntriesByEmployee(String employeeId) async {
+  Future<Result<List<ClockInOutModel>>> getEntriesByEmployee(String employeeId, {String? companyId}) async {
     try {
-      final query = await firestore
-          .collection('clockRecords')
-          .where('employeeId', isEqualTo: employeeId)
-          .orderBy('clockIn', descending: true)
-          .get();
+      Query<Map<String, dynamic>> q =
+          firestore.collection('clockRecords').where('employeeId', isEqualTo: employeeId);
+      if (companyId != null && companyId.isNotEmpty) {
+        q = q.where('companyId', isEqualTo: companyId);
+      }
+      final query = await q.orderBy('clockIn', descending: true).get();
 
       final entries = query.docs.map((doc) => ClockInOutModel.fromJson(doc.data())).toList();
       return Result(success: true, data: entries);
@@ -64,6 +65,26 @@ class ClockRepositoryImpl implements ClockRepository {
     try {
       await firestore.collection('clockRecords').doc(entry.id).update(entry.toJson());
       return Result(success: true, data: entry);
+    } catch (e) {
+      return Result(success: false, data: null, errorCode: e.toString());
+    }
+  }
+
+  @override
+  Future<Result<void>> closeEntry({
+    required String entryId,
+    required DateTime clockOut,
+    double? clockOutLat,
+    double? clockOutLng,
+  }) async {
+    try {
+      await firestore.collection('clockRecords').doc(entryId).update({
+        'clockOut': clockOut,
+        'clockOutLat': clockOutLat,
+        'clockOutLng': clockOutLng,
+        'updatedAt': clockOut,
+      });
+      return Result(success: true, data: null);
     } catch (e) {
       return Result(success: false, data: null, errorCode: e.toString());
     }

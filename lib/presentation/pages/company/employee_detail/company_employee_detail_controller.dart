@@ -201,7 +201,8 @@ class EmployeeDetailController extends GetxController {
       return;
     }
 
-    final result = await getEntriesByEmployeeUseCase.call(emp.uid);
+    // La empresa debe filtrar también por companyId (regla de lectura demostrable).
+    final result = await getEntriesByEmployeeUseCase.call(emp.uid, companyId: emp.companyId);
     if (!result.success) {
       ToastService().show(title: 'Error', message: 'No se pudieron cargar los registros de entrada', type: ToastType.error);
       return;

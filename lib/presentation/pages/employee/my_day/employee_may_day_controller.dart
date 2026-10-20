@@ -14,6 +14,7 @@ import 'package:farmatime/domain/usecases/clock/create_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/log_clock_creation_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/close_entry_usecase.dart';
 
 class EmployeeMyDayController extends GetxController {
   final CreateEntryUseCase createEntryUseCase;
@@ -21,6 +22,7 @@ class EmployeeMyDayController extends GetxController {
   final GetEntriesByEmployeeUseCase getEntriesByEmployeeUseCase;
   final GetExpectedShiftsForDayUseCase getExpectedShiftUseCase;
   final LogClockCreationUseCase logClockCreationUseCase;
+  final CloseEntryUseCase closeEntryUseCase;
 
   EmployeeMyDayController({
     required this.createEntryUseCase,
@@ -28,6 +30,7 @@ class EmployeeMyDayController extends GetxController {
     required this.getEntriesByEmployeeUseCase,
     required this.getExpectedShiftUseCase,
     required this.logClockCreationUseCase,
+    required this.closeEntryUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -278,7 +281,8 @@ class EmployeeMyDayController extends GetxController {
 
   Future<void> clockOut() async {
     final entry = currentEntry.value;
-    if (entry == null || _clockBusy) return;
+    // Mientras carga el estado inicial no se sabe si hay entrada abierta.
+    if (entry == null || _clockBusy || isLoading.value) return;
     _clockBusy = true;
     try {
       await _doClockOut(entry);
@@ -298,8 +302,15 @@ class EmployeeMyDayController extends GetxController {
       updatedAt: now,
     );
 
-    final result = await updateEntryUseCase.call(updated);
-    if (result.success && result.data != null) {
+    // Solo se escribe la salida: si la empresa editó este fichaje mientras
+    // estaba abierto, no se pisa su edición (y las reglas lo exigen así).
+    final result = await closeEntryUseCase(
+      entryId: entry.id,
+      clockOut: now,
+      clockOutLat: updated.clockOutLat,
+      clockOutLng: updated.clockOutLng,
+    );
+    if (result.success) {
       currentEntry.value = null;
       _clockTimer?.cancel();
       currentDuration.value = Duration.zero;
@@ -320,7 +331,8 @@ class EmployeeMyDayController extends GetxController {
   }
 
   Future<void> clockIn() async {
-    if (_clockBusy) return;
+    // Con la carga inicial en curso podría crearse una entrada duplicada.
+    if (_clockBusy || isLoading.value) return;
     _clockBusy = true;
     try {
       await _doClockIn();

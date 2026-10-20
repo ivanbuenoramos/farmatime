@@ -30,12 +30,17 @@ exports.handleEmployeeDeletion = onDocumentUpdated(
       if (beforeStatus === afterStatus) return;
       if (afterStatus !== 'deleted') return;
 
-      const uid = afterData.authUid || afterData.uid || event.params.employeeId;
+      // SEGURIDAD: el uid a purgar es el id del documento (employees/{uid} lo
+      // crea el backend con el uid de Auth). Nunca se toma de un campo del doc
+      // (uid/authUid), que lo puede escribir el cliente: una empresa podría
+      // apuntar a otro uid y borrar la cuenta y los datos de un tercero.
+      const uid = event.params.employeeId;
       const companyId = afterData.companyId || null;
 
-      if (!uid) {
-        logger.error('[handleEmployeeDeletion] sin uid para purgar', afterData);
-        return;
+      if (afterData.uid && afterData.uid !== uid) {
+        logger.warn('[handleEmployeeDeletion] campo uid distinto del id del doc; se ignora', {
+          docId: uid, fieldUid: afterData.uid,
+        });
       }
 
       try {

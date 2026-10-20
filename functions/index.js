@@ -1,3 +1,9 @@
+// Zona horaria del runtime: Cloud Run arranca en UTC y los informes PDF del
+// registro horario (monthlyReports.js) formatean y agrupan con date-fns, que
+// usa la TZ del proceso. Debe ir ANTES de cualquier require. (TZ es una
+// variable reservada en Cloud Run: no puede declararse en .env.)
+process.env.TZ = process.env.TZ || 'Europe/Madrid';
+
 const { setGlobalOptions } = require('firebase-functions/v2');
 
 setGlobalOptions({

@@ -43,6 +43,13 @@ service cloud.firestore {
              (employeeExists() && myEmployee().companyId == companyId);
     }
 
+    // Empleado con la cuenta operativa: los estados inactive (sin plaza) y
+    // disabled (impago) o pending (sin activar) NO pueden escribir datos de
+    // negocio (fichajes, ausencias, chat, horario). La lectura no cambia.
+    function isActiveEmployee() {
+      return employeeExists() && myEmployee().accountStatus == 'active';
+    }
+
     function incomingCompanyId() {
       return request.resource.data.companyId;
     }
@@ -112,7 +119,10 @@ service cloud.firestore {
       // accountStatus: pending → active, justo al activar la cuenta tras
       // establecer su contraseña definitiva (`hasTempPassword` pasa a false).
       // Cualquier otra promoción de estado queda bloqueada.
-      allow update: if (
+      // uid es la identidad del empleado (= id del doc): nadie lo cambia desde
+      // el cliente (la purga en cascada del backend se basa en él).
+      allow update: if request.resource.data.get('uid', null) == resource.data.get('uid', null)
+        && ((
         isCompany(resource.data.companyId)
         && request.resource.data.companyId == resource.data.companyId
       ) || (
@@ -139,7 +149,7 @@ service cloud.firestore {
             && request.resource.data.hasTempPassword == false
           )
         )
-      );
+      ));
       // El borrado real (cascada) lo hace el backend; el cliente solo marca
       // accountStatus='deleted' vía el update de la empresa.
       allow delete: if false;
@@ -167,19 +177,25 @@ service cloud.firestore {
       allow create: if belongsToCompany(incomingCompanyId())
                     && request.resource.data.isEdited == false
                     && (isCompany(incomingCompanyId())
-                        || request.resource.data.employeeId == request.auth.uid);
+                        || (request.resource.data.employeeId == request.auth.uid
+                            && isActiveEmployee()));
 
       // Editar: la empresa (edición trazada con auditLog) o el propio empleado
       // sobre su fichaje (salida/pausas), que NO puede marcarlo como editado:
       // las correcciones a posteriori son solo de la empresa. Un empleado no
       // toca fichajes de compañeros. Sin alterar los campos de origen.
+      // El empleado solo puede CERRAR su fichaje abierto, y solo tocando la
+      // salida (clockOut/clockOutLat/clockOutLng/updatedAt): así puede cerrar
+      // incluso un fichaje que la empresa haya editado, sin reescribir el doc
+      // completo desde un modelo obsoleto (lost update) ni alterar la entrada.
       allow update: if (
                       isCompany(existingCompanyId())
                       || (request.auth.uid == resource.data.employeeId
-                          && request.resource.data.isEdited == false
-                          // La hora de entrada queda fijada al fichar: solo la
-                          // empresa la corrige (con isEdited=true + auditLog).
-                          && request.resource.data.clockIn == resource.data.clockIn)
+                          && isActiveEmployee()
+                          && resource.data.clockOut == null
+                          && request.resource.data.clockOut != null
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                              .hasOnly(['clockOut', 'clockOutLat', 'clockOutLng', 'updatedAt']))
                     )
                     && request.resource.data.id == resource.data.id
                     && request.resource.data.employeeId == resource.data.employeeId
@@ -249,13 +265,13 @@ service cloud.firestore {
       allow list: if belongsToCompany(resource.data.companyId);
       // Crea/actualiza la empresa, o el empleado dueño sobre su propio mes.
       allow create: if isCompany(incomingCompanyId())
-                    || (employeeExists()
+                    || (isActiveEmployee()
                         && incomingCompanyId() == myEmployee().companyId
                         && request.resource.data.employeeId == request.auth.uid);
       allow update: if incomingCompanyId() == existingCompanyId()
                     && request.resource.data.employeeId == resource.data.employeeId
                     && (isCompany(existingCompanyId())
-                        || (employeeExists()
+                        || (isActiveEmployee()
                             && existingCompanyId() == myEmployee().companyId
                             && resource.data.employeeId == request.auth.uid));
       allow delete: if isCompany(existingCompanyId())
@@ -267,7 +283,7 @@ service cloud.firestore {
       allow read: if belongsToCompany(resource.data.companyId);
 
       // El empleado crea sus propias solicitudes (estado inicial requested).
-      allow create: if employeeExists()
+      allow create: if isActiveEmployee()
                     && incomingCompanyId() == myEmployee().companyId
                     && request.resource.data.employeeId == request.auth.uid
                     && request.resource.data.status == 'requested';
@@ -286,6 +302,7 @@ service cloud.firestore {
         && request.resource.data.employeeId == resource.data.employeeId
       ) || (
         request.auth.uid == resource.data.employeeId
+        && isActiveEmployee()
         && request.resource.data.companyId == resource.data.companyId
         && request.resource.data.employeeId == resource.data.employeeId
         // Al aceptar/rechazar/cancelar no puede cambiar lo solicitado ni lo
@@ -317,7 +334,9 @@ service cloud.firestore {
       // Crear conversación: el creador debe ser miembro y pertenecer a la empresa.
       allow create: if isSignedIn()
                     && request.auth.uid in request.resource.data.memberIds
-                    && belongsToCompany(incomingCompanyId());
+                    && (isCompany(incomingCompanyId())
+                        || (isActiveEmployee()
+                            && myEmployee().companyId == incomingCompanyId()));
 
       // Actualizar metadatos (último mensaje, unreadCounts): solo miembros, y sin
       // cambiar la membresía ni la empresa de la conversación.
@@ -342,7 +361,9 @@ service cloud.firestore {
         allow create: if isSignedIn()
                       && request.resource.data.senderId == request.auth.uid
                       && request.auth.uid in
-                         get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+                         get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds
+                      && (isCompany(get(/databases/$(database)/documents/conversations/$(convId)).data.companyId)
+                          || isActiveEmployee());
         allow update, delete: if false;
       }
     }

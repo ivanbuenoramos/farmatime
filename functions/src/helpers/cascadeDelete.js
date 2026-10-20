@@ -86,9 +86,10 @@ async function deleteEmployeeData(employeeUid, { companyId = null } = {}) {
   // Retirarlo de conversaciones de grupo y borrar sus DMs.
   await removeUserFromConversations(employeeUid);
 
-  // Storage del empleado (fotos).
+  // Storage del empleado (fotos) y sus informes PDF (reports/{companyId}/{uid}).
   await deleteStoragePrefix(`employees/${employeeUid}`);
   await deleteStoragePrefix(`companies/${employeeUid}`);
+  if (companyId) await deleteStoragePrefix(`reports/${companyId}/${employeeUid}`);
 
   // Doc del empleado y cuenta Auth.
   await db.collection('employees').doc(employeeUid).delete().catch(() => {});
@@ -132,8 +133,8 @@ async function deleteCompanyData(companyId) {
       .where('companyId', '==', companyId)
       .get();
   for (const emp of empSnap.docs) {
-    const uid = emp.data()?.uid || emp.id;
-    await deleteEmployeeData(uid, { companyId });
+    // El id del doc ES el uid de Auth; el campo uid lo puede escribir el cliente.
+    await deleteEmployeeData(emp.id, { companyId });
   }
 
   // 2) Datos a nivel de empresa que pudieran no estar ligados a un empleado.
@@ -159,6 +160,7 @@ async function deleteCompanyData(companyId) {
   await db.collection('user_fcm_tokens').doc(companyId).delete().catch(() => {});
   await deleteCollection(db.collection('companies').doc(companyId).collection('subscription'));
   await deleteStoragePrefix(`companies/${companyId}`);
+  await deleteStoragePrefix(`reports/${companyId}`);
   await db.collection('companies').doc(companyId).delete().catch(() => {});
   await deleteAuthUser(companyId);
 

@@ -228,6 +228,9 @@ class PushNotificationService extends GetxService {
 
     final brain = Get.isRegistered<Brain>() ? Get.find<Brain>() : null;
     final isCompany = brain?.company.value != null;
+    final hasSession = isCompany || brain?.employee.value != null;
+    // Sin sesión (push tocado tras cerrar sesión): no hay a dónde enrutar.
+    if (!hasSession) return;
 
     switch (type) {
       case 'chat_message':
@@ -238,10 +241,18 @@ class PushNotificationService extends GetxService {
         _goToTab(isCompany, 2);
         break;
       case 'leave_request': // empresa: solicitud nueva / cancelada / respondida
-        Get.toNamed(Routes.companyTimeOff);
+        if (isCompany) {
+          Get.toNamed(Routes.companyTimeOff);
+        } else {
+          _goToTab(false, 3);
+        }
         break;
       case 'leave_status': // empleado: aprobada / rechazada / propuesta
-        Get.toNamed(Routes.employeeRequestLeave);
+        if (isCompany) {
+          Get.toNamed(Routes.companyTimeOff);
+        } else {
+          Get.toNamed(Routes.employeeRequestLeave);
+        }
         break;
       case 'schedule_change': // empleado: cambio de turno / recordatorio
         if (isCompany) {
@@ -256,10 +267,16 @@ class PushNotificationService extends GetxService {
         _goToTab(isCompany, isCompany ? 1 : 0);
         break;
       case 'billing': // empresa: aviso de suscripción
-        Get.toNamed(Routes.companySubscription);
+        // Solo tiene sentido (y permisos) para la farmacia: un empleado nunca
+        // debe acabar en la pantalla de compra de la empresa.
+        if (isCompany) {
+          Get.toNamed(Routes.companySubscription);
+        } else {
+          _goToTab(false, 0);
+        }
         break;
       case 'employee_active': // empresa: un empleado activó su cuenta
-        _goToTab(true, 3); // pestaña Empleados
+        _goToTab(isCompany, isCompany ? 3 : 0);
         break;
       case 'employee_deleted': // empleado: su cuenta fue eliminada
         _goToTab(false, 0);

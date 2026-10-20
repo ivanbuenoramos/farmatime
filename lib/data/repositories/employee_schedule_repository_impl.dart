@@ -81,16 +81,22 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
       final payload = <String, dynamic>{};
       entries.forEach((k, v) => payload[k] = v.toJson());
 
-      await _monthsCol()
-          .doc(_monthDocId(companyId, employeeId, mStr))
-          .set({
-            'companyId': companyId,
-            'employeeId': employeeId,
-            'month': mStr,
-            'entries': payload,
-            'updatedAt': FieldValue.serverTimestamp(),
-            'createdAt': FieldValue.serverTimestamp(), // merge => solo crea si no existe
-          }, SetOptions(merge: true))
+      // 'entries' se escribe como mapa COMPLETO (mergeFields reemplaza el campo
+      // entero). Con SetOptions(merge: true) Firestore fusiona en profundidad
+      // los mapas y las claves eliminadas ("Quitar asignación") nunca
+      // desaparecían del documento.
+      final ref = _monthsCol().doc(_monthDocId(companyId, employeeId, mStr));
+      final snap = await ref.get().timeout(const Duration(seconds: 10));
+      final data = <String, dynamic>{
+        'companyId': companyId,
+        'employeeId': employeeId,
+        'month': mStr,
+        'entries': payload,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!snap.exists) data['createdAt'] = FieldValue.serverTimestamp();
+      await ref
+          .set(data, SetOptions(mergeFields: data.keys.toList()))
           .timeout(const Duration(seconds: 10));
 
       return Result(success: true, data: true);

@@ -70,6 +70,12 @@ class EmployeeScheduleController extends GetxController {
   // Selección por rango
   final Rx<DateTime?> rangeStart = Rx<DateTime?>(null);
   final Rx<DateTime?> rangeEnd = Rx<DateTime?>(null);
+  /// Selección de días NO contiguos (botones L..D): solo los días del mes
+  /// visible que caen en ese weekday. Vacía cuando la selección es un día o un
+  /// rango. (Antes se guardaba como rango primero..último y 'Libre' se
+  /// aplicaba también a los días intermedios.)
+  final RxList<DateTime> weekdaySelection = <DateTime>[].obs;
+
   final Rx<RangeSelectionMode> rangeSelectionMode =
       RangeSelectionMode.toggledOff.obs;
 
@@ -259,6 +265,7 @@ class EmployeeScheduleController extends GetxController {
   }
 
   void onRangeSelected(DateTime? start, DateTime? end, DateTime focused) {
+    weekdaySelection.clear();
     selectedDay.value = null;
     focusedDay.value = focused;
     rangeStart.value = start != null ? _dateOnly(start) : null;
@@ -292,19 +299,8 @@ class EmployeeScheduleController extends GetxController {
 
   // ── Mutaciones de selección ────────────────────────────────────────────────
   Future<void> setForSelection(DayEntry entry) async {
-    // Rango
-    if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
-        rangeStart.value != null &&
-        rangeEnd.value != null) {
-      DateTime d = rangeStart.value!;
-      while (!d.isAfter(rangeEnd.value!)) {
-        _setEntryForDate(d, entry);
-        d = d.add(const Duration(days: 1));
-      }
-    }
-    // Día suelto
-    else if (selectedDay.value != null) {
-      _setEntryForDate(selectedDay.value!, entry);
+    for (final d in selectedDates) {
+      _setEntryForDate(d, entry);
     }
 
     // Refrescamos map visible (mes actual)
@@ -323,16 +319,8 @@ class EmployeeScheduleController extends GetxController {
   }
 
   Future<void> clearSelection() async {
-    if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
-        rangeStart.value != null &&
-        rangeEnd.value != null) {
-      DateTime d = rangeStart.value!;
-      while (!d.isAfter(rangeEnd.value!)) {
-        _removeEntryForDate(d);
-        d = d.add(const Duration(days: 1));
-      }
-    } else if (selectedDay.value != null) {
-      _removeEntryForDate(selectedDay.value!);
+    for (final d in selectedDates) {
+      _removeEntryForDate(d);
     }
 
     entries.assignAll(_cacheByMonth[_currentMonthKey] ?? {});
@@ -438,6 +426,7 @@ class EmployeeScheduleController extends GetxController {
 
   /// Selecciona un único día (usado al tocar en el calendario).
   void selectSingleDay(DateTime day) {
+    weekdaySelection.clear();
     selectedDay.value = _dateOnly(day);
     rangeStart.value = null;
     rangeEnd.value = null;
@@ -459,22 +448,27 @@ class EmployeeScheduleController extends GetxController {
     if (matches.isEmpty) return;
 
     selectedDay.value = null;
-    rangeStart.value = matches.first;
-    rangeEnd.value = matches.last;
-    rangeSelectionMode.value = RangeSelectionMode.toggledOn;
+    rangeStart.value = null;
+    rangeEnd.value = null;
+    rangeSelectionMode.value = RangeSelectionMode.toggledOff;
+    weekdaySelection.assignAll(matches.map(_dateOnly));
     update();
   }
 
   /// Días actualmente seleccionados (1 día o un rango). Vacío si no hay nada.
   List<DateTime> get selectedDates {
+    if (weekdaySelection.isNotEmpty) return List<DateTime>.from(weekdaySelection);
     if (rangeSelectionMode.value == RangeSelectionMode.toggledOn &&
         rangeStart.value != null &&
         rangeEnd.value != null) {
       final out = <DateTime>[];
-      var d = rangeStart.value!;
-      while (!d.isAfter(rangeEnd.value!)) {
+      var d = _dateOnly(rangeStart.value!);
+      final end = _dateOnly(rangeEnd.value!);
+      while (!d.isAfter(end)) {
         out.add(d);
-        d = d.add(const Duration(days: 1));
+        // Aritmética de calendario (no Duration): sumar 24 h el día del cambio
+        // de hora deja la fecha a las 23:00 del mismo día.
+        d = DateTime(d.year, d.month, d.day + 1);
       }
       return out;
     }

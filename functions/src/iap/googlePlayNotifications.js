@@ -39,6 +39,14 @@ function mapGoogleState(state) {
   }
 }
 
+// ¿La línea del producto sigue dentro del periodo pagado (expiryTime futuro)?
+function isStillPaid(subInfo, productId, nowMs = Date.now()) {
+  const li = (subInfo?.lineItems || []).find((x) => x.productId === productId) ||
+    subInfo?.lineItems?.[0];
+  const exp = li?.expiryTime ? Date.parse(li.expiryTime) : null;
+  return exp != null && exp > nowMs;
+}
+
 exports.iap_googlePlayNotifications = onMessagePublished(
     { region: 'europe-west1', topic: RTDN_TOPIC },
     async (event) => {
@@ -112,7 +120,14 @@ exports.iap_googlePlayNotifications = onMessagePublished(
           return;
         }
 
-        const status = mapGoogleState(subInfo.subscriptionState);
+        let status = mapGoogleState(subInfo.subscriptionState);
+
+        // SUBSCRIPTION_STATE_CANCELED = el usuario desactivó la renovación pero
+        // el periodo ya pagado sigue vigente hasta expiryTime. No es una
+        // cancelación efectiva: la empresa sigue activa (autoRenewing=false) y
+        // Google enviará SUBSCRIPTION_EXPIRED al terminar el periodo.
+        const canceledButPaid = status === 'canceled' && isStillPaid(subInfo, productId);
+        if (canceledButPaid) status = 'active';
 
         if (status === 'expired' || status === 'canceled' || status === 'revoked') {
           // Preservamos contexto + canceledAt para el periodo de gracia in-app.
@@ -134,7 +149,7 @@ exports.iap_googlePlayNotifications = onMessagePublished(
         const line = (subInfo.lineItems || []).find((li) => li.productId === productId) || subInfo.lineItems?.[0];
         const expiresAtMs = line?.expiryTime ? Date.parse(line.expiryTime) : null;
         const startMs = subInfo.startTime ? Date.parse(subInfo.startTime) : null;
-        const autoRenewing = !!line?.autoRenewingPlan;
+        const autoRenewing = canceledButPaid ? false : !!line?.autoRenewingPlan;
 
         await updateCompanyMirror(companyId, {
           platform: 'android',
@@ -153,3 +168,7 @@ exports.iap_googlePlayNotifications = onMessagePublished(
       }
     },
 );
+
+// Exportado para pruebas unitarias.
+exports._mapGoogleState = mapGoogleState;
+exports._isStillPaid = isStillPaid;

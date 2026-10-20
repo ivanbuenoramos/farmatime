@@ -757,7 +757,11 @@ const reportsOnClockRecordWrite = onDocumentWritten(
 
       const company = await getCompany(companyId);
       const employee = await getEmployee(employeeId);
-      if (!employee) return;
+      // Sin empleado, o empleado en proceso de purga (accountStatus 'deleted'):
+      // no regenerar. Si no, al borrar sus fichajes en cascada este trigger
+      // volvía a crear docs en clockReports (y PDFs) ya eliminados.
+      if (!employee || employee.accountStatus === 'deleted') return;
+      if (!company) return;
 
       for (const key of affected) {
         const [yStr, mStr] = key.split('-');
