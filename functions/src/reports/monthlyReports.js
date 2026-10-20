@@ -5,9 +5,9 @@ const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 // API modular: en el emulador de Functions (firebase-tools 15 + firebase-admin
 // 13) el proxy de `admin.firestore` no expone los estáticos (Timestamp,
-// FieldValue) y `admin.firestore.Timestamp.fromDate` lanzaba TypeError en
+// FieldValue) y `Timestamp.fromDate` lanzaba TypeError en
 // cada escritura de clockRecords (reportsOnClockRecordWrite).
-const { Timestamp } = require('firebase-admin/firestore');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const PDFDocument = require('pdfkit');
 const {
   startOfMonth,
@@ -438,8 +438,8 @@ async function upsertClockReportDoc({
             // totalHours; sirve para alertar de registros incompletos.
             openRecordsCount,
             source,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
       );

@@ -1,6 +1,7 @@
 // helpers/companyMirror.js
 // Espejo en Firestore del estado de suscripción IAP.
-const { db, admin } = require('../config/firebase');
+const { db } = require('../config/firebase');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { logger } = require('firebase-functions');
 
 const CANCELED_STATUSES = new Set(['canceled', 'expired', 'revoked', 'on_hold', 'paused']);
@@ -18,7 +19,7 @@ const LIVE_STATUSES = new Set([
 
 function tsFromMillis(ms) {
   if (!ms || typeof ms !== 'number') return null;
-  return admin.firestore.Timestamp.fromMillis(ms);
+  return Timestamp.fromMillis(ms);
 }
 
 // payload esperado:
@@ -49,7 +50,7 @@ async function updateCompanyMirror(companyId, payload, options = {}) {
 
   const companyRef = db.collection('companies').doc(companyId);
   const data = {
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   };
 
   const sub = {};
@@ -120,7 +121,7 @@ async function updateCompanyMirror(companyId, payload, options = {}) {
         existing = existing || await txn.get(companyRef);
         const prev = existing.data()?.subscription?.canceledAt || null;
         if (!prev) {
-          sub.canceledAt = admin.firestore.FieldValue.serverTimestamp();
+          sub.canceledAt = FieldValue.serverTimestamp();
         } else {
           // Conservamos el timestamp original (no lo sobreescribimos).
           delete sub.canceledAt;
@@ -188,7 +189,7 @@ async function markCompanyAsCanceled(companyId, status, options = {}) {
       autoRenewing: false,
     };
     if (!prevCanceledAt) {
-      sub.canceledAt = admin.firestore.FieldValue.serverTimestamp();
+      sub.canceledAt = FieldValue.serverTimestamp();
     }
 
     txn.set(
@@ -196,7 +197,7 @@ async function markCompanyAsCanceled(companyId, status, options = {}) {
         {
           subscription: sub,
           billingStatus: finalStatus,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
     );
@@ -221,7 +222,7 @@ async function resetCompanyToFree(companyId) {
         contractedSeats: 1,
         currentPeriodStart: null,
         currentPeriodEnd: null,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
   );

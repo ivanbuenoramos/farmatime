@@ -8,8 +8,9 @@
 //   - Día 30+: este cron pone a los empleados en estado 'disabled' y baja
 //     contractedSeats a 1.
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
-const { db, admin } = require('../config/firebase');
+const { db } = require('../config/firebase');
 const { updateEmployeesForBillingState, GRACE_MS } = require('../helpers/billingEmployees');
 const { sendPushToUsers } = require('../notifications/sendPush');
 
@@ -62,7 +63,7 @@ exports.iap_billingGraceCron = onSchedule(
     },
     async () => {
       const cutoffMs = Date.now() - GRACE_MS;
-      const cutoffTs = admin.firestore.Timestamp.fromMillis(cutoffMs);
+      const cutoffTs = Timestamp.fromMillis(cutoffMs);
 
       // Firestore no soporta `where in` + `where <` con los índices por defecto
       // sin un compuesto, así que iteramos por estado.
@@ -88,7 +89,7 @@ exports.iap_billingGraceCron = onSchedule(
             await doc.ref.set(
                 {
                   contractedSeats: 1,
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                  updatedAt: FieldValue.serverTimestamp(),
                 },
                 { merge: true },
             );

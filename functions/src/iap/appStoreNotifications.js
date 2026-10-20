@@ -2,8 +2,9 @@
 // App Store Server Notifications v2.
 // URL configurada en App Store Connect → App Information → Server Notifications.
 const { onRequest } = require('firebase-functions/v2/https');
+const { FieldValue } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
-const { db, admin } = require('../config/firebase');
+const { db } = require('../config/firebase');
 const { verifyAppleJws } = require('./helpers/verifyAppleJws');
 const { getPlan } = require('./helpers/planCatalog');
 const {
@@ -59,7 +60,7 @@ async function claimEvent(eventId) {
   return db.runTransaction(async (txn) => {
     const doc = await txn.get(ref);
     if (doc.exists) return false;
-    txn.set(ref, { createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    txn.set(ref, { createdAt: FieldValue.serverTimestamp() });
     return true;
   });
 }

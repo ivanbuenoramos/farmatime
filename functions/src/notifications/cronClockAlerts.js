@@ -8,8 +8,9 @@
 //      terminó hace >=30 min → notifica al EMPLEADO.
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { Timestamp } = require('firebase-admin/firestore');
 const { logger } = require('firebase-functions');
-const { admin, db } = require('../config/firebase');
+const { db } = require('../config/firebase');
 const { sendPushToUsers } = require('./sendPush');
 const { resolveDayShift, toMinutes, ymdMadrid } = require('./scheduleResolver');
 
@@ -40,7 +41,7 @@ function nowMinutesMadrid(date) {
 function startOfDayTs(date) {
   const ymd = ymdMadrid(date);
   // Madrid es UTC+1/+2; usamos un margen amplio leyendo desde 00:00 UTC del día.
-  return admin.firestore.Timestamp.fromDate(new Date(`${ymd}T00:00:00Z`));
+  return Timestamp.fromDate(new Date(`${ymd}T00:00:00Z`));
 }
 
 /** Empleados activos (uid, companyId). */

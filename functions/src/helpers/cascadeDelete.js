@@ -5,6 +5,7 @@
 // que recorrerlas explícitamente. Borramos por lotes (batch de 400) para no
 // exceder el límite de 500 operaciones por commit.
 const { db, admin } = require('../config/firebase');
+const { FieldValue } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
 
 const BATCH_LIMIT = 400;
@@ -109,8 +110,8 @@ async function removeUserFromConversations(uid) {
     if (data.isGroup) {
       // Lo quitamos del grupo conservando la conversación.
       await conv.ref.update({
-        memberIds: admin.firestore.FieldValue.arrayRemove(uid),
-        [`unreadCounts.${uid}`]: admin.firestore.FieldValue.delete(),
+        memberIds: FieldValue.arrayRemove(uid),
+        [`unreadCounts.${uid}`]: FieldValue.delete(),
       }).catch(() => {});
     } else {
       // DM: se borra junto con sus mensajes.
