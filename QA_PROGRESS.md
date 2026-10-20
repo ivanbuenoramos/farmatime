@@ -31,7 +31,8 @@
 
 ## Funcionalidades pendientes
 - Ejecución en Android (API 36 y API 30) de toda la suite; iPad / iPhone pequeño / iOS 18.5.
-- Verificación adversarial de los 192 candidatos + buscadores por dimensión (workflow Fase 2 en curso).
+- ~~Verificación adversarial de los 192 candidatos + buscadores por dimensión~~ → **Fase 2 completada**: 6 buscadores (105 hallazgos) + 192 candidatos = 296 únicos; 551 agentes de verificación (lentes corrección / impacto / reproducibilidad). Resultado: **271 confirmados (2 críticos, 34 altos, 114 medios, 121 bajos), 24 refutados, 1 incierto** → `docs/qa/VERIFIED_ISSUES.md` (+ `verified_issues.json` con causa raíz, escenario, fix mínimo y test propuesto por issue).
+- **Fase 8 en curso**: 4 agentes corrigen en paralelo los críticos/altos (reglas+fichajes, functions, horarios, plataforma/cliente) con prueba de regresión. Medios/bajos: documentados con fix propuesto; se corrigen los de bajo riesgo si queda margen.
 - Suscripciones IAP, push reales, email real: no emulables (limitación documentada).
 
 ## Bugs descubiertos
