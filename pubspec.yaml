@@ -77,6 +77,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  # Pruebas de integración reales en simulador/emulador (auditoría QA).
+  integration_test:
+    sdk: flutter
 
 dependency_overrides:
   # Google Play exige Billing Library 8.0.0+ (in_app_purchase_android 0.5.x).

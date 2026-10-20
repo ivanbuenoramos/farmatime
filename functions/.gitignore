@@ -12,3 +12,6 @@ ui-debug.log*
 
 # NOTA: los .env de functions (.env.local, .env.farmatime-app) se versionan a
 # propósito: no contienen secretos (esos viven en Secret Manager).
+
+# Secretos ficticios para el emulador local (QA). Nunca versionar.
+.secret.local

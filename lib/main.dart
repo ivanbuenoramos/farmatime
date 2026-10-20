@@ -11,6 +11,7 @@ import 'package:farmatime/core/app/app.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/dependencies.dart';
 import 'package:farmatime/firebase_options.dart';
+import 'package:farmatime/core/firebase_emulator.dart';
 import 'package:farmatime/core/services/push_notification_service.dart';
 
 Future<void> main() async {
@@ -25,9 +26,15 @@ Future<void> main() async {
       debugPrint('🔴 FlutterError: ${details.exceptionAsString()}\n${details.stack}');
     };
 
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Idempotente: main() puede volver a ejecutarse en el mismo isolate (p. ej.
+    // en pruebas de integración, que desmontan y relanzan la app por test).
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+    // QA: contra el Emulator Suite solo si se pasó --dart-define (nunca en release).
+    await FirebaseEmulator.connectIfEnabled();
     await GetStorage.init();
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
