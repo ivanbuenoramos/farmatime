@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-17 → 2026-10-20 · Rama: `audit/flutter-deep-qa-2026-10` (base `main@fbfb714`, checkpoint `cb9109b` con el trabajo previo sin commitear) · Metodología reutilizable: `.claude/skills/flutter-deep-qa/SKILL.md` · Progreso detallado: `QA_PROGRESS.md`.
 
-> Nada de lo corregido está desplegado: ni `firebase deploy` ni subida a tiendas. Todas las pruebas se ejecutaron contra el **Firebase Emulator Suite** (nunca contra `farmatime-app` real).
+> **Estado: COMPLETADA** (criterios de cierre §13). Nada de lo corregido está desplegado: ni `firebase deploy` ni subida a tiendas. Todas las pruebas se ejecutaron contra el **Firebase Emulator Suite** (nunca contra `farmatime-app` real).
 
 ## 1. Resumen ejecutivo
 
@@ -102,8 +102,9 @@ Los 271 confirmados, con causa raíz, escenario de fallo, fix mínimo y test pro
 | ESLint functions | `npm run lint` | 0 errores, 3 warnings max-len (preexistentes) |
 | Integración iOS 27 · iPhone 18 Pro | `tool/qa/run_integration_tests.sh ios` | **47/47** (pases `docs/qa/results/2026-10-20d` + `e`) |
 | Integración Android 16 · API 36 (1080×2400) | `tool/qa/run_integration_tests.sh android` | **47/47** (archivos verdes repartidos en `2026-10-20f` auth farmacia/fichaje/ubicación denegada/rendimiento, `h` empleados, `j` smoke/auth empleado/chat/horarios/ausencias). Fallos intermedios: entorno (almacenamiento del AVD, VM service con el host saturado), ninguno funcional salvo el overflow BUG-016 ya corregido. |
-| Android 11 · API 30 (pantalla pequeña) | idem con `ANDROID_DEVICE` | __PENDIENTE_API30__ |
-| iOS otros tamaños/versiones (iPhone 16e iOS 18.5, iPad Pro 13" iOS 27) | idem con `IOS_DEVICE` | __PENDIENTE_IOS_MATRIX__ |
+| Android 11 · API 30 (Pixel 4a, 1080×2340) | `ANDROID_DEVICE=emulator-5554 … android` | smoke 4/4, auth farmacia 7/7, fichaje 6/6, auth empleado 8/8 **PASS**; fichaje con ubicación revocada: no concluyente (en API 30 `pm revoke`+`user-fixed` no produjo un estado "denegado" determinista; flujo verificado en iOS 27 y Android 16). `docs/qa/results/2026-10-20k-android11-api30/` |
+| iPhone 16e · iOS 18.5 (pantalla pequeña, versión antigua) | `IOS_DEVICE=… ios` | smoke 4/4, auth farmacia 7/7, fichaje 6/6 **PASS** (`2026-10-20k-iphone16e-ios18/`) |
+| iPad Pro 13" (M5) · iOS 27 (tablet) | `IOS_DEVICE=… ios` | smoke 4/4, auth farmacia 7/7, fichaje 6/6 **PASS** (`2026-10-20k-ipadpro13-ios27/`) |
 | Build Android | `flutter build apk --debug` | OK |
 | Build iOS | `flutter build ios --simulator --debug` | OK |
 
@@ -152,6 +153,18 @@ Ver §5.2 y `docs/qa/VERIFIED_ISSUES.md`. Además: deuda de harness documentada 
 5. Paginar/limitar el histórico de fichajes del empleado.
 6. Regenerar los informes PDF ya emitidos (`reportsGenerateRange`) tras desplegar el fix de zona horaria.
 7. Mantener la suite: `flutter analyze && flutter test && (cd functions && npm test) && tool/qa/run_integration_tests.sh all` como puerta de entrada a `main`.
+
+## 13. Criterios de finalización
+
+| Criterio | Estado |
+|---|---|
+| Todas las funcionalidades auditadas o con limitación documentada | ✔ 61 pantallas en la matriz; 56 casos marcados manual/bloqueado (IAP, push, email reales) |
+| Sin bugs críticos conocidos sin resolver | ✔ el crítico de código (purga en cascada) corregido; el crítico restante (clave SendGrid en historial) es una acción operativa del usuario (§12.2) |
+| Todas las pruebas automatizadas ejecutables pasan | ✔ analyze 0/0, unit 14/14, reglas 431/431, functions 18/18, integración iOS 47/47 y Android 47/47 |
+| Pruebas de regresión ejecutadas tras las correcciones | ✔ iOS 5/5 archivos afectados + Android completo tras la Fase 8 |
+| Compilaciones correctas | ✔ `flutter build apk --debug`, `flutter build ios --simulator --debug`; CI Android corregido (no ejecutado: requiere GitHub) |
+| Problemas no verificables documentados | ✔ §11 |
+| Informe final con evidencias | ✔ este documento + `docs/qa/results/*` + `docs/qa/*.json` |
 
 ## Anexo A — Tablas de issues confirmados
 Ver `docs/qa/_issues_tables.md` (críticos/altos, medios, bajos con causa raíz y fix propuesto) y `docs/qa/VERIFIED_ISSUES.md` (incluye refutados).

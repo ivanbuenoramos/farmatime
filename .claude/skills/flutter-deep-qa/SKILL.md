@@ -70,7 +70,10 @@ iPad (Pro 13", iOS 27) · Android teléfono API 36 (1080×2400) · Android panta
 `flutter_emulator` 1080×1920 o un AVD tablet creado con la misma imagen). Documentar siempre qué
 versiones NO estaban disponibles (p. ej. imágenes Android < API 36 no instaladas).
 
-Arrancar: `xcrun simctl boot <UDID>` · `emulator -avd Medium_Phone_API_36.0 &`.
+Arrancar: `xcrun simctl boot <UDID>` · `emulator -avd Medium_Phone_API_36.0 &` (API 30: `emulator -avd qa_api30_small`).
+Matriz ejecutada el 2026-10-20: iPhone 18 Pro/iOS 27 (suite completa), iPhone 16e/iOS 18.5, iPad Pro 13"/iOS 27,
+Android 16/API 36 (suite completa), Android 11/API 30. Un solo dispositivo a la vez (datos del emulador compartidos).
+OJO zsh: pasar los archivos al runner como argumentos explícitos (una variable `$FILES` no se divide en palabras).
 
 ## 4. Backend aislado: Firebase Emulator Suite
 

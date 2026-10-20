@@ -1,0 +1,4 @@
+archivo	resultado	duracion_s	log
+smoke_test	PASS	101	docs/qa/results/2026-10-20k-ipadpro13-ios27/ios-smoke_test.log
+auth_company_test	PASS	115	docs/qa/results/2026-10-20k-ipadpro13-ios27/ios-auth_company_test.log
+clock_flow_test	PASS	216	docs/qa/results/2026-10-20k-ipadpro13-ios27/ios-clock_flow_test.log

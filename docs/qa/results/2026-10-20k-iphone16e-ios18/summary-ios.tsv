@@ -1,0 +1,4 @@
+archivo	resultado	duracion_s	log
+smoke_test	PASS	71	docs/qa/results/2026-10-20k-iphone16e-ios18/ios-smoke_test.log
+auth_company_test	PASS	85	docs/qa/results/2026-10-20k-iphone16e-ios18/ios-auth_company_test.log
+clock_flow_test	PASS	105	docs/qa/results/2026-10-20k-iphone16e-ios18/ios-clock_flow_test.log

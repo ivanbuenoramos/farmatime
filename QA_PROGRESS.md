@@ -4,7 +4,9 @@
 > Metodología: `.claude/skills/flutter-deep-qa/SKILL.md`. Informe final: `QA_AUDIT_REPORT.md`.
 
 ## Fase actual
-**Fase 1 — Descubrimiento** (8/11 áreas leídas; 3 áreas + síntesis se reanudaron el 2026-10-20 tras un límite de uso del modelo) · **Fase 3/4** pruebas de integración ejecutándose en iOS · **Fase 6** reglas Firestore probadas y endurecidas.
+**AUDITORÍA COMPLETADA (2026-10-20)** — ver `QA_AUDIT_REPORT.md`. Última ejecución: matriz de dispositivos (iPhone 16e iOS 18.5 3/3, iPad Pro 13" iOS 27 3/3, Android 11 API 30 4/5 — ubicación revocada no concluyente en API 30).
+
+(histórico) **Fase 1 — Descubrimiento** (8/11 áreas leídas; 3 áreas + síntesis se reanudaron el 2026-10-20 tras un límite de uso del modelo) · **Fase 3/4** pruebas de integración ejecutándose en iOS · **Fase 6** reglas Firestore probadas y endurecidas.
 
 ## Infraestructura de pruebas (2026-10-17)
 - `firebase.json`: bloque `emulators` (auth 9099, firestore 8080, functions 5001, storage 9199, UI 4000). **Bloqueo resuelto:** firebase-tools 15 exige Java 21 → se usa el JBR de Android Studio (`/Applications/Android Studio.app/Contents/jbr`). Emuladores arrancados; crons/pubsub ignorados (sin emulador Pub/Sub) — limitación documentada.
@@ -30,7 +32,7 @@
 - Reglas de seguridad Firestore: 385 tests unitarios (todas las colecciones).
 
 ## Funcionalidades pendientes
-- ~~Ejecución en Android API 36 de toda la suite~~ hecha. Pendiente: matriz de dispositivos (iPhone 16e iOS 18.5, iPad Pro 13" iOS 27, Android 11 API 30) — en ejecución.
+- ~~Ejecución en Android API 36 de toda la suite~~ hecha. ~~Matriz de dispositivos~~ hecha (`docs/qa/results/2026-10-20k-*`).
 - ~~Verificación adversarial de los 192 candidatos + buscadores por dimensión~~ → **Fase 2 completada**: 6 buscadores (105 hallazgos) + 192 candidatos = 296 únicos; 551 agentes de verificación (lentes corrección / impacto / reproducibilidad). Resultado: **271 confirmados (2 críticos, 34 altos, 114 medios, 121 bajos), 24 refutados, 1 incierto** → `docs/qa/VERIFIED_ISSUES.md` (+ `verified_issues.json` con causa raíz, escenario, fix mínimo y test propuesto por issue).
 - **Fase 8 (2026-10-20)**: los 4 agentes murieron por límite de sesión (dejaron 2 specs útiles); las correcciones se hicieron a mano, en commit `fix: correcciones de la Fase 8`. Corregidos con regresión: CRÍTICO purga en cascada con uid del cliente; CAND-001 PDF en UTC; CAND-009/010 (+3 dup.) lost update y cierre de fichaje editado; CAND-011 (+1) listado de fichajes de la empresa; CAND-015 (+3) 'Quitar asignación'; CAND-016 selección por weekday; CAND-026 (+1) pantalla bloqueada; CAND-029 push billing a empleados; CAND-032 texto de baja; CAND-037 PDFs/clockReports en cascada; CAND-040 (+1) CI Android; CAND-005/006 set-password; FND Mi día duplicados; FND reglas accountStatus; FND Google CANCELED; FND API key Maps en manifest. Regresión: `flutter analyze` 0 err/0 warn, `flutter test` 14/14, `npm test` 448/448, lint 0 err.
 - **Pendientes (altos) con propuesta documentada en `docs/qa/VERIFIED_ISSUES.md`**: CAND-002 (clave SendGrid en el historial del repo público → rotar clave y reescribir historial; acción del usuario); CAND-022 (overrides vacation/personal escribibles por el empleado: requiere mover la aprobación al backend); CAND-027/028 (IAP: race del singleton y disableUids no enviados; no verificable sin tienda); verifyAppleJws sin comprobar OIDs de Apple (requiere parser ASN.1); devengo desde el alta en la app (decisión de producto). Medios/bajos: 235 documentados con fix propuesto, no corregidos en esta ronda.
