@@ -37,7 +37,14 @@ class EmployeeRepositoryImpl implements EmployeeRepository {
   @override
   Future<Result<EmployeeModel?>> updateEmployee(EmployeeModel employee) async {
     try {
-      await firestore.collection('employees').doc(employee.uid).update(employee.toJson());
+      // hireDate/createdAt los fija el backend al dar de alta (Timestamp) y son
+      // la base del devengo de vacaciones: el cliente nunca los reescribe (el
+      // modelo los serializa como ISO string, lo que ademas contaba como cambio
+      // para las reglas de seguridad). uid es el id del doc.
+      final payload = employee.toJson()
+        ..remove('hireDate')
+        ..remove('createdAt');
+      await firestore.collection('employees').doc(employee.uid).update(payload);
       return Result(success: true, data: employee);
     } catch (e) {
       print(e);

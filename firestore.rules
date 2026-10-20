@@ -99,9 +99,7 @@ service cloud.firestore {
       // companyId del empleado (no se puede mover a otra empresa).
       // El empleado puede editar su propio doc (nombre, foto...), pero no las
       // condiciones laborales que fija la empresa (tarifa, rol, jornada, días
-      // de vacaciones). hireDate no se compara: el backend lo crea como
-      // Timestamp y el cliente lo reescribe como texto ISO en su primer
-      // guardado, lo que contaría como cambio. Solo se le permite UNA transición de
+      // de vacaciones) ni hireDate/createdAt. Solo se le permite UNA transición de
       // accountStatus: pending → active, justo al activar la cuenta tras
       // establecer su contraseña definitiva (`hasTempPassword` pasa a false).
       // Cualquier otra promoción de estado queda bloqueada.
@@ -119,6 +117,11 @@ service cloud.firestore {
         && request.resource.data.get('vacationDaysPer30', null) == resource.data.get('vacationDaysPer30', null)
         && request.resource.data.get('personalDaysPerYear', null) == resource.data.get('personalDaysPerYear', null)
         && request.resource.data.get('position', null) == resource.data.get('position', null)
+        // Base del devengo de vacaciones y antigüedad: solo las fija el backend.
+        // El cliente ya no reescribe estos campos (EmployeeRepositoryImpl los
+        // excluye del update), así que la comparación es segura.
+        && request.resource.data.get('hireDate', null) == resource.data.get('hireDate', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && (
           request.resource.data.accountStatus == resource.data.accountStatus
           || (
@@ -150,8 +153,12 @@ service cloud.firestore {
 
       // Crear: empleado de la empresa o la propia empresa. No puede llegar ya
       // marcado como editado (la edición es un acto posterior y trazado).
+      // Un empleado solo puede fichar a SU nombre (employeeId == uid); la
+      // empresa puede crear fichajes de cualquiera de sus empleados.
       allow create: if belongsToCompany(incomingCompanyId())
-                    && request.resource.data.isEdited == false;
+                    && request.resource.data.isEdited == false
+                    && (isCompany(incomingCompanyId())
+                        || request.resource.data.employeeId == request.auth.uid);
 
       // Editar: la empresa (edición trazada con auditLog) o el propio empleado
       // sobre su fichaje (salida/pausas), que NO puede marcarlo como editado:
@@ -160,7 +167,10 @@ service cloud.firestore {
       allow update: if (
                       isCompany(existingCompanyId())
                       || (request.auth.uid == resource.data.employeeId
-                          && request.resource.data.isEdited == false)
+                          && request.resource.data.isEdited == false
+                          // La hora de entrada queda fijada al fichar: solo la
+                          // empresa la corrige (con isEdited=true + auditLog).
+                          && request.resource.data.clockIn == resource.data.clockIn)
                     )
                     && request.resource.data.id == resource.data.id
                     && request.resource.data.employeeId == resource.data.employeeId
@@ -203,14 +213,19 @@ service cloud.firestore {
     match /company_shift_templates/{tplId} {
       allow read: if belongsToCompany(resource.data.companyId);
       allow create: if isCompany(incomingCompanyId());
-      allow update, delete: if isCompany(existingCompanyId());
+      allow update: if isCompany(existingCompanyId())
+                    && incomingCompanyId() == existingCompanyId();
+      allow delete: if isCompany(existingCompanyId());
     }
 
     // ---------- Reglas recurrentes de horario ----------
     match /employee_schedule_rules/{ruleId} {
       allow read: if belongsToCompany(resource.data.companyId);
       allow create: if isCompany(incomingCompanyId());
-      allow update, delete: if isCompany(existingCompanyId());
+      allow update: if isCompany(existingCompanyId())
+                    && incomingCompanyId() == existingCompanyId()
+                    && request.resource.data.employeeId == resource.data.employeeId;
+      allow delete: if isCompany(existingCompanyId());
     }
 
     // ---------- Overrides de horario por mes ----------
@@ -222,10 +237,12 @@ service cloud.firestore {
                     || (employeeExists()
                         && incomingCompanyId() == myEmployee().companyId
                         && request.resource.data.employeeId == request.auth.uid);
-      allow update: if isCompany(existingCompanyId())
-                    || (employeeExists()
-                        && existingCompanyId() == myEmployee().companyId
-                        && resource.data.employeeId == request.auth.uid);
+      allow update: if incomingCompanyId() == existingCompanyId()
+                    && request.resource.data.employeeId == resource.data.employeeId
+                    && (isCompany(existingCompanyId())
+                        || (employeeExists()
+                            && existingCompanyId() == myEmployee().companyId
+                            && resource.data.employeeId == request.auth.uid));
       allow delete: if isCompany(existingCompanyId())
                     || (employeeExists() && resource.data.employeeId == request.auth.uid);
     }
@@ -256,6 +273,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.employeeId
         && request.resource.data.companyId == resource.data.companyId
         && request.resource.data.employeeId == resource.data.employeeId
+        // Al aceptar/rechazar/cancelar no puede cambiar lo solicitado ni lo
+        // propuesto por la empresa (evita "auto-aprobarse" otras fechas).
+        && request.resource.data.get('dates', null) == resource.data.get('dates', null)
+        && request.resource.data.get('proposedDates', null) == resource.data.get('proposedDates', null)
+        && request.resource.data.get('type', null) == resource.data.get('type', null)
         && (
           (resource.data.status == 'requested'
             && request.resource.data.status == 'cancelled')
