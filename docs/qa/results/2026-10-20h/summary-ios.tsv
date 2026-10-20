@@ -1,0 +1,6 @@
+archivo	resultado	duracion_s	log
+clock_flow_test	PASS	100	docs/qa/results/2026-10-20h/ios-clock_flow_test.log
+schedule_test	PASS	80	docs/qa/results/2026-10-20h/ios-schedule_test.log
+employee_management_test	PASS	95	docs/qa/results/2026-10-20h/ios-employee_management_test.log
+auth_employee_test	PASS	100	docs/qa/results/2026-10-20h/ios-auth_employee_test.log
+time_off_test	PASS	105	docs/qa/results/2026-10-20h/ios-time_off_test.log

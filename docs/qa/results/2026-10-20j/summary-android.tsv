@@ -1,0 +1,6 @@
+archivo	resultado	duracion_s	log
+smoke_test	PASS	55	docs/qa/results/2026-10-20j/android-smoke_test.log
+auth_employee_test	PASS	80	docs/qa/results/2026-10-20j/android-auth_employee_test.log
+chat_test	PASS	80	docs/qa/results/2026-10-20j/android-chat_test.log
+schedule_test	PASS	60	docs/qa/results/2026-10-20j/android-schedule_test.log
+time_off_test	PASS	80	docs/qa/results/2026-10-20j/android-time_off_test.log
