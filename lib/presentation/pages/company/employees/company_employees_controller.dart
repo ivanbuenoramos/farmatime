@@ -130,6 +130,10 @@ class CompanyEmployeesController extends GetxController {
         final parsed = int.tryParse('$seats');
         if (parsed != null) contractedSeats.value = parsed;
       }
+    }, onError: (e) {
+      // p. ej. permission-denied justo al cerrar sesión (el listener sigue vivo
+      // unos ms tras signOut). Sin este handler el error quedaba sin capturar.
+      debugPrint('Stream empresa error: $e');
     });
 
     // ✅ Listener empleados (single source of truth para toda la app)

@@ -15,12 +15,6 @@ Finder _calendarDay(int day) => find.descendant(
       matching: find.text('$day'),
     );
 
-Future<void> _logoutCompany(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   final today = DateTime.now();
@@ -30,7 +24,7 @@ void main() {
       await launchApp(tester);
       await loginAsCompany(tester);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text(Seed.empAnaName), timeout: const Duration(seconds: 20));
       await tapText(tester, Seed.empAnaName);
       await waitFor(tester, find.text('Perfil de empleado'), timeout: const Duration(seconds: 20));
@@ -71,7 +65,7 @@ void main() {
 
     testWidgets('SCH-002 volver atrás sin cambios no pide confirmación y la farmacia cierra sesión', (tester) async {
       await launchApp(tester);
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text(Seed.empAnaName), timeout: const Duration(seconds: 20));
       await tapText(tester, Seed.empAnaName);
       await waitFor(tester, find.text('Perfil de empleado'), timeout: const Duration(seconds: 20));
@@ -80,17 +74,14 @@ void main() {
       await tester.tap(editar.first);
       await waitFor(tester, find.text('Horario'), timeout: const Duration(seconds: 20));
       await pumpFor(tester, const Duration(seconds: 2));
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await goBack(tester);
       await pumpFor(tester, const Duration(seconds: 1));
       expect(find.text('Cambios sin guardar'), findsNothing);
       await waitFor(tester, find.text('Perfil de empleado'), timeout: const Duration(seconds: 10));
-      final back = find.byType(BackButton).evaluate().isNotEmpty
-          ? find.byType(BackButton)
-          : find.byIcon(Icons.arrow_back_rounded);
-      await tester.tap(back.first);
+      await goBack(tester);
       await waitFor(tester, find.text('Lista de empleados'), timeout: const Duration(seconds: 10));
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
 
     testWidgets('SCH-003 Ana ve el turno de hoy (09:00–14:00) en Mi día', (tester) async {
@@ -101,7 +92,7 @@ void main() {
           timeout: const Duration(seconds: 30));
       expect(find.textContaining('14:00'), findsWidgets);
       expect(tester.takeException(), isNull);
-      await tapText(tester, 'Perfil');
+      await tapNav(tester, 'Perfil');
       await waitFor(tester, find.text('Mi cuenta'));
       await tapText(tester, 'Cerrar sesión');
       await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));

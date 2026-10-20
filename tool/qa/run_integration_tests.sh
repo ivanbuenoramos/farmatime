@@ -60,6 +60,16 @@ run_platform() {
     local log="$RESULTS_DIR/$platform-$name.log"
     echo "▶ [$platform] $name"
     seed "$platform-$name" || { echo -e "$name\tSEED_FAIL\t0\t$log" >> "$summary"; continue; }
+    # iOS: los permisos TCC se aplican al bundle INSTALADO; instalamos la última
+    # build (flutter test la reinstala igualmente) antes de conceder/revocar.
+    if [ "$platform" = "ios" ]; then
+      local app="build/ios/iphonesimulator/Runner.app"
+      if [ ! -d "$app" ]; then
+        echo "   (build inicial del simulador)"
+        flutter build ios --simulator --debug --dart-define=FIREBASE_EMULATOR_HOST="$host" > "$RESULTS_DIR/build-ios-sim.log" 2>&1 || true
+      fi
+      [ -d "$app" ] && xcrun simctl install "$device" "$app" >/dev/null 2>&1 || true
+    fi
     # Estado de permisos y ubicación deterministas. Los archivos cuyo nombre
     # contiene "_denied_" se ejecutan con el permiso de ubicación REVOCADO.
     if [[ "$name" == *_denied_* ]]; then
@@ -79,7 +89,9 @@ run_platform() {
         adb -s "$device" shell pm grant net.farmatime.app android.permission.ACCESS_COARSE_LOCATION 2>/dev/null || true
         adb -s "$device" emu geo fix -3.7038 40.4168 2>/dev/null || true
       else
+        xcrun simctl privacy "$device" reset location net.farmatime.app 2>/dev/null || true
         xcrun simctl privacy "$device" grant location-always net.farmatime.app 2>/dev/null || true
+        xcrun simctl privacy "$device" grant location net.farmatime.app 2>/dev/null || true
         xcrun simctl location "$device" set 40.4168,-3.7038 2>/dev/null || true
       fi
     fi

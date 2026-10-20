@@ -70,6 +70,17 @@ Future<void> launchApp(WidgetTester tester) async {
 
 /// Bombea frames hasta que [finder] encuentre algo o venza [timeout].
 /// A diferencia de pumpAndSettle, tolera animaciones infinitas (spinners).
+/// Textos vistos en pantalla durante la última espera (toasts incluidos),
+/// para diagnosticar por qué no apareció lo esperado.
+Set<String> _seenDuringWait = <String>{};
+
+void _recordVisibleTexts() {
+  for (final e in find.byType(Text).evaluate()) {
+    final t = (e.widget as Text).data;
+    if (t != null && t.trim().isNotEmpty) _seenDuringWait.add(t);
+  }
+}
+
 Future<void> waitFor(
   WidgetTester tester,
   Finder finder, {
@@ -77,17 +88,15 @@ Future<void> waitFor(
   Duration step = const Duration(milliseconds: 100),
 }) async {
   final end = DateTime.now().add(timeout);
+  _seenDuringWait = <String>{};
   while (DateTime.now().isBefore(end)) {
     await tester.pump(step);
     if (finder.evaluate().isNotEmpty) return;
+    _recordVisibleTexts();
   }
-  // Volcado de ayuda para diagnosticar.
-  final texts = find.byType(Text).evaluate()
-      .map((e) => (e.widget as Text).data ?? '')
-      .where((t) => t.isNotEmpty)
-      .take(40)
-      .toList();
-  fail('Timeout esperando $finder. Textos visibles: $texts');
+  final texts = visibleTexts().take(40).toList();
+  fail('Timeout esperando $finder. Textos visibles al final: $texts. '
+      'Textos vistos durante la espera: ${_seenDuringWait.take(80).toList()}');
 }
 
 Future<Finder> waitForAny(
@@ -96,13 +105,16 @@ Future<Finder> waitForAny(
   Duration timeout = const Duration(seconds: 15),
 }) async {
   final end = DateTime.now().add(timeout);
+  _seenDuringWait = <String>{};
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 100));
     for (final f in finders) {
       if (f.evaluate().isNotEmpty) return f;
     }
+    _recordVisibleTexts();
   }
-  fail('Timeout esperando cualquiera de $finders');
+  fail('Timeout esperando cualquiera de $finders. '
+      'Textos vistos durante la espera: ${_seenDuringWait.take(80).toList()}');
 }
 
 /// Espera a que [finder] desaparezca.
@@ -138,12 +150,63 @@ Future<void> typeInto(WidgetTester tester, String hint, String text) async {
   await tester.pump(const Duration(milliseconds: 150));
 }
 
+/// Toca el primer texto [text] que realmente puede recibir el tap (excluye
+/// widgets fuera de pantalla, p. ej. pestañas no visibles de un IndexedStack
+/// o contenido tapado por una hoja modal).
 Future<void> tapText(WidgetTester tester, String text) async {
-  final f = find.text(text);
+  final f = find.text(text).hitTestable();
   await waitFor(tester, f);
-  await tester.ensureVisible(f.first);
   await tester.tap(f.first);
-  await tester.pump(const Duration(milliseconds: 200));
+  await tester.pump(const Duration(milliseconds: 250));
+}
+
+/// Toca una pestaña de la barra inferior por su etiqueta.
+Future<void> tapNav(WidgetTester tester, String label) async {
+  final f = find.descendant(
+    of: find.byType(BottomNavigationBar),
+    matching: find.text(label),
+  );
+  await waitFor(tester, f);
+  await tester.tap(f.first);
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// Vuelve atrás con el botón de la AppBar que exista (flecha redondeada,
+/// BackButton de Material) o, en su defecto, con el navigator.
+Future<void> goBack(WidgetTester tester) async {
+  final rounded = find.descendant(
+    of: find.byType(AppBar),
+    matching: find.byIcon(Icons.arrow_back_rounded),
+  ).hitTestable();
+  if (rounded.evaluate().isNotEmpty) {
+    await tester.tap(rounded.first);
+  } else if (find.byType(BackButton).hitTestable().evaluate().isNotEmpty) {
+    await tester.tap(find.byType(BackButton).hitTestable().first);
+  } else if (find.byIcon(Icons.arrow_back_rounded).hitTestable().evaluate().isNotEmpty) {
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded).hitTestable().first);
+  } else {
+    Navigator.of(tester.element(find.byType(Scaffold).first)).maybePop();
+  }
+  await pumpFor(tester, const Duration(milliseconds: 600));
+}
+
+/// Cierra sesión como empleado (Perfil → Cerrar sesión → confirmar).
+Future<void> logoutEmployee(WidgetTester tester) async {
+  await tapNav(tester, 'Perfil');
+  await waitFor(tester, find.text('Mi cuenta').hitTestable());
+  await tapText(tester, 'Cerrar sesión');
+  await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
+  // El botón del diálogo es el último "Cerrar sesión" que puede recibir el tap
+  // (el tile de la página queda bajo la barrera modal).
+  await tester.tap(find.text('Cerrar sesión').hitTestable().last);
+  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
+}
+
+/// Cierra sesión como farmacia (Perfil → Cerrar sesión, sin confirmación).
+Future<void> logoutCompany(WidgetTester tester) async {
+  await tapNav(tester, 'Perfil');
+  await tapText(tester, 'Cerrar sesión');
+  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
 }
 
 /// Si la app está en la pantalla de inicio, abre el formulario de farmacia.
@@ -164,15 +227,7 @@ Future<void> gotoEmployeeLogin(WidgetTester tester) async {
 Future<void> backToIndex(WidgetTester tester, {int maxPops = 4}) async {
   for (var i = 0; i < maxPops; i++) {
     if (find.text('ACCESO PARA FARMACIAS').evaluate().isNotEmpty) return;
-    final rounded = find.byIcon(Icons.arrow_back_rounded);
-    if (rounded.evaluate().isNotEmpty) {
-      await tester.tap(rounded.first);
-    } else if (find.byType(BackButton).evaluate().isNotEmpty) {
-      await tester.tap(find.byType(BackButton).first);
-    } else {
-      await tester.pageBack();
-    }
-    await pumpFor(tester, const Duration(milliseconds: 600));
+    await goBack(tester);
   }
   await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
 }

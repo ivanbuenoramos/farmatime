@@ -7,21 +7,6 @@ import 'package:integration_test/integration_test.dart';
 
 import 'helpers/qa_harness.dart';
 
-Future<void> _logoutEmployee(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await waitFor(tester, find.text('Mi cuenta'));
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
-  await tester.tap(find.widgetWithText(TextButton, 'Cerrar sesión').last);
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
-Future<void> _logoutCompany(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
 String _ymd(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -44,9 +29,9 @@ Future<void> _pickDayInDialog(WidgetTester tester, DateTime target) async {
 }
 
 Future<void> _openRequestLeave(WidgetTester tester) async {
-  await tapText(tester, 'Calendario');
+  await tapNav(tester, 'Calendario');
   await waitFor(tester, find.text('Mi calendario'));
-  await tester.tap(find.byTooltip('Solicitar vacaciones y permisos'));
+  await tester.tap(find.byIcon(Icons.event_available_rounded).hitTestable().first);
   await waitFor(tester, find.text('Solicitar vacaciones y permisos'));
 }
 
@@ -123,17 +108,17 @@ void main() {
       expect(cancelled.length, 1);
       expect(requested.length, 1);
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Mi calendario'));
-      await tapText(tester, 'Mi día');
-      await _logoutEmployee(tester);
+      await tapNav(tester, 'Mi día');
+      await logoutEmployee(tester);
     });
 
     testWidgets('TO-004 la farmacia ve 1 pendiente y la aprueba → approved + calendario marcado', (tester) async {
       await launchApp(tester);
       await loginAsCompany(tester);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text('Solicitudes de ausencia'));
       await waitFor(tester, find.text('1 pendiente de revisar'), timeout: const Duration(seconds: 20));
       await tapText(tester, 'Solicitudes de ausencia');
@@ -157,10 +142,10 @@ void main() {
       expect(entries.containsKey(_ymd(vacationDay)), isTrue, reason: 'entries: $entries');
       expect(find.text('No hay solicitudes pendientes.'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Lista de empleados'));
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
 
     testWidgets('TO-005 el empleado ve la solicitud Aprobada y su saldo refleja el día asignado', (tester) async {
@@ -172,10 +157,10 @@ void main() {
       expect(find.text('Cancelada'), findsOneWidget);
       expect(find.text('Asignados'), findsWidgets);
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Mi calendario'));
-      await tapText(tester, 'Mi día');
-      await _logoutEmployee(tester);
+      await tapNav(tester, 'Mi día');
+      await logoutEmployee(tester);
     });
   });
 }

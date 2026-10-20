@@ -208,6 +208,10 @@ class SubscriptionController extends GetxController {
       if (raw is Timestamp) expiresAt.value = raw.toDate();
       autoRenewing.value = sub['autoRenewing'] == true;
       subscriptionPlatform.value = (sub['platform'] ?? '') as String;
+    }, onError: (e) {
+      // permission-denied al cerrar sesión u otros errores del stream: no
+      // deben quedar sin capturar.
+      debugPrint('Stream empresa (suscripción) error: $e');
     });
   }
 
@@ -216,7 +220,9 @@ class SubscriptionController extends GetxController {
     _employeesSub?.cancel();
     _employeesSub = employeeRepository
         .streamEmployeesByCompanyId(_companyId)
-        .listen((list) => employees.assignAll(list));
+        .listen((list) => employees.assignAll(list), onError: (e) {
+      debugPrint('Stream empleados (suscripción) error: $e');
+    });
   }
 
   Future<void> _onPurchaseUpdate(PurchaseResult result) async {

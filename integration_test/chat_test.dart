@@ -9,21 +9,6 @@ import 'helpers/qa_harness.dart';
 const _msgCompany = 'Hola equipo, mensaje QA de la farmacia';
 const _msgEmployee = 'Recibido, responde Ana (QA)';
 
-Future<void> _logoutEmployee(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await waitFor(tester, find.text('Mi cuenta'));
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
-  await tester.tap(find.widgetWithText(TextButton, 'Cerrar sesión').last);
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
-Future<void> _logoutCompany(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
 Future<void> _sendMessage(WidgetTester tester, String text) async {
   await typeInto(tester, 'Escribe un mensaje…', text);
   await tester.tap(find.byIcon(Icons.send_rounded));
@@ -49,7 +34,7 @@ void main() {
       await launchApp(tester);
       await loginAsCompany(tester);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Chat');
+      await tapNav(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await waitFor(tester, find.text('Todos'), timeout: const Duration(seconds: 20));
       await pumpFor(tester, const Duration(seconds: 2));
@@ -65,7 +50,7 @@ void main() {
 
     testWidgets('CHAT-002 enviar mensaje al grupo: aparece en pantalla y se persiste con senderId correcto', (tester) async {
       await launchApp(tester);
-      await tapText(tester, 'Chat');
+      await tapNav(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await tapText(tester, 'Todos');
       await waitFor(tester, find.widgetWithText(TextField, 'Escribe un mensaje…'), timeout: const Duration(seconds: 20));
@@ -88,17 +73,17 @@ void main() {
       expect(unread['qa-emp-ana'], 1, reason: 'el destinatario acumula 1 no leído');
       expect(unread['qa-company-paid'] ?? 0, 0, reason: 'el remitente no se cuenta a sí mismo');
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Chat interno'));
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
 
     testWidgets('CHAT-003 el empleado ve el mensaje, el no leído se limpia al abrir y puede responder', (tester) async {
       await launchApp(tester);
       await loginAsEmployee(tester, email: Seed.empAnaEmail);
       await waitFor(tester, find.text('¡Hola, Ana!'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Chat');
+      await tapNav(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await waitFor(tester, find.text('Todos'), timeout: const Duration(seconds: 20));
       await waitFor(tester, find.textContaining('mensaje QA de la farmacia'), timeout: const Duration(seconds: 20));
@@ -118,13 +103,13 @@ void main() {
       conv = restFields((await emulatorGetDoc('conversations/$convId'))!);
       expect(((conv['unreadCounts'] ?? {}) as Map)['qa-company-paid'], 1);
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Chat interno'));
     });
 
     testWidgets('CHAT-004 chat directo empleado → farmacia: se crea una sola conversación 1:1', (tester) async {
       await launchApp(tester);
-      await tapText(tester, 'Chat');
+      await tapNav(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await tester.tap(find.byType(FloatingActionButton));
       await pumpFor(tester, const Duration(milliseconds: 800));
@@ -143,23 +128,23 @@ void main() {
       expect(mine.length, 1, reason: 'una única conversación directa Ana↔farmacia');
       expect((mine.single['memberIds'] as List).toSet(), {'qa-company-paid', 'qa-emp-ana'});
       expect(tester.takeException(), isNull);
-      await tester.pageBack();
+      await goBack(tester);
       await waitFor(tester, find.text('Chat interno'));
-      await tapText(tester, 'Mi día');
-      await _logoutEmployee(tester);
+      await tapNav(tester, 'Mi día');
+      await logoutEmployee(tester);
     });
 
     testWidgets('CHAT-005 la farmacia ve la respuesta y el chat directo con Ana', (tester) async {
       await launchApp(tester);
       await loginAsCompany(tester);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Chat');
+      await tapNav(tester, 'Chat');
       await waitFor(tester, find.text('Chat interno'));
       await waitFor(tester, find.textContaining('responde Ana'), timeout: const Duration(seconds: 20));
       await waitFor(tester, find.textContaining('Mensaje directo QA'), timeout: const Duration(seconds: 20));
       expect(tester.takeException(), isNull);
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
   });
 }

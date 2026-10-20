@@ -24,7 +24,7 @@ void main() {
       expect(find.widgetWithText(TextField, 'Correo electrónico'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Contraseña'), findsOneWidget);
       expect(find.text('Crear cuenta de farmacia'), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await goBack(tester);
       await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
     });
 
@@ -33,7 +33,7 @@ void main() {
       await tapText(tester, 'INICIAR SESIÓN');
       await waitFor(tester, find.text('¡Bienvenido!'));
       expect(find.text('Recuperarla aquí'), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await goBack(tester);
       await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
     });
 

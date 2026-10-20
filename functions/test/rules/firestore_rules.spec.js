@@ -1784,6 +1784,19 @@ describe('Reglas de seguridad de Firestore (firestore.rules)', function() {
   // empresa). Si alguno falla, es un hallazgo sobre las reglas, no sobre el
   // test: NO se ajusta la expectativa para ponerlo en verde.
   // =========================================================================
+  describe('Lecturas de documentos inexistentes (resource == null)', () => {
+    it('employee_schedule_months: el empleado puede hacer get() de SU mes aunque no exista', () =>
+      assertSucceeds(getDoc(doc(asUser(ALICE), 'employee_schedule_months', monthId(COMPANY_A, ALICE, '2031-01')))));
+    it('employee_schedule_months: la empresa puede hacer get() de un mes inexistente de su empresa', () =>
+      assertSucceeds(getDoc(doc(asUser(COMPANY_A), 'employee_schedule_months', monthId(COMPANY_A, ALICE, '2031-01')))));
+    it('employee_schedule_months: un empleado de OTRA empresa NO puede hacer get() de un mes inexistente ajeno', () =>
+      assertFails(getDoc(doc(asUser(CAROL), 'employee_schedule_months', monthId(COMPANY_A, ALICE, '2031-01')))));
+    it('employees: un usuario puede hacer get() de employees/{su uid} aunque no exista (login cruzado de farmacia)', () =>
+      assertSucceeds(getDoc(doc(asUser(COMPANY_A), 'employees', COMPANY_A))));
+    it('employees: get() de un doc inexistente de otro uid sigue denegado', () =>
+      assertFails(getDoc(doc(asUser(ALICE), 'employees', 'no-existe'))));
+  });
+
   describe('Endurecimiento adicional (hallazgos potenciales sobre las reglas)', () => {
     it('clockRecords: el empleado NO puede crear un fichaje a nombre de un compañero', () =>
       // La regla de create solo exige belongsToCompany(companyId) e isEdited=false,

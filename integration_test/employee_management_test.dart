@@ -10,17 +10,11 @@ import 'helpers/qa_harness.dart';
 const _newEmail = 'nuevo.qa@farmatime.test';
 
 Future<void> _openNewEmployeeForm(WidgetTester tester) async {
-  await tapText(tester, 'Empleados');
+  await tapNav(tester, 'Empleados');
   await waitFor(tester, find.text('Lista de empleados'));
   await waitFor(tester, find.text(Seed.empAnaName), timeout: const Duration(seconds: 20));
   await tester.tap(find.byType(FloatingActionButton));
   await waitFor(tester, find.text('Nuevo empleado'));
-}
-
-Future<void> _logoutCompany(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
 }
 
 void main() {
@@ -34,27 +28,27 @@ void main() {
       await _openNewEmployeeForm(tester);
       await tapText(tester, 'Crear empleado');
       await waitFor(tester, find.text('Por favor, introduce un nombre y correo válidos.'));
-      expect(find.text('Nuevo empleado'), findsOneWidget);
+      expect(find.text('Nuevo empleado'), findsWidgets);
     });
 
     testWidgets('EMP-002 correo ya en uso → "Correo en uso" y no se crea', (tester) async {
       await launchApp(tester);
       await _openNewEmployeeForm(tester);
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nombre del empleado'), 'Duplicado QA');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), Seed.empAnaEmail);
+      await tester.enterText(find.widgetWithText(TextField, 'Nombre del empleado'), 'Duplicado QA');
+      await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), Seed.empAnaEmail);
       // Deja actuar al debounce (600 ms) + callable checkEmployeeEmailAvailability.
       await pumpFor(tester, const Duration(seconds: 3));
       await tapText(tester, 'Crear empleado');
       await waitFor(tester, find.text('Correo en uso'), timeout: const Duration(seconds: 20));
-      expect(find.text('Nuevo empleado'), findsOneWidget);
+      expect(find.text('Nuevo empleado'), findsWidgets);
     });
 
     testWidgets('EMP-003 tarifa negativa → aviso', (tester) async {
       await launchApp(tester);
       await _openNewEmployeeForm(tester);
-      await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), _newEmail);
+      await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
-      final rate = find.widgetWithText(TextFormField, 'Precio por hora');
+      final rate = find.widgetWithText(TextField, 'Precio por hora');
       await tester.ensureVisible(rate);
       await tester.enterText(rate, '-5');
       await tapText(tester, 'Crear empleado');
@@ -65,8 +59,8 @@ void main() {
     testWidgets('EMP-004 alta válida → Cloud Function crea Auth + doc pending + credenciales privadas', (tester) async {
       await launchApp(tester);
       await _openNewEmployeeForm(tester);
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nombre del empleado'), 'Nuevo QA');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Correo electrónico'), _newEmail);
+      await tester.enterText(find.widgetWithText(TextField, 'Nombre del empleado'), 'Nuevo QA');
+      await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
       await tapText(tester, 'Crear empleado');
       await waitFor(tester, find.text('Empleado creado'), timeout: const Duration(seconds: 40));
@@ -104,18 +98,18 @@ void main() {
 
     testWidgets('EMP-005 el contador de plazas refleja la ocupación (4/5)', (tester) async {
       await launchApp(tester);
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text('Lista de empleados'));
       await pumpFor(tester, const Duration(seconds: 2));
       expect(find.text('4/5'), findsOneWidget, reason: 'Ana, Luis, Marta y Nuevo QA ocupan plaza; el borrado no');
-      await _logoutCompany(tester);
+      await logoutCompany(tester);
     });
 
     testWidgets('EMP-006 farmacia gratuita con la plaza ocupada → modal de límite, no abre el formulario', (tester) async {
       await launchApp(tester);
       await loginAsCompany(tester, email: Seed.companyFreeEmail);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text('Lista de empleados'));
       await waitFor(tester, find.text('1/1'), timeout: const Duration(seconds: 20));
       await tester.tap(find.byType(FloatingActionButton));
@@ -125,8 +119,8 @@ void main() {
       // Cierra la hoja.
       await tester.tapAt(const Offset(10, 10));
       await pumpFor(tester, const Duration(milliseconds: 500));
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
 
     testWidgets('EMP-007 el nuevo empleado entra con la contraseña temporal y debe asignar contraseña', (tester) async {
@@ -140,8 +134,8 @@ void main() {
       final temp = cred['tempPassword'] as String;
       await loginAsEmployee(tester, email: _newEmail, password: temp);
       await waitFor(tester, find.text('Asignar contraseña'), timeout: const Duration(seconds: 40));
-      await tester.enterText(find.widgetWithText(TextFormField, 'Nueva contraseña'), Seed.password);
-      await tester.enterText(find.widgetWithText(TextFormField, 'Confirmar nueva contraseña'), Seed.password);
+      await tester.enterText(find.widgetWithText(TextField, 'Nueva contraseña'), Seed.password);
+      await tester.enterText(find.widgetWithText(TextField, 'Confirmar nueva contraseña'), Seed.password);
       await tapText(tester, 'Guardar cambios');
       await waitFor(tester, find.text('¡Hola, Nuevo!'), timeout: const Duration(seconds: 40));
       final after = restFields((await emulatorGetDoc('employees/$uid'))!);

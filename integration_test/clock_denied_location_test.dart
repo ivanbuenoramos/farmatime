@@ -33,7 +33,7 @@ void main() {
     // Cierra el turno para dejar el estado limpio.
     await tapText(tester, 'FICHAR SALIDA');
     await waitFor(tester, find.text('FICHAR ENTRADA'), timeout: const Duration(seconds: 30));
-    await tapText(tester, 'Perfil');
+    await tapNav(tester, 'Perfil');
     await waitFor(tester, find.text('Mi cuenta'));
     await tapText(tester, 'Cerrar sesión');
     await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));

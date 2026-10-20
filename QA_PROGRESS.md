@@ -33,9 +33,19 @@ Todas (descubrimiento en curso).
 ## Bugs descubiertos
 - **SEC-001..SEC-009 (reglas Firestore, severidad alta/media)** — confirmados por tests unitarios de reglas (fallaban): empleado podía crear fichajes a nombre de un compañero; alterar `clockIn` sin marcar edición; modificar `hireDate`/`createdAt` (base del devengo); auto-aprobarse otras fechas al aceptar una propuesta; reasignar `employeeId` de su mes de horario; la empresa podía reasignar plantillas/reglas/meses a otra empresa.
 - Candidatos del descubrimiento (8 áreas, ~190 issues candidatos sin verificar) en el journal del workflow; pendiente síntesis y verificación adversarial (Fase 2).
+- **BUG-010 (alta, reglas)** — `get()` de `employee_schedule_months/{id}` inexistente era DENEGADO (la regla evaluaba `resource.data` sobre null) → cada empleado sin horario del mes veía "Ha ocurrido un error inesperado" al abrir Mi día, al fichar salida y al abrir el calendario/solicitud de ausencia (observado en iOS, `docs/qa/results/2026-10-20b`). Mismo patrón en `employees/{uid}` para el login cruzado.
+- **BUG-011 (media, backend)** — `reportsOnClockRecordWrite` lanzaba `TypeError: Cannot read properties of undefined (reading 'fromDate')` en CADA escritura de clockRecords en el emulador (`admin.firestore.Timestamp` no expuesto por el proxy del emulador con firebase-admin 13). En producción el runtime sí lo expone; corregido con la API modular para que la function sea verificable en local.
+- **BUG-012 (media, cliente)** — listeners de Firestore sin `onError` en `CompanyEmployeesController` (doc empresa) y `SubscriptionController`: al cerrar sesión generaban `permission-denied` sin capturar (excepción asíncrona detectada por la suite en AUTH-C-006).
+- **BUG-013 (media, chat)** — `InboxController._ensureGroupChat` volvía a añadir al grupo "Todos" a los empleados ELIMINADOS en cada login (usaba todos los nombres de `getMemberNames`). Detectado por CHAT-001.
+- **BUG-014 (baja, UI)** — hoja "Nueva conversación": `ListTile` dentro de un `Container` decorado sin `Material` → aserción de Flutter en debug (3 excepciones en CHAT-004).
 
 ## Bugs corregidos
 - SEC-001..SEC-009 → `firestore.rules` endurecido + `EmployeeRepositoryImpl.updateEmployee` ya no reescribe `hireDate`/`createdAt` (commit en rama de auditoría). Verificación: `cd functions && npm test` → 380 passing.
+- BUG-010 → reglas `allow get` con `resource == null` (mes deducido del id `{companyId}__…`; `employees/{uid}` propio). 5 tests de reglas nuevos → 385 passing. Verificación en dispositivo: pendiente (suite iOS relanzada).
+- BUG-011 → `monthlyReports.js` usa `require('firebase-admin/firestore').Timestamp`.
+- BUG-012 → `onError` añadido en los 3 listeners.
+- BUG-013 → filtro de eliminados en `_ensureGroupChat`.
+- BUG-014 → `Material(type: transparency)` alrededor del `ListTile`.
 
 ## Pruebas realizadas
 - 2026-10-17 baseline: `flutter analyze`, `flutter test`, `npm run lint` (functions). Ver arriba.

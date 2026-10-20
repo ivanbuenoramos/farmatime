@@ -29,7 +29,7 @@ void main() {
     expect(tester.takeException(), isNull);
 
     sw.reset();
-    await tapText(tester, 'Fichajes');
+    await tapNav(tester, 'Fichajes');
     // La pestaña carga el histórico completo; esperamos a que aparezca algún día.
     await pumpFor(tester, const Duration(seconds: 2));
     final end = DateTime.now().add(const Duration(seconds: 60));
@@ -51,8 +51,8 @@ void main() {
     expect(loginMs, lessThan(45000), reason: 'login con histórico masivo demasiado lento');
     expect(entriesMs, lessThan(45000), reason: 'listado de fichajes demasiado lento');
 
-    await tapText(tester, 'Mi día');
-    await tapText(tester, 'Perfil');
+    await tapNav(tester, 'Mi día');
+    await tapNav(tester, 'Perfil');
     await waitFor(tester, find.text('Mi cuenta'));
     await tapText(tester, 'Cerrar sesión');
     await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));

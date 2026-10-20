@@ -87,7 +87,16 @@ service cloud.firestore {
     match /employees/{employeeId} {
       // La empresa lee/gestiona; el empleado lee su propio doc y los de su
       // empresa (necesario para chat, calendario de equipo, etc.).
-      allow read: if isSignedIn() &&
+      // Un get de un doc inexistente (p. ej. el login cruzado comprueba
+      // employees/{uid} de una farmacia) no debe fallar por evaluar
+      // resource.data sobre null: se permite si pregunta por su propio uid.
+      allow get: if isSignedIn() &&
+                 ((resource == null && request.auth.uid == employeeId) ||
+                  (resource != null &&
+                   (isCompany(resource.data.companyId) ||
+                    request.auth.uid == employeeId ||
+                    (employeeExists() && myEmployee().companyId == resource.data.companyId))));
+      allow list: if isSignedIn() &&
                   (isCompany(resource.data.companyId) ||
                    request.auth.uid == employeeId ||
                    (employeeExists() && myEmployee().companyId == resource.data.companyId));
@@ -231,7 +240,13 @@ service cloud.firestore {
     // ---------- Overrides de horario por mes ----------
     // id compuesto: {companyId}__{employeeId}__{month}
     match /employee_schedule_months/{docId} {
-      allow read: if belongsToCompany(resource.data.companyId);
+      // El cliente hace get() del mes aunque no exista todavía (resolución de
+      // turno esperado): con resource == null, evaluar resource.data denegaba
+      // la lectura y la app mostraba "Ha ocurrido un error inesperado". El id
+      // es {companyId}__{employeeId}__{yyyy-MM}, así que la empresa se deduce.
+      allow get: if (resource != null && belongsToCompany(resource.data.companyId))
+                 || (resource == null && belongsToCompany(docId.split('__')[0]));
+      allow list: if belongsToCompany(resource.data.companyId);
       // Crea/actualiza la empresa, o el empleado dueño sobre su propio mes.
       allow create: if isCompany(incomingCompanyId())
                     || (employeeExists()

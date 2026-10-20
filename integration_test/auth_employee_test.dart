@@ -6,15 +6,6 @@ import 'package:integration_test/integration_test.dart';
 
 import 'helpers/qa_harness.dart';
 
-Future<void> _logoutEmployee(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await waitFor(tester, find.text('Mi cuenta'));
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
-  await tester.tap(find.widgetWithText(TextButton, 'Cerrar sesión').last);
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -62,7 +53,7 @@ void main() {
 
     testWidgets('AUTH-E-004 cerrar sesión (con confirmación) vuelve al inicio', (tester) async {
       await launchApp(tester);
-      await _logoutEmployee(tester);
+      await logoutEmployee(tester);
       expect(tester.takeException(), isNull);
     });
 
@@ -70,7 +61,7 @@ void main() {
       await launchApp(tester);
       await loginAsEmployee(tester, email: Seed.empMartaEmail, password: Seed.empMartaTempPassword);
       await waitFor(tester, find.text('Correo o contraseña incorrectos'), timeout: const Duration(seconds: 20));
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await goBack(tester);
       await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
     });
 
@@ -81,21 +72,21 @@ void main() {
       expect(find.text('Fichajes'), findsOneWidget);
       expect(find.text('Calendario'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await _logoutEmployee(tester);
+      await logoutEmployee(tester);
     });
 
     testWidgets('AUTH-E-007 formulario cruzado: empleado en acceso de farmacias entra como empleado', (tester) async {
       await launchApp(tester);
       await loginAsCompany(tester, email: Seed.empAnaEmail, password: Seed.password);
       await waitFor(tester, find.text('¡Hola, Ana!'), timeout: const Duration(seconds: 40));
-      await _logoutEmployee(tester);
+      await logoutEmployee(tester);
     });
 
     testWidgets('AUTH-E-008 formulario cruzado: farmacia en acceso de empleados entra como farmacia', (tester) async {
       await launchApp(tester);
       await loginAsEmployee(tester, email: Seed.companyPaidEmail, password: Seed.password);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
-      await tapText(tester, 'Perfil');
+      await tapNav(tester, 'Perfil');
       await tapText(tester, 'Cerrar sesión');
       await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
     });

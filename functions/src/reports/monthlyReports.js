@@ -3,6 +3,11 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
+// API modular: en el emulador de Functions (firebase-tools 15 + firebase-admin
+// 13) el proxy de `admin.firestore` no expone los estáticos (Timestamp,
+// FieldValue) y `admin.firestore.Timestamp.fromDate` lanzaba TypeError en
+// cada escritura de clockRecords (reportsOnClockRecordWrite).
+const { Timestamp } = require('firebase-admin/firestore');
 const PDFDocument = require('pdfkit');
 const {
   startOfMonth,
@@ -73,8 +78,8 @@ async function getClockRecords(companyId, employeeId, from, to) {
   const start = from instanceof Date ? from : new Date(from);
   const end = to instanceof Date ? to : new Date(to);
 
-  const startTs = admin.firestore.Timestamp.fromDate(start);
-  const endTs = admin.firestore.Timestamp.fromDate(end);
+  const startTs = Timestamp.fromDate(start);
+  const endTs = Timestamp.fromDate(end);
 
   const snap = await db
       .collection('clockRecords')

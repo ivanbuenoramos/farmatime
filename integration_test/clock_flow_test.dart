@@ -1,26 +1,10 @@
 // Flujo real de fichaje (empleado) + reflejo en el dashboard de la farmacia,
 // contra el Emulator Suite. Verifica también los datos escritos en Firestore
 // (REST del emulador) y el log de auditoría inmutable.
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'helpers/qa_harness.dart';
-
-Future<void> _logoutEmployee(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await waitFor(tester, find.text('Mi cuenta'));
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
-  await tester.tap(find.widgetWithText(TextButton, 'Cerrar sesión').last);
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
-
-Future<void> _logoutCompany(WidgetTester tester) async {
-  await tapText(tester, 'Perfil');
-  await tapText(tester, 'Cerrar sesión');
-  await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -75,7 +59,7 @@ void main() {
 
     testWidgets('CLOCK-003 la farmacia ve 1 trabajando en el dashboard', (tester) async {
       await launchApp(tester);
-      await _logoutEmployee(tester);
+      await logoutEmployee(tester);
       await loginAsCompany(tester);
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
       // Espera a que lleguen los streams.
@@ -86,7 +70,7 @@ void main() {
       expect(dashboardMetricValue('Trabajando'), '1',
           reason: 'Ana tiene un fichaje abierto; textos: ${visibleTexts()}');
       expect(tester.takeException(), isNull);
-      await _logoutCompany(tester);
+      await logoutCompany(tester);
     });
 
     testWidgets('CLOCK-004 el estado "fichado" persiste entre sesiones y FICHAR SALIDA cierra el turno', (tester) async {
@@ -122,11 +106,11 @@ void main() {
       expect(find.text('Turnos hoy'), findsOneWidget);
       expect(tester.takeException(), isNull);
       // Pestaña Fichajes del empleado: lista los 2 de hoy sin excepciones.
-      await tapText(tester, 'Fichajes');
+      await tapNav(tester, 'Fichajes');
       await pumpFor(tester, const Duration(seconds: 3));
       expect(tester.takeException(), isNull);
-      await tapText(tester, 'Mi día');
-      await _logoutEmployee(tester);
+      await tapNav(tester, 'Mi día');
+      await logoutEmployee(tester);
     });
 
     testWidgets('CLOCK-006 la farmacia ve 0 trabajando tras las salidas y la pestaña Fichajes carga', (tester) async {
@@ -138,11 +122,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
       }
       expect(dashboardMetricValue('Trabajando'), '0', reason: 'textos: ${visibleTexts()}');
-      await tapText(tester, 'Fichajes');
+      await tapNav(tester, 'Fichajes');
       await pumpFor(tester, const Duration(seconds: 4));
       expect(tester.takeException(), isNull);
-      await tapText(tester, 'Inicio');
-      await _logoutCompany(tester);
+      await tapNav(tester, 'Inicio');
+      await logoutCompany(tester);
     });
   });
 }

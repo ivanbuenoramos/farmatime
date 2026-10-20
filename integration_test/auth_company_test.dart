@@ -1,5 +1,9 @@
 // Autenticación de farmacia contra el emulador: validaciones, credenciales
 // incorrectas, login correcto y llegada al dashboard.
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -30,6 +34,25 @@ void main() {
       expect(find.textContaining('firebase_auth'), findsNothing);
       expect(find.textContaining('invalid-credential'), findsNothing);
       expect(find.text('Acceso para farmacias'), findsOneWidget);
+    });
+
+    testWidgets('AUTH-C-002b evidencia: el SDK responde a una contraseña incorrecta en < 15 s', (tester) async {
+      await launchApp(tester);
+      final sw = Stopwatch()..start();
+      Object? error;
+      try {
+        await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: Seed.companyPaidEmail, password: 'incorrecta-123')
+            .timeout(const Duration(seconds: 15));
+      } catch (e) {
+        error = e;
+      }
+      // ignore: avoid_print
+      print('AUTH-C-002b: respuesta del SDK en ${sw.elapsedMilliseconds} ms → $error');
+      expect(error, isNotNull, reason: 'una contraseña incorrecta debe fallar');
+      expect(error, isNot(isA<TimeoutException>()), reason: 'el SDK no debe colgarse');
+      expect(error, isA<FirebaseAuthException>());
+      await FirebaseAuth.instance.signOut();
     });
 
     testWidgets('AUTH-C-003 email con formato inválido → no entra', (tester) async {
@@ -70,10 +93,16 @@ void main() {
       await waitFor(tester, find.text('Trabajando'));
       // Deja que lleguen los streams de Firestore.
       await pumpFor(tester, const Duration(seconds: 3));
+      // La tarjeta de la empresa está al final de un ListView (perezoso): scroll.
+      await tester.scrollUntilVisible(
+        find.textContaining(Seed.companyPaidName),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.textContaining(Seed.companyPaidName), findsWidgets);
       expect(tester.takeException(), isNull);
       // Pestaña Empleados: los empleados activos/pendientes aparecen; el borrado no.
-      await tapText(tester, 'Empleados');
+      await tapNav(tester, 'Empleados');
       await waitFor(tester, find.text(Seed.empAnaName), timeout: const Duration(seconds: 20));
       expect(find.text('Luis Gómez'), findsWidgets);
       expect(find.text('Marta Ruiz'), findsWidgets);
@@ -82,7 +111,7 @@ void main() {
 
     testWidgets('AUTH-C-006 cerrar sesión vuelve al inicio y limpia la sesión', (tester) async {
       await launchApp(tester);
-      await tapText(tester, 'Perfil');
+      await tapNav(tester, 'Perfil');
       await pumpFor(tester, const Duration(seconds: 1));
       await tapText(tester, 'Cerrar sesión');
       // Puede haber confirmación.

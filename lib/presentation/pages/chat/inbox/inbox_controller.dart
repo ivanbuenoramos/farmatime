@@ -4,6 +4,7 @@ import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/chat/chat_models.dart';
+import 'package:farmatime/data/models/employee_model.dart';
 import 'package:farmatime/domain/repositories/chat_repository.dart';
 import 'package:get/get.dart';
 
@@ -144,10 +145,14 @@ class InboxController extends GetxController {
     // Miembros: farmacia + todos los empleados conocidos + yo mismo
     final allIds = <String>{cId, me};
     for (final e in brain.companyEmployees) {
+      if (e.accountStatus == EmployeeAccountStatus.deleted) continue;
       allIds.add(e.uid);
     }
-    // También incluir los ids que tengamos en userNames (por si vinieron de Firestore)
-    allIds.addAll(userNames.keys);
+    // También incluir los ids que tengamos en userNames (por si vinieron de
+    // Firestore), salvo los empleados eliminados: getMemberNames devuelve a
+    // TODOS (hace falta para mostrar el historial), y sin este filtro un
+    // empleado dado de baja volvía a entrar en el grupo "Todos" en cada login.
+    allIds.addAll(userNames.keys.where((id) => !isUserDeleted(id)));
 
     await repo.ensureDefaultGroup(
       companyId: cId,
