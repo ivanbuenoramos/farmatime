@@ -55,7 +55,9 @@
 - 2026-10-17 baseline: `flutter analyze`, `flutter test`, `npm run lint` (functions). Ver arriba.
 - 2026-10-17 iOS (iPhone 18 Pro, iOS 27): smoke SMOKE-001 verde contra el Emulator Suite (arranque + emulador OK). SMOKE-002..004 fallaron por el harness (flutter_test desmonta la app tras cada test; `main()` pisaba `FlutterError.onError`) → corregido; cuelgue de `tearDownAll` → watchdog en el runner.
 - 2026-10-20 functions: `npm test` → 380 passing (370 reglas + 10 unitarios).
-- 2026-10-20 iOS: batch smoke + auth farmacia + auth empleado en ejecución (`docs/qa/results/2026-10-20/`).
+- 2026-10-20 iOS (iPhone 18 Pro, iOS 27), 4 pases (`docs/qa/results/2026-10-20{,b,c,d}/`): tras corregir harness y bugs, **7/10 archivos verdes** (smoke, auth empleado, chat, fichaje, fichaje sin permiso de ubicación, rendimiento con 3000 fichajes, horarios). Pendientes de re-ejecución con los últimos arreglos: auth farmacia (toast de contraseña incorrecta), gestión de empleados (alta real requería el fix de functions), ausencias (botón del date picker en mayúsculas).
+- 2026-10-20 Android (API 36, emulator-5554): suite completa en ejecución (`docs/qa/results/2026-10-20d/android-*`).
+- **BUG-015 (alta en local / sin efecto en prod)** — todas las functions que usan `admin.firestore.FieldValue/Timestamp` fallan en el emulador (`createEmployeeAccount`: "reading 'serverTimestamp'"). Migradas a `require('firebase-admin/firestore')` (9 archivos); `npm test` 385 verdes.
 
 ## Próximas acciones
 1. Terminar matriz de funcionalidades (workflow en curso).

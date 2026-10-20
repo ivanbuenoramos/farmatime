@@ -58,15 +58,17 @@ Future<void> launchApp(WidgetTester tester) async {
   // main() instala su propio FlutterError.onError (logging de producción);
   // flutter_test necesita el suyo para capturar errores como fallos de test.
   final originalOnError = FlutterError.onError;
+  ToastService.history.clear();
   await app.main();
   FlutterError.onError = originalOnError;
   // Splash (1 s) → inicio, o directamente el main del rol con sesión guardada.
+  // (En Android debug el primer arranque puede tardar bastante más que en iOS.)
   await waitForAny(tester, [
     find.text('ACCESO PARA FARMACIAS'),
     find.text('Trabajando'),
     find.text('Mi día'),
     find.text('Asignar contraseña'),
-  ], timeout: const Duration(seconds: 30));
+  ], timeout: const Duration(seconds: 90));
 }
 
 /// Bombea frames hasta que [finder] encuentre algo o venza [timeout].
@@ -155,8 +157,16 @@ Future<void> typeInto(WidgetTester tester, String hint, String text) async {
 /// widgets fuera de pantalla, p. ej. pestañas no visibles de un IndexedStack
 /// o contenido tapado por una hoja modal).
 Future<void> tapText(WidgetTester tester, String text) async {
-  final f = find.text(text).hitTestable();
-  await waitFor(tester, f);
+  final any = find.text(text);
+  await waitFor(tester, any);
+  var f = any.hitTestable();
+  if (f.evaluate().isEmpty) {
+    // Puede estar fuera de la zona visible de un scroll: lo traemos a la vista.
+    await tester.ensureVisible(any.last);
+    await tester.pump(const Duration(milliseconds: 300));
+    f = any.hitTestable();
+  }
+  await waitFor(tester, f, timeout: const Duration(seconds: 5));
   await tester.tap(f.first);
   await tester.pump(const Duration(milliseconds: 250));
 }
@@ -394,7 +404,9 @@ Future<ToastRecord> waitForToast(
   Duration timeout = const Duration(seconds: 15),
   bool contains = false,
 }) async {
-  final start = DateTime.now().subtract(const Duration(seconds: 2));
+  // Ventana amplia hacia atrás: el toast suele dispararse ANTES de llamar a
+  // esta función y en Android debug los pumps pueden tardar segundos.
+  final start = DateTime.now().subtract(const Duration(seconds: 20));
   final end = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 100));
@@ -413,7 +425,7 @@ Future<ToastRecord> waitForToast(
 /// Espera a que aparezca cualquiera de los toasts indicados.
 Future<ToastRecord> waitForAnyToast(WidgetTester tester, List<String> texts,
     {Duration timeout = const Duration(seconds: 15)}) async {
-  final start = DateTime.now().subtract(const Duration(seconds: 2));
+  final start = DateTime.now().subtract(const Duration(seconds: 20));
   final end = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(end)) {
     await tester.pump(const Duration(milliseconds: 100));

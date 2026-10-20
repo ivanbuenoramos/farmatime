@@ -70,6 +70,15 @@ run_platform() {
       fi
       [ -d "$app" ] && xcrun simctl install "$device" "$app" >/dev/null 2>&1 || true
     fi
+    # Android: `pm grant` exige la app instalada; instalamos la última build.
+    if [ "$platform" = "android" ]; then
+      local apk="build/app/outputs/flutter-apk/app-debug.apk"
+      if [ ! -f "$apk" ]; then
+        echo "   (build inicial del APK)"
+        flutter build apk --debug --dart-define=FIREBASE_EMULATOR_HOST="$host" > "$RESULTS_DIR/build-android.log" 2>&1 || true
+      fi
+      [ -f "$apk" ] && adb -s "$device" install -r "$apk" >/dev/null 2>&1 || true
+    fi
     # Estado de permisos y ubicación deterministas. Los archivos cuyo nombre
     # contiene "_denied_" se ejecutan con el permiso de ubicación REVOCADO.
     if [[ "$name" == *_denied_* ]]; then

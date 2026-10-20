@@ -46,6 +46,7 @@ void main() {
     testWidgets('EMP-003 tarifa negativa → aviso', (tester) async {
       await launchApp(tester);
       await _openNewEmployeeForm(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'Nombre del empleado'), 'Tarifa QA');
       await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
       final rate = find.widgetWithText(TextField, 'Precio por hora');
@@ -61,6 +62,9 @@ void main() {
       await _openNewEmployeeForm(tester);
       await tester.enterText(find.widgetWithText(TextField, 'Nombre del empleado'), 'Nuevo QA');
       await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), _newEmail);
+      final rate = find.widgetWithText(TextField, 'Precio por hora');
+      await tester.ensureVisible(rate);
+      await tester.enterText(rate, '12,50'); // coma decimal (teclado español)
       await pumpFor(tester, const Duration(seconds: 3));
       await tapText(tester, 'Crear empleado');
       await waitForToast(tester, 'Empleado creado', timeout: const Duration(seconds: 40));

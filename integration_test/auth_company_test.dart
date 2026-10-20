@@ -28,7 +28,7 @@ void main() {
       await typeInto(tester, 'Correo electrónico', Seed.companyPaidEmail);
       await typeInto(tester, 'Contraseña', 'incorrecta-123');
       await tapText(tester, 'INICIAR SESIÓN');
-      await waitFor(tester, find.text('Correo o contraseña incorrectos'),
+      await waitForToast(tester, 'Correo o contraseña incorrectos',
           timeout: const Duration(seconds: 20));
       // Nunca se enseñan códigos crudos de Firebase.
       expect(find.textContaining('firebase_auth'), findsNothing);

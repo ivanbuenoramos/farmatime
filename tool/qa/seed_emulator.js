@@ -79,11 +79,13 @@ function companyDoc(c, extra) {
 
 function employeeDoc(e) {
   const now = Timestamp.now();
-  const hire = Timestamp.fromDate(new Date(Date.now() - 400 * 86400000)); // >1 año de antigüedad
+  // >1 año de antigüedad. createdAt == hireDate como hace el backend al dar de
+  // alta (el devengo de vacaciones del cliente se calcula desde createdAt).
+  const hire = Timestamp.fromDate(new Date(Date.now() - 400 * 86400000));
   const doc = {
     uid: e.uid, email: e.email, name: e.name, companyId: e.companyId,
     photoUrl: null, position: null, accountStatus: e.accountStatus,
-    hireDate: hire, createdAt: now, updatedAt: now,
+    hireDate: hire, createdAt: hire, updatedAt: now,
     hourlyRate: 12.5, role: e.role, roleOther: null, workdayType: 'completa',
     vacationDaysPer30: 2.5, personalDaysPerYear: 3,
     avatarColor: e.avatarColor,

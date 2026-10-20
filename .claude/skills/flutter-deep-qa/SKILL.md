@@ -151,6 +151,11 @@ y una CLI global. Los estados de permiso se cubren de forma determinista con `si
 - Un test colgado (`tearDownAll did not complete`) bloqueó el runner 2 días → watchdog por
   archivo (`FILE_TIMEOUT`, 1500 s por defecto).
 - Nunca `tester.pumpAndSettle()` con spinners: usar `waitFor/waitForAny/pumpFor`.
+- **Toasts**: el overlay de toastification solo es visible en la primera instancia de la app por
+  proceso; las aserciones usan `ToastService.history` (`waitForToast`/`waitForAnyToast`).
+- **Taps**: `tapText` solo toca widgets *hit-testable* (los IndexedStack mantienen las pestañas
+  ocultas en el árbol y `find.text` las encuentra); barra inferior con `tapNav`; atrás con `goBack`.
+- Los textos de la lista de un `ListView` perezoso no existen hasta hacer scroll (`scrollUntilVisible`).
 - Verificar SIEMPRE el efecto en el backend por REST del emulador (`emulatorGetDoc`,
   `emulatorRunQuery`, `Authorization: Bearer owner`), no solo la UI.
 - Semilla `--big` (3000 fichajes de Luis) para `perf_*`: el runner la aplica automáticamente.

@@ -22,9 +22,15 @@ Future<void> _pickDayInDialog(WidgetTester tester, DateTime target) async {
   }
   final dayCell = find.descendant(of: find.byType(DatePickerDialog), matching: find.text('${target.day}'));
   await waitFor(tester, dayCell);
-  await tester.tap(dayCell.last);
-  await pumpFor(tester, const Duration(milliseconds: 300));
-  await tapText(tester, 'Aceptar');
+  await tester.tapAt(tester.getCenter(dayCell.first));
+  await pumpFor(tester, const Duration(milliseconds: 500));
+  // ignore: avoid_print
+  print('DATEPICKER tras tocar el día ${target.day}: ${visibleTexts().take(60).toList()}');
+  if (find.byType(DatePickerDialog).evaluate().isEmpty) {
+    fail('El diálogo de fecha se cerró al tocar el día ${target.day}');
+  }
+  final ok = await waitForAny(tester, [find.text('Aceptar'), find.text('ACEPTAR'), find.text('OK')]);
+  await tester.tap(ok.hitTestable().first);
   await waitForGone(tester, find.byType(DatePickerDialog));
 }
 
