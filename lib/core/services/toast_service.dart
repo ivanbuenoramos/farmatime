@@ -6,8 +6,17 @@ import 'package:toastification/toastification.dart';
 
 
 
+/// Registro de un toast mostrado (observabilidad para pruebas/diagnóstico).
+typedef ToastRecord = ({String title, String? message, ToastType type, DateTime at});
+
 class ToastService {
-  
+  /// Últimos toasts mostrados (máx. 50). Lo usan las pruebas de integración
+  /// para verificar avisos sin depender del overlay de toastification.
+  static final List<ToastRecord> history = <ToastRecord>[];
+
+  /// Hook opcional invocado en cada toast (p. ej. logging en QA).
+  static void Function(ToastRecord record)? onShow;
+
   void show({
 
     String? iconPath,
@@ -42,6 +51,11 @@ class ToastService {
         primaryColor = Get.theme.colorScheme.error;
         break;
     }
+
+    final record = (title: title, message: message, type: type, at: DateTime.now());
+    history.add(record);
+    if (history.length > 50) history.removeAt(0);
+    onShow?.call(record);
 
     toastification.show(
       primaryColor: primaryColor,

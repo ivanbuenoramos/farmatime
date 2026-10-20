@@ -67,7 +67,7 @@ void main() {
       await _pickDayInDialog(tester, vacationDay);
       await tester.enterText(find.widgetWithText(TextField, 'Añade información útil para tu responsable…'), 'Nota QA vacaciones');
       await tapText(tester, 'Enviar solicitud');
-      await waitFor(tester, find.text('Solicitud enviada'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Solicitud enviada', timeout: const Duration(seconds: 20));
       await waitFor(tester, find.text('Pendiente'), timeout: const Duration(seconds: 20));
       final reqs = await _requestsOf('qa-emp-ana');
       expect(reqs.length, 1);
@@ -87,7 +87,7 @@ void main() {
       await tapText(tester, 'Añadir día');
       await _pickDayInDialog(tester, personalDay);
       await tapText(tester, 'Enviar solicitud');
-      await waitFor(tester, find.text('Solicitud enviada'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Solicitud enviada', timeout: const Duration(seconds: 20));
       await pumpFor(tester, const Duration(seconds: 2));
       var reqs = await _requestsOf('qa-emp-ana');
       expect(reqs.length, 2);
@@ -100,7 +100,7 @@ void main() {
       await tester.tap(anyCancel.first);
       await waitFor(tester, find.text('¿Seguro que quieres cancelar esta solicitud? Esta acción no se puede deshacer.'));
       await tester.tap(find.widgetWithText(FilledButton, 'Cancelar solicitud'));
-      await waitFor(tester, find.text('Solicitud cancelada'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Solicitud cancelada', timeout: const Duration(seconds: 20));
       await pumpFor(tester, const Duration(seconds: 2));
       reqs = await _requestsOf('qa-emp-ana');
       final cancelled = reqs.where((r) => r['status'] == 'cancelled').toList();
@@ -127,7 +127,7 @@ void main() {
       await tapText(tester, Seed.empAnaName);
       await waitFor(tester, find.text('Aprobar'), timeout: const Duration(seconds: 20));
       await tapText(tester, 'Aprobar');
-      await waitFor(tester, find.text('Solicitud aprobada'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Solicitud aprobada', timeout: const Duration(seconds: 20));
       await pumpFor(tester, const Duration(seconds: 2));
 
       final reqs = await _requestsOf('qa-emp-ana');

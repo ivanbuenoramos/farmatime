@@ -27,7 +27,7 @@ void main() {
       await waitFor(tester, find.text('Trabajando'), timeout: const Duration(seconds: 40));
       await _openNewEmployeeForm(tester);
       await tapText(tester, 'Crear empleado');
-      await waitFor(tester, find.text('Por favor, introduce un nombre y correo válidos.'));
+      await waitForToast(tester, 'Por favor, introduce un nombre y correo válidos.');
       expect(find.text('Nuevo empleado'), findsWidgets);
     });
 
@@ -39,7 +39,7 @@ void main() {
       // Deja actuar al debounce (600 ms) + callable checkEmployeeEmailAvailability.
       await pumpFor(tester, const Duration(seconds: 3));
       await tapText(tester, 'Crear empleado');
-      await waitFor(tester, find.text('Correo en uso'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Correo en uso', timeout: const Duration(seconds: 20));
       expect(find.text('Nuevo empleado'), findsWidgets);
     });
 
@@ -52,7 +52,7 @@ void main() {
       await tester.ensureVisible(rate);
       await tester.enterText(rate, '-5');
       await tapText(tester, 'Crear empleado');
-      await waitFor(tester, find.text('El precio por hora no puede ser negativo.'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'El precio por hora no puede ser negativo.', timeout: const Duration(seconds: 20));
       await tester.enterText(rate, '12,50');
     });
 
@@ -63,7 +63,7 @@ void main() {
       await tester.enterText(find.widgetWithText(TextField, 'Correo electrónico'), _newEmail);
       await pumpFor(tester, const Duration(seconds: 3));
       await tapText(tester, 'Crear empleado');
-      await waitFor(tester, find.text('Empleado creado'), timeout: const Duration(seconds: 40));
+      await waitForToast(tester, 'Empleado creado', timeout: const Duration(seconds: 40));
       // Vuelve a la lista y aparece el nuevo empleado como Pendiente.
       await waitFor(tester, find.text('Lista de empleados'), timeout: const Duration(seconds: 20));
       await waitFor(tester, find.text('Nuevo QA'), timeout: const Duration(seconds: 20));

@@ -60,7 +60,7 @@ void main() {
     testWidgets('AUTH-E-005 la contraseña temporal ya no vale tras activar', (tester) async {
       await launchApp(tester);
       await loginAsEmployee(tester, email: Seed.empMartaEmail, password: Seed.empMartaTempPassword);
-      await waitFor(tester, find.text('Correo o contraseña incorrectos'), timeout: const Duration(seconds: 20));
+      await waitForToast(tester, 'Correo o contraseña incorrectos', timeout: const Duration(seconds: 20));
       await goBack(tester);
       await waitFor(tester, find.text('ACCESO PARA FARMACIAS'));
     });

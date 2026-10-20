@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_storage/get_storage.dart';
 
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/main.dart' as app;
 
 /// Datos sembrados por tool/qa/seed_emulator.js (mantener sincronizados).
@@ -381,4 +382,46 @@ String? dashboardMetricValue(String label) {
       .toList();
   texts.remove(label);
   return texts.isEmpty ? null : texts.first;
+}
+
+
+/// Espera a que la app muestre un toast cuyo título o mensaje sea [text].
+/// Se apoya en ToastService.history (el overlay de toastification solo es
+/// visible en la primera instancia de la app por proceso).
+Future<ToastRecord> waitForToast(
+  WidgetTester tester,
+  String text, {
+  Duration timeout = const Duration(seconds: 15),
+  bool contains = false,
+}) async {
+  final start = DateTime.now().subtract(const Duration(seconds: 2));
+  final end = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    for (final r in ToastService.history.reversed) {
+      if (r.at.isBefore(start)) break;
+      final matches = contains
+          ? (r.title.contains(text) || (r.message?.contains(text) ?? false))
+          : (r.title == text || r.message == text);
+      if (matches) return r;
+    }
+  }
+  fail('Timeout esperando el toast "$text". Toasts recientes: '
+      '${ToastService.history.reversed.take(8).map((r) => '${r.title} / ${r.message}').toList()}');
+}
+
+/// Espera a que aparezca cualquiera de los toasts indicados.
+Future<ToastRecord> waitForAnyToast(WidgetTester tester, List<String> texts,
+    {Duration timeout = const Duration(seconds: 15)}) async {
+  final start = DateTime.now().subtract(const Duration(seconds: 2));
+  final end = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(end)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    for (final r in ToastService.history.reversed) {
+      if (r.at.isBefore(start)) break;
+      if (texts.contains(r.title) || texts.contains(r.message)) return r;
+    }
+  }
+  fail('Timeout esperando alguno de los toasts $texts. Recientes: '
+      '${ToastService.history.reversed.take(8).map((r) => '${r.title} / ${r.message}').toList()}');
 }

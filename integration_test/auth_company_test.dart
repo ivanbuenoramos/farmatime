@@ -18,7 +18,7 @@ void main() {
       await tapText(tester, 'ACCESO PARA FARMACIAS');
       await waitFor(tester, find.text('Acceso para farmacias'));
       await tapText(tester, 'INICIAR SESIÓN');
-      await waitFor(tester, find.text('Por favor, rellena todos los campos'));
+      await waitForToast(tester, 'Por favor, rellena todos los campos');
       expect(find.text('Acceso para farmacias'), findsOneWidget);
     });
 
@@ -61,9 +61,9 @@ void main() {
       await typeInto(tester, 'Correo electrónico', 'esto-no-es-un-email');
       await typeInto(tester, 'Contraseña', Seed.password);
       await tapText(tester, 'INICIAR SESIÓN');
-      await waitForAny(tester, [
-        find.text('El correo electrónico no es válido'),
-        find.text('Correo o contraseña incorrectos'),
+      await waitForAnyToast(tester, [
+        'El correo electrónico no es válido',
+        'Correo o contraseña incorrectos',
       ], timeout: const Duration(seconds: 20));
       expect(find.text('Acceso para farmacias'), findsOneWidget);
     });

@@ -92,12 +92,7 @@ void main() {
           timeout: const Duration(seconds: 30));
       expect(find.textContaining('14:00'), findsWidgets);
       expect(tester.takeException(), isNull);
-      await tapNav(tester, 'Perfil');
-      await waitFor(tester, find.text('Mi cuenta'));
-      await tapText(tester, 'Cerrar sesión');
-      await waitFor(tester, find.text('¿Seguro que quieres cerrar sesión?'));
-      await tester.tap(find.widgetWithText(TextButton, 'Cerrar sesión').last);
-      await waitFor(tester, find.text('ACCESO PARA FARMACIAS'), timeout: const Duration(seconds: 20));
+      await logoutEmployee(tester);
     });
   });
 }

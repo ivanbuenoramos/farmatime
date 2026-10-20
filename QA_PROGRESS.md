@@ -25,10 +25,14 @@
 - Baseline: `flutter analyze` 83 infos / 0 warnings / 0 errores · `flutter test` 3/3 verde (1 archivo) · eslint functions 0 errores / 4 warnings max-len · sin tests de functions ni de reglas · sin `integration_test/`.
 
 ## Funcionalidades auditadas
-(pendiente — se rellena con la matriz `docs/qa/FUNCTIONALITY_MATRIX.md`)
+- Descubrimiento completado (2026-10-20): 11 áreas, **61 pantallas, 277 operaciones de datos, 629 casos de prueba, 192 issues candidatos** (2 críticos, 39 altos, 73 medios, 78 bajos) → `docs/qa/FUNCTIONALITY_MATRIX.md`, `docs/qa/discovery.json`, `docs/qa/candidate_issues.json`.
+- Verificadas por ejecución real (iOS, Emulator Suite): arranque, navegación inicial, login/logout farmacia y empleado (cruzados), activación con contraseña temporal, fichaje entrada/salida (en curso), chat grupo/directo (parcial), alta de empleado (en curso), ausencias (en curso), horarios (asignación de turno por plantilla OK).
+- Reglas de seguridad Firestore: 385 tests unitarios (todas las colecciones).
 
 ## Funcionalidades pendientes
-Todas (descubrimiento en curso).
+- Ejecución en Android (API 36 y API 30) de toda la suite; iPad / iPhone pequeño / iOS 18.5.
+- Verificación adversarial de los 192 candidatos + buscadores por dimensión (workflow Fase 2 en curso).
+- Suscripciones IAP, push reales, email real: no emulables (limitación documentada).
 
 ## Bugs descubiertos
 - **SEC-001..SEC-009 (reglas Firestore, severidad alta/media)** — confirmados por tests unitarios de reglas (fallaban): empleado podía crear fichajes a nombre de un compañero; alterar `clockIn` sin marcar edición; modificar `hireDate`/`createdAt` (base del devengo); auto-aprobarse otras fechas al aceptar una propuesta; reasignar `employeeId` de su mes de horario; la empresa podía reasignar plantillas/reglas/meses a otra empresa.
