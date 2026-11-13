@@ -41,6 +41,7 @@ class CompanyAuthSignInController extends GetxController {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final rememberMe = false.obs;
+  final isLoading = false.obs;
 
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
 
@@ -51,6 +52,7 @@ class CompanyAuthSignInController extends GetxController {
   }
 
   Future<void> login() async {
+    if (isLoading.value) return;
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
@@ -59,12 +61,22 @@ class CompanyAuthSignInController extends GetxController {
       return;
     }
 
+    isLoading.value = true;
+    try {
+      await _doLogin(email, password);
+    } catch (e, st) {
+      debugPrint('login error: $e\n$st');
+      ToastService().show(title: 'Error', message: 'No se pudo iniciar sesión. Inténtalo de nuevo.', type: ToastType.error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> _doLogin(String email, String password) async {
+    // El repositorio ya muestra el toast con el motivo del fallo.
     final Result<UserCredential?> signInResult = await signInWithEmailUseCase.call(email, password);
 
-    if (!signInResult.success || signInResult.data == null) {
-      ToastService().show(title: 'Error', message: 'Credenciales incorrectas o cuenta inexistente', type: ToastType.error);
-      return;
-    }
+    if (!signInResult.success || signInResult.data == null) return;
 
     final user = firebaseAuth.currentUser;
     if (user == null) {
@@ -76,6 +88,8 @@ class CompanyAuthSignInController extends GetxController {
 
     if (companyResult.success && companyResult.data != null) {
       final company = companyResult.data!;
+      brain.employee.value = null;
+      GetStorage().remove('employee');
       brain.company.value = company;
       await GetStorage().write('company', json.encode(company.toJson()));
 
@@ -104,6 +118,9 @@ class CompanyAuthSignInController extends GetxController {
         await getEmployeeByIdUseCase.call(user.uid);
 
     if (employeeResult.success && employeeResult.data != null) {
+      // Evita que una sesión de farmacia anterior tenga prioridad en el splash.
+      brain.company.value = null;
+      GetStorage().remove('company');
       brain.employee.value = employeeResult.data;
       await GetStorage().write('employee', json.encode(employeeResult.data!.toJson()));
       try {

@@ -25,12 +25,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26
+      - name: Select Xcode
         run: |
-          # Apple exige compilar con el SDK de iOS 26 desde abril de 2026
-          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          # Apple exige compilar con el SDK de iOS 26 desde abril de 2026.
+          # Se usa el Xcode mas reciente disponible (26 o 27); la app ya esta
+          # migrada al ciclo de vida UIScene, obligatorio con el SDK de iOS 27.
+          XCODE=$(ls -d /Applications/Xcode_2[67]*.app 2>/dev/null | sort -V | tail -1)
           if [ -z "$XCODE" ]; then
-            echo "Xcode 26 no encontrado en el runner. Disponibles:"
+            echo "Xcode 26/27 no encontrado en el runner. Disponibles:"
             ls /Applications | grep -i xcode
             exit 1
           fi
@@ -40,7 +42,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.5"
+          # Misma version que en local. Minimo 3.38 para FlutterSceneDelegate /
+          # FlutterImplicitEngineDelegate (migracion UIScene).
+          flutter-version: "3.47.6"
           channel: stable
           cache: true
 

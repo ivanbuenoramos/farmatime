@@ -86,7 +86,7 @@ class EmployeeAccountController extends GetxController {
 
     final Result<EmployeeModel?> result = await updateEmployeeUseCase.call(updatedEmployee);
     if (!result.success || result.data == null) {
-      ToastService().show(title: 'Error', message: 'No se pudo actualizar la empresa', type: ToastType.error);
+      ToastService().show(title: 'Error', message: 'No se pudieron actualizar tus datos', type: ToastType.error);
       return;
     }
 

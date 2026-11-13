@@ -8,7 +8,8 @@
 // Requiere que el usuario esté autenticado como super-admin (claim adminRole).
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { db, admin } = require('../config/firebase');
+const { FieldValue } = require('firebase-admin/firestore');
+const { db } = require('../config/firebase');
 
 const LEGACY_FIELDS = [
   'stripeCustomerId',
@@ -52,7 +53,7 @@ exports.iap_cleanupLegacyBilling = onCall(async (request) => {
 
     for (const field of LEGACY_FIELDS) {
       if (field in data) {
-        patch[field] = admin.firestore.FieldValue.delete();
+        patch[field] = FieldValue.delete();
         touched = true;
       }
     }
@@ -74,7 +75,7 @@ exports.iap_cleanupLegacyBilling = onCall(async (request) => {
 
     if (touched) {
       if (!dryRun) {
-        patch.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+        patch.updatedAt = FieldValue.serverTimestamp();
         await doc.ref.set(patch, { merge: true });
       }
       updated.push(doc.id);

@@ -40,6 +40,7 @@ class EmployeeAuthSignInController extends GetxController {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final rememberMe = false.obs;
+  final isLoading = false.obs;
 
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
   final Brain brain = Get.find<Brain>();
@@ -49,6 +50,7 @@ class EmployeeAuthSignInController extends GetxController {
   }
 
   Future<void> login() async {
+    if (isLoading.value) return;
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
@@ -57,13 +59,23 @@ class EmployeeAuthSignInController extends GetxController {
       return;
     }
 
+    isLoading.value = true;
+    try {
+      await _doLogin(email, password);
+    } catch (e, st) {
+      debugPrint('login error: $e\n$st');
+      ToastService().show(title: 'Error', message: 'No se pudo iniciar sesión. Inténtalo de nuevo.', type: ToastType.error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> _doLogin(String email, String password) async {
+    // El repositorio ya muestra el toast con el motivo del fallo.
     final Result<UserCredential?> signInResult =
         await signInWithEmailUseCase.call(email, password);
 
-    if (!signInResult.success || signInResult.data == null) {
-      ToastService().show(title: 'Error', message: 'Credenciales incorrectas o cuenta inexistente', type: ToastType.error);
-      return;
-    }
+    if (!signInResult.success || signInResult.data == null) return;
 
     final user = firebaseAuth.currentUser;
     if (user == null) {
@@ -75,9 +87,15 @@ class EmployeeAuthSignInController extends GetxController {
         await getEmployeeByIdUseCase.call(user.uid);
 
     if (employeeResult.success && employeeResult.data != null) {
+      brain.company.value = null;
+      GetStorage().remove('company');
       brain.employee.value = employeeResult.data;
       await GetStorage().write('employee', json.encode(employeeResult.data!.toJson()));
-      await _registerPushToken(employeeResult.data!.uid);
+      try {
+        await _registerPushToken(employeeResult.data!.uid);
+      } catch (e, st) {
+        debugPrint('registerPushToken error (no-fatal): $e\n$st');
+      }
       Get.offAllNamed(Routes.employeeMain);
       return;
     }
@@ -88,6 +106,8 @@ class EmployeeAuthSignInController extends GetxController {
 
     if (companyResult.success && companyResult.data != null) {
       final company = companyResult.data!;
+      brain.employee.value = null;
+      GetStorage().remove('employee');
       brain.company.value = company;
       await GetStorage().write('company', json.encode(company.toJson()));
 
@@ -101,7 +121,11 @@ class EmployeeAuthSignInController extends GetxController {
         debugPrint('Seed chat error: $e\n$st');
       }
 
-      await _registerPushToken(company.id);
+      try {
+        await _registerPushToken(company.id);
+      } catch (e, st) {
+        debugPrint('registerPushToken error (no-fatal): $e\n$st');
+      }
       Get.offAllNamed(Routes.companyMain);
       unawaited(_notifyLogin(company.email, company.legalName));
       return;
@@ -165,7 +189,10 @@ class EmployeeAuthSignInController extends GetxController {
       allMemberIds: allMemberIds,
     );
 
-    for (final empId in employeeIds) {
+    // Un empleado solo puede crear su propio chat con la farmacia (las reglas
+    // exigen ser miembro); los de sus compañeros los crea la farmacia.
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    for (final empId in employeeIds.where((id) => id == myUid)) {
       final otherName = employeeNamesById[empId] ?? 'Empleado';
       await repo.ensureDirectConversation(
         companyId: companyId,

@@ -4,4 +4,8 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- SOLO builds debug: permite HTTP en claro hacia el Firebase Emulator
+         Suite (10.0.2.2) para las pruebas de integración de QA. Los builds
+         release no incluyen este manifest. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

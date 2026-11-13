@@ -7,8 +7,21 @@ import 'package:farmatime/data/models/clock_audit_log_model.dart';
 abstract class ClockRepository {
   Future<Result<ClockInOutModel?>> createEntry(ClockInOutModel entry);
   Future<Result<ClockInOutModel?>> getCurrentEntry(String employeeId);
-  Future<Result<List<ClockInOutModel>>> getEntriesByEmployee(String employeeId);
+  /// Fichajes de un empleado. [companyId] es obligatorio cuando consulta la
+  /// EMPRESA: las reglas solo pueden demostrar la lectura si la query filtra
+  /// también por companyId (un empleado puede consultar solo por employeeId).
+  Future<Result<List<ClockInOutModel>>> getEntriesByEmployee(String employeeId, {String? companyId});
   Future<Result<ClockInOutModel?>> updateEntry(ClockInOutModel entry);
+
+  /// Cierra el fichaje abierto [entryId] escribiendo SOLO la salida
+  /// (clockOut/clockOutLat/clockOutLng/updatedAt). Es lo único que las reglas
+  /// permiten al empleado y evita pisar ediciones de la empresa (lost update).
+  Future<Result<void>> closeEntry({
+    required String entryId,
+    required DateTime clockOut,
+    double? clockOutLat,
+    double? clockOutLng,
+  });
 
   /// Actualiza un fichaje y registra el cambio en el log de auditoría
   /// inmutable, todo dentro de una misma transacción de Firestore.

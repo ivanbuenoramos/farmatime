@@ -77,10 +77,11 @@ exports.cronShiftStartReminder = onSchedule(
         const startMin = toMinutes(shift.start);
         if (startMin == null) continue;
 
-        // Dispara si el inicio cae en la ventana (now+10, now+20]. La función
-        // corre cada 15 min, así que cada turno entra como mucho en una ejecución.
+        // Dispara si el inicio cae en la ventana (now+5, now+20]. La ventana mide
+        // exactamente 15 min (= periodo del cron): cada turno entra en una sola
+        // ejecución y ninguno se queda sin aviso (antes (10,20] dejaba huecos).
         const delta = startMin - nowMin;
-        if (delta > 10 && delta <= 20) {
+        if (delta > 5 && delta <= 20) {
           await sendPushToUsers({
             uids: [emp.uid],
             title: 'Tu turno está por empezar',

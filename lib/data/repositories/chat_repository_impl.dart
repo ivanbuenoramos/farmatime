@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:farmatime/data/models/chat/chat_models.dart';
 import '../../domain/repositories/chat_repository.dart';
 
@@ -109,10 +110,13 @@ class ChatRepositoryImpl implements ChatRepository {
     String? titleOverride,
   }) async {
     final members = [userA, userB]..sort();
+    // La consulta debe incluir al usuario autenticado para que las reglas
+    // de Firestore puedan probar que solo lee conversaciones propias.
+    final me = FirebaseAuth.instance.currentUser?.uid;
     final q = await _conversations
         .where('companyId', isEqualTo: companyId)
         .where('isGroup', isEqualTo: false)
-        .where('memberIds', arrayContains: members.first)
+        .where('memberIds', arrayContains: members.contains(me) ? me : members.first)
         .get();
 
     for (final d in q.docs) {

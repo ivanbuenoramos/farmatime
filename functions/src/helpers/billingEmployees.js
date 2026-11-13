@@ -1,5 +1,6 @@
 // helpers/billingEmployees.js
-const { db, admin } = require('../config/firebase');
+const { db } = require('../config/firebase');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
 const { PROMOTABLE } = require('./seatPolicy');
 
@@ -37,7 +38,7 @@ async function updateEmployeesForBillingState(companyId, opts = {}) {
     typeof opts.overrideAllowedActive === 'number' ? opts.overrideAllowedActive : null;
 
   const canceledAt = company.subscription?.canceledAt;
-  const canceledAtMs = canceledAt instanceof admin.firestore.Timestamp ? canceledAt.toMillis() : 0;
+  const canceledAtMs = canceledAt instanceof Timestamp ? canceledAt.toMillis() : 0;
 
   // Tres tramos:
   //   1) Pagado: las plazas contratadas siguen activas.
@@ -65,7 +66,7 @@ async function updateEmployeesForBillingState(companyId, opts = {}) {
   const employees = [];
   snap.forEach((doc) => {
     const data = doc.data() || {};
-    const createdAt = data.createdAt instanceof admin.firestore.Timestamp ? data.createdAt.toMillis() : 0;
+    const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : 0;
     employees.push({
       ref: doc.ref,
       uid: doc.id,
@@ -115,7 +116,7 @@ async function updateEmployeesForBillingState(companyId, opts = {}) {
     if (newStatus !== emp.status) {
       batch.update(emp.ref, {
         accountStatus: newStatus,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }
   });

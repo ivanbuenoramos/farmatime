@@ -18,7 +18,9 @@ class DeleteEmployeeController extends GetxController {
   final confirmationController = TextEditingController();
   final isDeleting = false.obs;
 
-  bool get isNameCorrect => confirmationController.text.trim() == employee.value!.name.trim();
+  bool get isNameCorrect =>
+      employee.value != null &&
+      confirmationController.text.trim() == employee.value!.name.trim();
 
   @override
   void onInit() {
@@ -56,7 +58,15 @@ class DeleteEmployeeController extends GetxController {
         accountStatus: EmployeeAccountStatus.deleted,
       );
 
-      await _updateEmployeeUseCase.call(updatedEmployee);
+      final res = await _updateEmployeeUseCase.call(updatedEmployee);
+      if (!res.success) {
+        ToastService().show(
+          title: 'Error',
+          message: 'No se ha podido eliminar al empleado. Inténtalo de nuevo.',
+          type: ToastType.error,
+        );
+        return;
+      }
 
       Get.back(result: true);
       ToastService().show(

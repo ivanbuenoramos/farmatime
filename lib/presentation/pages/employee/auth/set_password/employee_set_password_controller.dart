@@ -1,5 +1,6 @@
 // presentation/pages/account/change_password/change_password_controller.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/routes/routes.dart';
 import 'package:farmatime/core/services/push_notification_service.dart';
@@ -85,15 +86,22 @@ class EmployeeSetPasswordController extends GetxController {
     if (!isValid) return;
 
     isLoading.value = true;
+    if (_passwordAlreadyChanged) {
+      isLoading.value = false;
+      await onSuccess();
+      return;
+    }
     // tempPassword vive en una subcolección privada (no en el doc principal,
     // que es legible por los compañeros). La leemos solo en este momento.
     final tempPass = await _readTempPassword();
     if (tempPass == null || tempPass.isEmpty) {
       isLoading.value = false;
-      toast.show(
-        title: 'No se pudo verificar tu cuenta',
-        message: 'Vuelve a iniciar sesión e inténtalo de nuevo.',
-        type: ToastType.error,
+      // Sin credenciales temporales (p. ej. ya se restableció la contraseña
+      // por email) el empleado quedaba atrapado en esta pantalla para
+      // siempre: ofrecemos una salida en vez de un callejón sin salida.
+      await _offerWayOut(
+        'No encontramos tu contraseña temporal. Puedes restablecer la '
+        'contraseña desde el correo o cerrar sesión y volver a entrar.',
       );
       return;
     }
@@ -112,10 +120,11 @@ class EmployeeSetPasswordController extends GetxController {
         case 'wrong-password':
         case 'user-mismatch':
         case 'invalid-credential':
-          toast.show(
-            title: 'Error de autenticación',
-            message: 'La contraseña actual no es correcta.',
-            type: ToastType.error,
+          // La temporal guardada ya no coincide con Auth (contraseña cambiada
+          // fuera de la app): sin salida el usuario se queda bloqueado.
+          await _offerWayOut(
+            'La contraseña temporal ya no es válida. Restablece la contraseña '
+            'desde el correo o cierra sesión y vuelve a entrar.',
           );
           break;
         case 'user-not-found':
@@ -136,26 +145,43 @@ class EmployeeSetPasswordController extends GetxController {
     }
   }
 
+  /// La contraseña ya está cambiada en Auth; ahora hay que marcar la cuenta
+  /// como activa en Firestore. Si eso falla NO se da el cambio por terminado
+  /// (antes se mostraba éxito y se navegaba igualmente, dejando la cuenta
+  /// pendiente con una temporal que ya no servía).
   Future<void> onSuccess() async {
-
     final EmployeeModel updatedEmployee = brain.employee.value!.copyWith(
       hasTempPassword: false,
       accountStatus: EmployeeAccountStatus.active,
     );
 
-    final Result updateResult = await updateEmployeeUseCase.call(updatedEmployee);
-
-    if (updateResult.success) {
-      brain.updateEmployeeData(updatedEmployee);
-      if (Get.isRegistered<PushNotificationService>()) {
-        await Get.find<PushNotificationService>()
-            .registerTokenForUser(updatedEmployee.uid);
+    isLoading.value = true;
+    Result? updateResult;
+    try {
+      // Un reintento ante fallos transitorios de red.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        updateResult = await updateEmployeeUseCase.call(updatedEmployee);
+        if (updateResult.success) break;
       }
-    } else {
-      toast.showParsedErrorCode(
-        updateResult.errorCode,
-        defaultMessage: 'No se pudo actualizar el estado de la contraseña temporal.',
+    } finally {
+      isLoading.value = false;
+    }
+
+    if (updateResult == null || !updateResult.success) {
+      _passwordAlreadyChanged = true;
+      toast.show(
+        title: 'Contraseña cambiada, falta activar la cuenta',
+        message: 'Tu nueva contraseña ya es válida, pero no pudimos activar la '
+            'cuenta. Comprueba la conexión y pulsa "Guardar cambios" de nuevo.',
+        type: ToastType.warning,
       );
+      return;
+    }
+
+    brain.updateEmployeeData(updatedEmployee);
+    if (Get.isRegistered<PushNotificationService>()) {
+      await Get.find<PushNotificationService>()
+          .registerTokenForUser(updatedEmployee.uid);
     }
 
     toast.show(
@@ -166,8 +192,38 @@ class EmployeeSetPasswordController extends GetxController {
     newCtrl.clear();
     confirmCtrl.clear();
     Get.offNamed(Routes.employeeMain);
+  }
 
+  /// true cuando Auth ya tiene la contraseña nueva pero el doc no se activó:
+  /// el siguiente "Guardar cambios" solo reintenta la activación.
+  bool _passwordAlreadyChanged = false;
 
+  /// Diálogo con salidas cuando la contraseña temporal no sirve.
+  Future<void> _offerWayOut(String message) async {
+    await Get.dialog<void>(
+      AlertDialog(
+        title: const Text('No se pudo verificar tu cuenta'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Get.toNamed(Routes.recoverPassword);
+            },
+            child: const Text('Restablecer por correo'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Get.back();
+              brain.clearSession();
+              await FirebaseAuth.instance.signOut();
+              Get.offAllNamed(Routes.index);
+            },
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

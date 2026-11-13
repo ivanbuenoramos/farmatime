@@ -8,8 +8,9 @@
 //      terminó hace >=30 min → notifica al EMPLEADO.
 
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { Timestamp } = require('firebase-admin/firestore');
 const { logger } = require('firebase-functions');
-const { admin, db } = require('../config/firebase');
+const { db } = require('../config/firebase');
 const { sendPushToUsers } = require('./sendPush');
 const { resolveDayShift, toMinutes, ymdMadrid } = require('./scheduleResolver');
 
@@ -40,7 +41,7 @@ function nowMinutesMadrid(date) {
 function startOfDayTs(date) {
   const ymd = ymdMadrid(date);
   // Madrid es UTC+1/+2; usamos un margen amplio leyendo desde 00:00 UTC del día.
-  return admin.firestore.Timestamp.fromDate(new Date(`${ymd}T00:00:00Z`));
+  return Timestamp.fromDate(new Date(`${ymd}T00:00:00Z`));
 }
 
 /** Empleados activos (uid, companyId). */
@@ -92,10 +93,16 @@ exports.cronClockAlerts = onSchedule(
             .get();
         const records = recSnap.docs.map((d) => d.data() || {});
 
+        // Ventana de 15 min (= periodo del cron) para avisar UNA sola vez en vez
+        // de repetir la notificación en cada ejecución durante todo el día.
+        const lateBy = nowMin - startMin;
+        const afterEnd = nowMin - endMin;
+
         // #1 Sin fichar: turno empezó hace >=30 min y no hay ningún fichaje hoy.
         if (
           startMin != null &&
-          nowMin - startMin >= LATE_THRESHOLD_MIN &&
+          lateBy >= LATE_THRESHOLD_MIN &&
+          lateBy < LATE_THRESHOLD_MIN + 15 &&
           records.length === 0
         ) {
           await sendPushToUsers({
@@ -113,7 +120,8 @@ exports.cronClockAlerts = onSchedule(
         if (
           openRecord &&
           endMin != null &&
-          nowMin - endMin >= LATE_THRESHOLD_MIN
+          afterEnd >= LATE_THRESHOLD_MIN &&
+          afterEnd < LATE_THRESHOLD_MIN + 15
         ) {
           await sendPushToUsers({
             uids: [emp.uid],

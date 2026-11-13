@@ -117,6 +117,11 @@ class _StatusHeroCard extends StatelessWidget {
   const _StatusHeroCard({required this.controller});
   final EmployeeMyDayController controller;
 
+  static bool _sameDay(DateTime d) {
+    final n = DateTime.now();
+    return d.year == n.year && d.month == n.month && d.day == n.day;
+  }
+
   String _hms(Duration d) {
     final h = d.inHours.toString().padLeft(2, '0');
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -204,7 +209,7 @@ class _StatusHeroCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Desde tu última entrada (${DateFormat.Hm().format(entry.clockIn)})',
+                        'Desde tu última entrada (${_sameDay(entry.clockIn) ? DateFormat.Hm().format(entry.clockIn) : DateFormat('d MMM HH:mm', 'es_ES').format(entry.clockIn)})',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.tertiary,
                         ),

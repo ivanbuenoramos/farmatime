@@ -7,7 +7,7 @@ class GetEntriesByEmployeeUseCase {
 
   GetEntriesByEmployeeUseCase(this.repository);
 
-  Future<Result<List<ClockInOutModel>>> call(String employeeId) {
-    return repository.getEntriesByEmployee(employeeId);
+  Future<Result<List<ClockInOutModel>>> call(String employeeId, {String? companyId}) {
+    return repository.getEntriesByEmployee(employeeId, companyId: companyId);
   }
 }

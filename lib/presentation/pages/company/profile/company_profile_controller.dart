@@ -70,27 +70,43 @@ class CompanyProfileController extends GetxController {
     final file = File(picked.path);
     isUploadingLogo.value = true;
 
-    final fileUrl = await uploadFileUseCase.call(
-      file: file,
-      path: 'companies/${originalCompany.id}',
-      fileName: 'logo.jpg',
-    );
-    if (fileUrl == null) {
+    try {
+      final fileUrl = await uploadFileUseCase.call(
+        file: file,
+        path: 'companies/${originalCompany.id}',
+        fileName: 'logo.jpg',
+      );
+      if (fileUrl == null) {
+        toastService.show(
+          title: 'Error',
+          message: 'No se pudo subir la imagen',
+          type: ToastType.error,
+        );
+      } else {
+        logoUrl.value = fileUrl;
+      }
+    } catch (_) {
       toastService.show(
         title: 'Error',
         message: 'No se pudo subir la imagen',
         type: ToastType.error,
       );
+    } finally {
       isUploadingLogo.value = false;
-      return;
-    } else {
-      logoUrl.value = fileUrl;
     }
-    
-    isUploadingLogo.value = false;
   }
 
   Future<void> saveChanges() async {
+    if (isLoading.value) return;
+
+    if (nameController.text.trim().isEmpty) {
+      toastService.show(
+        title: 'Error',
+        message: 'El nombre de la farmacia no puede estar vacío.',
+        type: ToastType.error,
+      );
+      return;
+    }
 
     isLoading.value = true;
 
@@ -112,24 +128,33 @@ class CompanyProfileController extends GetxController {
       updatedAt: DateTime.now(),
     );
 
-    final Result<CompanyModel?> result = await updateCompanyUseCase.call(updatedCompany);
-    if (!result.success || result.data == null) {
-      toastService.showParsedErrorCode(result.errorCode, defaultMessage: 'No se pudo actualizar la empresa');
-      return;
+    try {
+      final Result<CompanyModel?> result = await updateCompanyUseCase.call(updatedCompany);
+      if (!result.success || result.data == null) {
+        toastService.showParsedErrorCode(result.errorCode, defaultMessage: 'No se pudo actualizar la empresa');
+        return;
+      }
+
+      brain.company.value = result.data;
+      toastService.show(
+        title: 'Éxito',
+        message: 'Datos actualizados correctamente',
+        type: ToastType.success,
+      );
+    } catch (_) {
+      toastService.show(
+        title: 'Error',
+        message: 'No se pudo actualizar la empresa',
+        type: ToastType.error,
+      );
+    } finally {
+      isLoading.value = false;
     }
-
-    brain.company.value = result.data;
-    toastService.show(
-      title: 'Éxito',
-      message: 'Datos actualizados correctamente',
-      type: ToastType.success,
-    );
-
-    isLoading.value = false;
   }
 
   void logOut() async {
     await logOutUseCase.call();
+    brain.clearSession();
     Get.offAllNamed(Routes.index);
   }
 

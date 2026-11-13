@@ -143,6 +143,9 @@ class ChatController extends GetxController {
             // Si recibo un mensaje ajeno mientras estoy abierto, lo marco leído
             if (!isMine) _markRead();
           }
+        }, onError: (e) {
+          debugPrint('Error escuchando mensajes: $e');
+          messages.value ??= <ChatMessage>[];
         });
   }
 

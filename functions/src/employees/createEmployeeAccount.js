@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { FieldValue } = require('firebase-admin/firestore');
 const { db, admin } = require('../config/firebase');
 const { assertCompanyAccount } = require('../helpers/assertions');
 const { SEAT_OCCUPYING } = require('../helpers/seatPolicy');
@@ -52,7 +53,7 @@ exports.createEmployeeAccount = onCall(async (request) => {
   // de crear el usuario. Usamos un id de documento autogenerado como reserva y,
   // tras crear el Auth user, migramos el doc al UID real.
   const reservationRef = db.collection('employees').doc();
-  const nowTs = admin.firestore.FieldValue.serverTimestamp();
+  const nowTs = FieldValue.serverTimestamp();
 
   // baseDoc se usa tanto para el doc de RESERVA (temporal, sin tempPassword)
   // como para el doc FINAL bajo el UID de Auth (al que añadimos tempPassword).
@@ -154,11 +155,11 @@ exports.createEmployeeAccount = onCall(async (request) => {
       // Flag informativo: el cliente sabe que debe forzar set_password sin ver
       // la contraseña en sí.
       hasTempPassword: true,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     batch.set(privateRef, {
       tempPassword: tempPass,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
     batch.delete(reservationRef);
     await batch.commit();
@@ -209,7 +210,7 @@ exports.createEmployeeAccount = onCall(async (request) => {
     let resetLink = null;
     try {
       resetLink = await admin.auth().generatePasswordResetLink(email, {
-        url: 'https://tudominio.com/onboarding',
+        url: 'https://farmatime.net/onboarding',
         handleCodeInApp: true,
       });
       logger.info('[createEmployeeAccount] resetLink generated');

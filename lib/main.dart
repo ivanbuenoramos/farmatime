@@ -11,6 +11,7 @@ import 'package:farmatime/core/app/app.dart';
 import 'package:farmatime/core/app/brain.dart';
 import 'package:farmatime/core/dependencies.dart';
 import 'package:farmatime/firebase_options.dart';
+import 'package:farmatime/core/firebase_emulator.dart';
 import 'package:farmatime/core/services/push_notification_service.dart';
 
 Future<void> main() async {
@@ -25,9 +26,15 @@ Future<void> main() async {
       debugPrint('🔴 FlutterError: ${details.exceptionAsString()}\n${details.stack}');
     };
 
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // Idempotente: main() puede volver a ejecutarse en el mismo isolate (p. ej.
+    // en pruebas de integración, que desmontan y relanzan la app por test).
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+    // QA: contra el Emulator Suite solo si se pasó --dart-define (nunca en release).
+    await FirebaseEmulator.connectIfEnabled();
     await GetStorage.init();
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -43,16 +50,32 @@ Future<void> main() async {
     await brain.loadSession();
 
     // Servicio de notificaciones push (FCM + notificaciones locales).
+    // Se registra antes de runApp para que esté disponible vía Get.find, pero
+    // se inicializa DESPUÉS del primer frame y sin bloquear: el arranque de la
+    // app nunca debe depender del plugin nativo de push (si tarda o se queda
+    // colgado esperando el permiso o el mensaje inicial, la UI se pinta igual).
     final pushService = Get.put(PushNotificationService(), permanent: true);
+
+    runApp(const FarmatimeApp());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initPush(pushService, brain));
+    });
+  }, (Object error, StackTrace stack) {
+    debugPrint('🔴 Uncaught zone error: $error\n$stack');
+  });
+}
+
+/// Inicializa push y, si ya hay sesión, registra el token del usuario actual.
+/// Cualquier fallo se registra y no afecta al resto de la app.
+Future<void> _initPush(PushNotificationService pushService, Brain brain) async {
+  try {
     await pushService.init();
-    // Si ya hay sesión iniciada, refrescamos el token para el usuario actual.
     final loggedUid = brain.employee.value?.uid ?? brain.company.value?.id;
     if (loggedUid != null) {
       await pushService.registerTokenForUser(loggedUid);
     }
-
-    runApp(const FarmatimeApp());
-  }, (Object error, StackTrace stack) {
-    debugPrint('🔴 Uncaught zone error: $error\n$stack');
-  });
+  } catch (error, stack) {
+    debugPrint('🔴 Push init error: $error\n$stack');
+  }
 }

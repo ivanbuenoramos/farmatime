@@ -723,7 +723,12 @@ class _NewChatSheet extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 2),
                 itemBuilder: (_, i) {
                   final contact = contacts[i];
-                  return ListTile(
+                  // Material transparente: la hoja es un Container decorado y
+                  // ListTile pinta su ink en el Material más cercano (en debug
+                  // Flutter lanza una aserción si no hay uno encima).
+                  return Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
                     leading: ProfileAvatar(
                       name: contact.name,
                       uid: contact.id,
@@ -744,6 +749,7 @@ class _NewChatSheet extends StatelessWidget {
                       Get.back();
                       controller.openDirectConversation(contact.id);
                     },
+                  ),
                   );
                 },
               ),

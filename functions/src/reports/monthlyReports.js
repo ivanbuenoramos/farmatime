@@ -3,6 +3,11 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
+// API modular: en el emulador de Functions (firebase-tools 15 + firebase-admin
+// 13) el proxy de `admin.firestore` no expone los estáticos (Timestamp,
+// FieldValue) y `Timestamp.fromDate` lanzaba TypeError en
+// cada escritura de clockRecords (reportsOnClockRecordWrite).
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const PDFDocument = require('pdfkit');
 const {
   startOfMonth,
@@ -73,8 +78,8 @@ async function getClockRecords(companyId, employeeId, from, to) {
   const start = from instanceof Date ? from : new Date(from);
   const end = to instanceof Date ? to : new Date(to);
 
-  const startTs = admin.firestore.Timestamp.fromDate(start);
-  const endTs = admin.firestore.Timestamp.fromDate(end);
+  const startTs = Timestamp.fromDate(start);
+  const endTs = Timestamp.fromDate(end);
 
   const snap = await db
       .collection('clockRecords')
@@ -433,8 +438,8 @@ async function upsertClockReportDoc({
             // totalHours; sirve para alertar de registros incompletos.
             openRecordsCount,
             source,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true },
       );
@@ -599,13 +604,20 @@ const reportsScheduleMonthly = onSchedule(
           .where('billingStatus', '==', 'active')
           .get();
 
-      const ref = new Date();
-      ref.setDate(1);
-      ref.setMonth(ref.getMonth() - 1);
-      const year = ref.getFullYear();
-      const month = ref.getMonth() + 1;
+      // Mes anterior según la fecha de MADRID. El servidor corre en UTC: a la
+      // 01:00 CEST del día 1 en UTC aún es el último día del mes anterior, y
+      // con new Date() se generaba el informe de hace dos meses.
+      const madrid = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit',
+      }).formatToParts(new Date());
+      let year = Number(madrid.find((p) => p.type === 'year').value);
+      let month = Number(madrid.find((p) => p.type === 'month').value) - 1;
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
 
-      const monthLabel = format(ref, 'MM/yyyy');
+      const monthLabel = `${String(month).padStart(2, '0')}/${year}`;
 
       for (const c of companies.docs) {
         // eslint-disable-next-line no-await-in-loop
@@ -648,6 +660,15 @@ const reportsGenerateRange = onCall(async (request) => {
   try {
     const data = request.data || {};
     const companyId = data.companyId;
+    // Sin esta comprobación cualquiera (incluso sin sesión) podía generar
+    // informes de cualquier empresa.
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Login requerido');
+    if (companyId && request.auth.uid !== companyId) {
+      const emp = await db.collection('employees').doc(request.auth.uid).get();
+      if (!emp.exists || emp.get('companyId') !== companyId) {
+        throw new HttpsError('permission-denied', 'Sin acceso a esta empresa');
+      }
+    }
     const startStr = data.startDate;
     const endStr = data.endDate;
 
@@ -736,7 +757,11 @@ const reportsOnClockRecordWrite = onDocumentWritten(
 
       const company = await getCompany(companyId);
       const employee = await getEmployee(employeeId);
-      if (!employee) return;
+      // Sin empleado, o empleado en proceso de purga (accountStatus 'deleted'):
+      // no regenerar. Si no, al borrar sus fichajes en cascada este trigger
+      // volvía a crear docs en clockReports (y PDFs) ya eliminados.
+      if (!employee || employee.accountStatus === 'deleted') return;
+      if (!company) return;
 
       for (const key of affected) {
         const [yStr, mStr] = key.split('-');

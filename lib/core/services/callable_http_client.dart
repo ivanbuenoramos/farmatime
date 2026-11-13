@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:farmatime/core/firebase_emulator.dart';
+
 /// Error de una llamada callable: lleva el mensaje y código que devolvió la
 /// Cloud Function (protocolo callable: `{"error":{"message","status"}}`),
 /// equivalente a FirebaseFunctionsException. Capturar con try/catch.
@@ -48,10 +50,14 @@ class CallableHttpClient {
     String functionName,
     Map<String, dynamic> data,
   ) async {
-    Uri uri = Uri.https(
-      '$_region-$_projectId.cloudfunctions.net',
-      '/$functionName',
-    );
+    // En QA (--dart-define=FIREBASE_EMULATOR_HOST) la callable se sirve desde
+    // el emulador de Functions; en cualquier otro caso, producción.
+    Uri uri = FirebaseEmulator.enabled
+        ? FirebaseEmulator.callableUri(functionName)
+        : Uri.https(
+            '$_region-$_projectId.cloudfunctions.net',
+            '/$functionName',
+          );
 
     final payload = utf8.encode(json.encode({'data': data}));
     // El ID token rellena request.auth en la Cloud Function callable.

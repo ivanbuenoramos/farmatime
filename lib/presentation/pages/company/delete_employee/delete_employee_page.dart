@@ -124,8 +124,9 @@ class DeleteEmployeePage extends GetView<DeleteEmployeeController> {
                     spacing24,
                     Text(
                       'Se eliminará la cuenta de este empleado y perderá el acceso a la app. '
-                      'Los datos históricos de fichajes se conservarán para cumplir con la normativa, '
-                      'pero el empleado ya no podrá iniciar sesión.',
+                      'También se borrarán de forma definitiva sus fichajes, informes, horarios, '
+                      'ausencias y conversaciones. Si necesitas conservar su registro horario '
+                      '(la normativa obliga a guardarlo 4 años), descarga antes sus informes PDF.',
                       style: theme.textTheme.bodyMedium,
                     ),
                     spacing16,

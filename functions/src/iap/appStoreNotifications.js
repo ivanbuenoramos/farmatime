@@ -2,8 +2,9 @@
 // App Store Server Notifications v2.
 // URL configurada en App Store Connect → App Information → Server Notifications.
 const { onRequest } = require('firebase-functions/v2/https');
+const { FieldValue } = require('firebase-admin/firestore');
 const logger = require('firebase-functions/logger');
-const { db, admin } = require('../config/firebase');
+const { db } = require('../config/firebase');
 const { verifyAppleJws } = require('./helpers/verifyAppleJws');
 const { getPlan } = require('./helpers/planCatalog');
 const {
@@ -31,7 +32,10 @@ function mapNotificationToStatus(notificationType, subtype) {
       return 'expired';
 
     case 'DID_FAIL_TO_RENEW':
-      return subtype === 'GRACE_PERIOD' ? 'in_grace_period' : 'expired';
+      // Sin subtipo Apple sigue reintentando el cobro (hasta 60 días) y puede
+      // recuperarse con DID_RENEW/BILLING_RECOVERY. No es una caducidad: si
+      // el reintento falla llegará EXPIRED/BILLING_RETRY, que sí expira.
+      return subtype === 'GRACE_PERIOD' ? 'in_grace_period' : 'in_billing_retry';
 
     case 'EXPIRED':
       return 'expired';
@@ -56,7 +60,7 @@ async function claimEvent(eventId) {
   return db.runTransaction(async (txn) => {
     const doc = await txn.get(ref);
     if (doc.exists) return false;
-    txn.set(ref, { createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    txn.set(ref, { createdAt: FieldValue.serverTimestamp() });
     return true;
   });
 }
@@ -170,7 +174,7 @@ exports.iap_appStoreNotifications = onRequest(
           return res.json({ received: true, status });
         }
 
-        if (status === 'active' || status === 'in_grace_period') {
+        if (status === 'active' || status === 'in_grace_period' || status === 'in_billing_retry') {
           if (!plan) {
             logger.warn('[appleNotif] productId no está en catálogo', { productId });
             return res.json({ received: true });

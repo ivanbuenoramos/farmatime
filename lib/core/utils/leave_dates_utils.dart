@@ -18,7 +18,7 @@ List<String> expandRange(DateTime start, DateTime end) {
   var cur = a;
   while (!cur.isAfter(b)) {
     out.add(ymd(cur));
-    cur = cur.add(const Duration(days: 1));
+    cur = DateTime(cur.year, cur.month, cur.day + 1); // seguro ante cambios de hora (DST)
   }
   return out;
 }
@@ -50,7 +50,11 @@ String formatDatesSummary(List<String> dates) {
   // ¿es un rango contiguo?
   bool contiguous = true;
   for (var i = 1; i < parsed.length; i++) {
-    if (parsed[i].difference(parsed[i - 1]).inDays != 1) {
+    final gap = DateTime.utc(parsed[i].year, parsed[i].month, parsed[i].day)
+        .difference(DateTime.utc(
+            parsed[i - 1].year, parsed[i - 1].month, parsed[i - 1].day))
+        .inDays;
+    if (gap != 1) {
       contiguous = false;
       break;
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/shift_template_model.dart';
 import 'package:farmatime/presentation/pages/company/shift_templates/shift_templates_controller.dart';
 
@@ -278,6 +279,14 @@ class _ShiftTemplateDialogState extends State<_ShiftTemplateDialog> {
         FilledButton(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
+            if (_start == _end) {
+              ToastService().show(
+                title: 'Horario no válido',
+                message: 'La hora de inicio y la de fin no pueden ser iguales.',
+                type: ToastType.warning,
+              );
+              return;
+            }
             final out = (widget.initial ?? ShiftTemplate.empty()).copyWith(
               name: _name.text.trim(),
               start: _fmt(_start!),

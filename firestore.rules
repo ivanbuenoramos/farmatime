@@ -43,6 +43,13 @@ service cloud.firestore {
              (employeeExists() && myEmployee().companyId == companyId);
     }
 
+    // Empleado con la cuenta operativa: los estados inactive (sin plaza) y
+    // disabled (impago) o pending (sin activar) NO pueden escribir datos de
+    // negocio (fichajes, ausencias, chat, horario). La lectura no cambia.
+    function isActiveEmployee() {
+      return employeeExists() && myEmployee().accountStatus == 'active';
+    }
+
     function incomingCompanyId() {
       return request.resource.data.companyId;
     }
@@ -59,13 +66,19 @@ service cloud.firestore {
       // Solo la propia empresa edita su ficha, pero NUNCA los campos de
       // facturación (los gestiona el backend con privilegios admin, que se
       // salta estas reglas). Esto cierra el agujero de falsear la suscripción.
-      allow create: if isCompany(companyId);
+      // En la creación el cliente no puede autoconcederse plan de pago.
+      allow create: if isCompany(companyId)
+                    && request.resource.data.get('billingStatus', null) in [null, 'none']
+                    && request.resource.data.get('contractedSeats', null) in [null, 1];
+      // Se usa get(campo, default) porque una empresa sin suscripción no tiene
+      // esos campos y leerlos directamente haría fallar la regla (bloqueando
+      // cualquier edición de perfil).
       allow update: if isCompany(companyId)
-                    && request.resource.data.billingStatus == resource.data.billingStatus
-                    && request.resource.data.contractedSeats == resource.data.contractedSeats
-                    && request.resource.data.subscription == resource.data.subscription
-                    && request.resource.data.currentPeriodEnd == resource.data.currentPeriodEnd
-                    && request.resource.data.canceledAt == resource.data.canceledAt;
+                    && request.resource.data.get('billingStatus', null) == resource.data.get('billingStatus', null)
+                    && request.resource.data.get('contractedSeats', 1) == resource.data.get('contractedSeats', 1)
+                    && request.resource.data.get('subscription', null) == resource.data.get('subscription', null)
+                    && request.resource.data.get('currentPeriodEnd', null) == resource.data.get('currentPeriodEnd', null)
+                    && request.resource.data.get('canceledAt', null) == resource.data.get('canceledAt', null);
       // El borrado lo hace la Cloud Function deleteCompanyAccount (admin).
       allow delete: if false;
 
@@ -81,7 +94,16 @@ service cloud.firestore {
     match /employees/{employeeId} {
       // La empresa lee/gestiona; el empleado lee su propio doc y los de su
       // empresa (necesario para chat, calendario de equipo, etc.).
-      allow read: if isSignedIn() &&
+      // Un get de un doc inexistente (p. ej. el login cruzado comprueba
+      // employees/{uid} de una farmacia) no debe fallar por evaluar
+      // resource.data sobre null: se permite si pregunta por su propio uid.
+      allow get: if isSignedIn() &&
+                 ((resource == null && request.auth.uid == employeeId) ||
+                  (resource != null &&
+                   (isCompany(resource.data.companyId) ||
+                    request.auth.uid == employeeId ||
+                    (employeeExists() && myEmployee().companyId == resource.data.companyId))));
+      allow list: if isSignedIn() &&
                   (isCompany(resource.data.companyId) ||
                    request.auth.uid == employeeId ||
                    (employeeExists() && myEmployee().companyId == resource.data.companyId));
@@ -91,16 +113,34 @@ service cloud.firestore {
 
       // La empresa puede actualizar a sus empleados, pero NUNCA cambiar el
       // companyId del empleado (no se puede mover a otra empresa).
-      // El empleado puede editar su propio doc; solo se le permite UNA
-      // transición de accountStatus: pending → active, justo al activar la
-      // cuenta tras establecer su contraseña definitiva (`hasTempPassword`
-      // pasa a false). Cualquier otra promoción de estado queda bloqueada.
-      allow update: if (
+      // El empleado puede editar su propio doc (nombre, foto...), pero no las
+      // condiciones laborales que fija la empresa (tarifa, rol, jornada, días
+      // de vacaciones) ni hireDate/createdAt. Solo se le permite UNA transición de
+      // accountStatus: pending → active, justo al activar la cuenta tras
+      // establecer su contraseña definitiva (`hasTempPassword` pasa a false).
+      // Cualquier otra promoción de estado queda bloqueada.
+      // uid es la identidad del empleado (= id del doc): nadie lo cambia desde
+      // el cliente (la purga en cascada del backend se basa en él).
+      allow update: if request.resource.data.get('uid', null) == resource.data.get('uid', null)
+        && ((
         isCompany(resource.data.companyId)
         && request.resource.data.companyId == resource.data.companyId
       ) || (
         request.auth.uid == employeeId
         && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.get('email', null) == resource.data.get('email', null)
+        && request.resource.data.get('hourlyRate', null) == resource.data.get('hourlyRate', null)
+        && request.resource.data.get('role', null) == resource.data.get('role', null)
+        && request.resource.data.get('roleOther', null) == resource.data.get('roleOther', null)
+        && request.resource.data.get('workdayType', null) == resource.data.get('workdayType', null)
+        && request.resource.data.get('vacationDaysPer30', null) == resource.data.get('vacationDaysPer30', null)
+        && request.resource.data.get('personalDaysPerYear', null) == resource.data.get('personalDaysPerYear', null)
+        && request.resource.data.get('position', null) == resource.data.get('position', null)
+        // Base del devengo de vacaciones y antigüedad: solo las fija el backend.
+        // El cliente ya no reescribe estos campos (EmployeeRepositoryImpl los
+        // excluye del update), así que la comparación es segura.
+        && request.resource.data.get('hireDate', null) == resource.data.get('hireDate', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && (
           request.resource.data.accountStatus == resource.data.accountStatus
           || (
@@ -109,7 +149,7 @@ service cloud.firestore {
             && request.resource.data.hasTempPassword == false
           )
         )
-      );
+      ));
       // El borrado real (cascada) lo hace el backend; el cliente solo marca
       // accountStatus='deleted' vía el update de la empresa.
       allow delete: if false;
@@ -124,15 +164,39 @@ service cloud.firestore {
 
     // ---------- Fichajes (registro horario) ----------
     match /clockRecords/{entryId} {
-      allow read: if belongsToCompany(resource.data.companyId);
+      // `employeeId == uid` permite al empleado consultar sus fichajes solo por
+      // employeeId (las queries deben poder probarse contra la regla).
+      allow read: if isSignedIn()
+                  && (resource.data.employeeId == request.auth.uid
+                      || belongsToCompany(resource.data.companyId));
 
       // Crear: empleado de la empresa o la propia empresa. No puede llegar ya
       // marcado como editado (la edición es un acto posterior y trazado).
+      // Un empleado solo puede fichar a SU nombre (employeeId == uid); la
+      // empresa puede crear fichajes de cualquiera de sus empleados.
       allow create: if belongsToCompany(incomingCompanyId())
-                    && request.resource.data.isEdited == false;
+                    && request.resource.data.isEdited == false
+                    && (isCompany(incomingCompanyId())
+                        || (request.resource.data.employeeId == request.auth.uid
+                            && isActiveEmployee()));
 
-      // Editar: miembro de la empresa, sin alterar los campos de origen.
-      allow update: if belongsToCompany(existingCompanyId())
+      // Editar: la empresa (edición trazada con auditLog) o el propio empleado
+      // sobre su fichaje (salida/pausas), que NO puede marcarlo como editado:
+      // las correcciones a posteriori son solo de la empresa. Un empleado no
+      // toca fichajes de compañeros. Sin alterar los campos de origen.
+      // El empleado solo puede CERRAR su fichaje abierto, y solo tocando la
+      // salida (clockOut/clockOutLat/clockOutLng/updatedAt): así puede cerrar
+      // incluso un fichaje que la empresa haya editado, sin reescribir el doc
+      // completo desde un modelo obsoleto (lost update) ni alterar la entrada.
+      allow update: if (
+                      isCompany(existingCompanyId())
+                      || (request.auth.uid == resource.data.employeeId
+                          && isActiveEmployee()
+                          && resource.data.clockOut == null
+                          && request.resource.data.clockOut != null
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                              .hasOnly(['clockOut', 'clockOutLat', 'clockOutLng', 'updatedAt']))
+                    )
                     && request.resource.data.id == resource.data.id
                     && request.resource.data.employeeId == resource.data.employeeId
                     && request.resource.data.companyId == resource.data.companyId
@@ -149,10 +213,16 @@ service cloud.firestore {
         allow read: if belongsToCompany(
           get(/databases/$(database)/documents/clockRecords/$(entryId)).data.companyId
         );
+        // Solo la empresa o el empleado dueño del fichaje, y siempre firmando
+        // como ellos mismos (actorUid), para que la auditoría sea fiable.
         allow create: if isSignedIn()
                       && request.resource.data.entryId == entryId
                       && request.resource.data.at != null
-                      && request.resource.data.actorUid != null;
+                      && request.resource.data.actorUid == request.auth.uid
+                      && (
+                        isCompany(get(/databases/$(database)/documents/clockRecords/$(entryId)).data.companyId)
+                        || request.auth.uid == get(/databases/$(database)/documents/clockRecords/$(entryId)).data.employeeId
+                      );
         allow update, delete: if false;
       }
     }
@@ -168,29 +238,42 @@ service cloud.firestore {
     match /company_shift_templates/{tplId} {
       allow read: if belongsToCompany(resource.data.companyId);
       allow create: if isCompany(incomingCompanyId());
-      allow update, delete: if isCompany(existingCompanyId());
+      allow update: if isCompany(existingCompanyId())
+                    && incomingCompanyId() == existingCompanyId();
+      allow delete: if isCompany(existingCompanyId());
     }
 
     // ---------- Reglas recurrentes de horario ----------
     match /employee_schedule_rules/{ruleId} {
       allow read: if belongsToCompany(resource.data.companyId);
       allow create: if isCompany(incomingCompanyId());
-      allow update, delete: if isCompany(existingCompanyId());
+      allow update: if isCompany(existingCompanyId())
+                    && incomingCompanyId() == existingCompanyId()
+                    && request.resource.data.employeeId == resource.data.employeeId;
+      allow delete: if isCompany(existingCompanyId());
     }
 
     // ---------- Overrides de horario por mes ----------
     // id compuesto: {companyId}__{employeeId}__{month}
     match /employee_schedule_months/{docId} {
-      allow read: if belongsToCompany(resource.data.companyId);
+      // El cliente hace get() del mes aunque no exista todavía (resolución de
+      // turno esperado): con resource == null, evaluar resource.data denegaba
+      // la lectura y la app mostraba "Ha ocurrido un error inesperado". El id
+      // es {companyId}__{employeeId}__{yyyy-MM}, así que la empresa se deduce.
+      allow get: if (resource != null && belongsToCompany(resource.data.companyId))
+                 || (resource == null && belongsToCompany(docId.split('__')[0]));
+      allow list: if belongsToCompany(resource.data.companyId);
       // Crea/actualiza la empresa, o el empleado dueño sobre su propio mes.
       allow create: if isCompany(incomingCompanyId())
-                    || (employeeExists()
+                    || (isActiveEmployee()
                         && incomingCompanyId() == myEmployee().companyId
                         && request.resource.data.employeeId == request.auth.uid);
-      allow update: if isCompany(existingCompanyId())
-                    || (employeeExists()
-                        && existingCompanyId() == myEmployee().companyId
-                        && resource.data.employeeId == request.auth.uid);
+      allow update: if incomingCompanyId() == existingCompanyId()
+                    && request.resource.data.employeeId == resource.data.employeeId
+                    && (isCompany(existingCompanyId())
+                        || (isActiveEmployee()
+                            && existingCompanyId() == myEmployee().companyId
+                            && resource.data.employeeId == request.auth.uid));
       allow delete: if isCompany(existingCompanyId())
                     || (employeeExists() && resource.data.employeeId == request.auth.uid);
     }
@@ -200,7 +283,7 @@ service cloud.firestore {
       allow read: if belongsToCompany(resource.data.companyId);
 
       // El empleado crea sus propias solicitudes (estado inicial requested).
-      allow create: if employeeExists()
+      allow create: if isActiveEmployee()
                     && incomingCompanyId() == myEmployee().companyId
                     && request.resource.data.employeeId == request.auth.uid
                     && request.resource.data.status == 'requested';
@@ -219,8 +302,14 @@ service cloud.firestore {
         && request.resource.data.employeeId == resource.data.employeeId
       ) || (
         request.auth.uid == resource.data.employeeId
+        && isActiveEmployee()
         && request.resource.data.companyId == resource.data.companyId
         && request.resource.data.employeeId == resource.data.employeeId
+        // Al aceptar/rechazar/cancelar no puede cambiar lo solicitado ni lo
+        // propuesto por la empresa (evita "auto-aprobarse" otras fechas).
+        && request.resource.data.get('dates', null) == resource.data.get('dates', null)
+        && request.resource.data.get('proposedDates', null) == resource.data.get('proposedDates', null)
+        && request.resource.data.get('type', null) == resource.data.get('type', null)
         && (
           (resource.data.status == 'requested'
             && request.resource.data.status == 'cancelled')
@@ -234,19 +323,31 @@ service cloud.firestore {
     // ---------- Chat ----------
     match /conversations/{convId} {
       // Solo miembros de la conversación pueden leerla.
-      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      // Los grupos de empresa también los puede consultar cualquier miembro de
+      // la empresa (ensureDefaultGroup busca por companyId+isGroup+title sin
+      // filtrar por memberIds, y la query debe poder probarse).
+      allow read: if isSignedIn()
+                  && (request.auth.uid in resource.data.memberIds
+                      || (resource.data.isGroup == true
+                          && belongsToCompany(resource.data.companyId)));
 
       // Crear conversación: el creador debe ser miembro y pertenecer a la empresa.
       allow create: if isSignedIn()
                     && request.auth.uid in request.resource.data.memberIds
-                    && belongsToCompany(incomingCompanyId());
+                    && (isCompany(incomingCompanyId())
+                        || (isActiveEmployee()
+                            && myEmployee().companyId == incomingCompanyId()));
 
       // Actualizar metadatos (último mensaje, unreadCounts): solo miembros, y sin
       // cambiar la membresía ni la empresa de la conversación.
+      // La empresa sí puede cambiar la membresía (alta de empleados en "Todos").
       allow update: if isSignedIn()
-                    && request.auth.uid in resource.data.memberIds
-                    && request.resource.data.memberIds == resource.data.memberIds
-                    && request.resource.data.companyId == resource.data.companyId;
+                    && request.resource.data.companyId == resource.data.companyId
+                    && (
+                      isCompany(resource.data.companyId)
+                      || (request.auth.uid in resource.data.memberIds
+                          && request.resource.data.memberIds == resource.data.memberIds)
+                    );
       allow delete: if false;
 
       match /messages/{msgId} {
@@ -260,7 +361,9 @@ service cloud.firestore {
         allow create: if isSignedIn()
                       && request.resource.data.senderId == request.auth.uid
                       && request.auth.uid in
-                         get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+                         get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds
+                      && (isCompany(get(/databases/$(database)/documents/conversations/$(convId)).data.companyId)
+                          || isActiveEmployee());
         allow update, delete: if false;
       }
     }

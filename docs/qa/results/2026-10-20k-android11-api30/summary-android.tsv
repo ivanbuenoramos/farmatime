@@ -1,0 +1,5 @@
+archivo	resultado	duracion_s	log
+smoke_test	PASS	45	docs/qa/results/2026-10-20k-android11-api30/android-smoke_test.log
+auth_company_test	PASS	56	docs/qa/results/2026-10-20k-android11-api30/android-auth_company_test.log
+clock_flow_test	PASS	80	docs/qa/results/2026-10-20k-android11-api30/android-clock_flow_test.log
+clock_denied_location_test	FAIL	65	docs/qa/results/2026-10-20k-android11-api30/android-clock_denied_location_test.log

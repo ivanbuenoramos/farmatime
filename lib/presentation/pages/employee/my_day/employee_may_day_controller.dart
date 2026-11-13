@@ -14,6 +14,7 @@ import 'package:farmatime/domain/usecases/clock/create_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/update_entry_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/get_entries_by_employee_usecase.dart';
 import 'package:farmatime/domain/usecases/clock/log_clock_creation_usecase.dart';
+import 'package:farmatime/domain/usecases/clock/close_entry_usecase.dart';
 
 class EmployeeMyDayController extends GetxController {
   final CreateEntryUseCase createEntryUseCase;
@@ -21,6 +22,7 @@ class EmployeeMyDayController extends GetxController {
   final GetEntriesByEmployeeUseCase getEntriesByEmployeeUseCase;
   final GetExpectedShiftsForDayUseCase getExpectedShiftUseCase;
   final LogClockCreationUseCase logClockCreationUseCase;
+  final CloseEntryUseCase closeEntryUseCase;
 
   EmployeeMyDayController({
     required this.createEntryUseCase,
@@ -28,6 +30,7 @@ class EmployeeMyDayController extends GetxController {
     required this.getEntriesByEmployeeUseCase,
     required this.getExpectedShiftUseCase,
     required this.logClockCreationUseCase,
+    required this.closeEntryUseCase,
   });
 
   final Brain brain = Get.find<Brain>();
@@ -45,6 +48,12 @@ class EmployeeMyDayController extends GetxController {
   // --- Contador (faltan / vas tarde) ---
   final scheduleCounterText = RxnString();
   Timer? _scheduleTimer;
+
+  // Evita dobles fichajes por doble tap mientras hay una operación en curso.
+  bool _clockBusy = false;
+  // Día para el que se cargaron los datos (detecta el cambio de día con la app abierta).
+  DateTime _loadedDay = DateTime.now();
+  bool _reloadingDay = false;
 
   @override
   void onInit() {
@@ -68,13 +77,27 @@ class EmployeeMyDayController extends GetxController {
 
   Future<void> _loadInitialData() async {
     isLoading.value = true;
+    try {
+      await _loadInitialDataImpl();
+    } catch (_) {
+      ToastService().show(
+        title: 'Error',
+        message: 'No se pudieron cargar fichajes',
+        type: ToastType.error,
+      );
+    } finally {
+      // Garantiza que el timer del contador y el estado de carga siempre terminan.
+      _startScheduleTimer();
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> _loadInitialDataImpl() async {
+    _loadedDay = DateTime.now();
 
     final employee = brain.employee.value;
     final employeeId = employee?.uid;
-    if (employeeId == null) {
-      isLoading.value = false;
-      return;
-    }
+    if (employeeId == null) return;
 
     final allEntriesResult = await getEntriesByEmployeeUseCase.call(employeeId);
 
@@ -108,10 +131,6 @@ class EmployeeMyDayController extends GetxController {
     // Horario real de hoy (override mensual + reglas dentro del usecase)
     await _loadTodayExpectedShift();
 
-    // Timer del contador horario
-    _startScheduleTimer();
-
-    isLoading.value = false;
   }
 
   Future<void> _loadTodayExpectedShift() async {
@@ -142,6 +161,12 @@ class EmployeeMyDayController extends GetxController {
   void _startScheduleTimer() {
     _scheduleTimer?.cancel();
     _scheduleTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      // Cambio de día con la app abierta: recargar fichajes y horario de hoy.
+      if (!_reloadingDay && !_isSameDay(_loadedDay, DateTime.now())) {
+        _reloadingDay = true;
+        _loadInitialData().whenComplete(() => _reloadingDay = false);
+        return;
+      }
       _recomputeScheduleCounter();
     });
   }
@@ -242,6 +267,7 @@ class EmployeeMyDayController extends GetxController {
 
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
       );
     } catch (_) {
       ToastService().show(
@@ -255,10 +281,19 @@ class EmployeeMyDayController extends GetxController {
 
   Future<void> clockOut() async {
     final entry = currentEntry.value;
-    if (entry == null) return;
+    // Mientras carga el estado inicial no se sabe si hay entrada abierta.
+    if (entry == null || _clockBusy || isLoading.value) return;
+    _clockBusy = true;
+    try {
+      await _doClockOut(entry);
+    } finally {
+      _clockBusy = false;
+    }
+  }
 
-    final now = DateTime.now();
+  Future<void> _doClockOut(ClockInOutModel entry) async {
     final position = await _getSafePosition();
+    final now = DateTime.now();
 
     final updated = entry.copyWith(
       clockOut: now,
@@ -267,8 +302,15 @@ class EmployeeMyDayController extends GetxController {
       updatedAt: now,
     );
 
-    final result = await updateEntryUseCase.call(updated);
-    if (result.success && result.data != null) {
+    // Solo se escribe la salida: si la empresa editó este fichaje mientras
+    // estaba abierto, no se pisa su edición (y las reglas lo exigen así).
+    final result = await closeEntryUseCase(
+      entryId: entry.id,
+      clockOut: now,
+      clockOutLat: updated.clockOutLat,
+      clockOutLng: updated.clockOutLng,
+    );
+    if (result.success) {
       currentEntry.value = null;
       _clockTimer?.cancel();
       currentDuration.value = Duration.zero;
@@ -289,6 +331,17 @@ class EmployeeMyDayController extends GetxController {
   }
 
   Future<void> clockIn() async {
+    // Con la carga inicial en curso podría crearse una entrada duplicada.
+    if (_clockBusy || isLoading.value) return;
+    _clockBusy = true;
+    try {
+      await _doClockIn();
+    } finally {
+      _clockBusy = false;
+    }
+  }
+
+  Future<void> _doClockIn() async {
     if (currentEntry.value != null) {
       ToastService().show(
         title: 'Aviso',
@@ -308,8 +361,8 @@ class EmployeeMyDayController extends GetxController {
       return;
     }
 
-    final now = DateTime.now();
     final position = await _getSafePosition();
+    final now = DateTime.now();
 
     final newEntry = ClockInOutModel(
       id: const Uuid().v4(),
@@ -376,7 +429,12 @@ class EmployeeMyDayController extends GetxController {
     var sum = getTotalWorkedToday();
     final active = currentEntry.value;
     if (active != null && active.clockOut == null) {
-      sum += currentDuration.value;
+      // Si el turno abierto empezó un día anterior, solo cuenta lo de hoy.
+      final n = DateTime.now();
+      final startOfToday = DateTime(n.year, n.month, n.day);
+      sum += active.clockIn.isBefore(startOfToday)
+          ? n.difference(startOfToday)
+          : currentDuration.value;
     }
     return sum;
   }

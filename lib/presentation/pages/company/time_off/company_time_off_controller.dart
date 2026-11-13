@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:farmatime/core/app/brain.dart';
+import 'package:farmatime/core/services/toast_service.dart';
 import 'package:farmatime/data/models/schedule/time_off_model.dart';
 import 'package:farmatime/domain/usecases/time_off/stream_time_off_by_company_usecase.dart';
 import 'package:farmatime/domain/usecases/time_off/decide_time_off_usecase.dart';
@@ -57,6 +58,10 @@ class CompanyTimeOffController extends GetxController {
       isLoading.value = false;
     }, onError: (_) {
       isLoading.value = false;
+      ToastService().show(
+          title: 'Error',
+          message: 'No se pudieron cargar las solicitudes. Inténtalo de nuevo.',
+          type: ToastType.error);
     });
   }
 

@@ -41,7 +41,9 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.5"
+          # Misma versión que en local y que ios-release.yml: pubspec.lock exige
+          # Dart >= 3.11 (in_app_purchase_android 0.5.x), que 3.35.5 no cumple.
+          flutter-version: "3.47.6"
           channel: stable
           cache: true
 

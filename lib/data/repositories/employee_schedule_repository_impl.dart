@@ -81,16 +81,22 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
       final payload = <String, dynamic>{};
       entries.forEach((k, v) => payload[k] = v.toJson());
 
-      await _monthsCol()
-          .doc(_monthDocId(companyId, employeeId, mStr))
-          .set({
-            'companyId': companyId,
-            'employeeId': employeeId,
-            'month': mStr,
-            'entries': payload,
-            'updatedAt': FieldValue.serverTimestamp(),
-            'createdAt': FieldValue.serverTimestamp(), // merge => solo crea si no existe
-          }, SetOptions(merge: true))
+      // 'entries' se escribe como mapa COMPLETO (mergeFields reemplaza el campo
+      // entero). Con SetOptions(merge: true) Firestore fusiona en profundidad
+      // los mapas y las claves eliminadas ("Quitar asignación") nunca
+      // desaparecían del documento.
+      final ref = _monthsCol().doc(_monthDocId(companyId, employeeId, mStr));
+      final snap = await ref.get().timeout(const Duration(seconds: 10));
+      final data = <String, dynamic>{
+        'companyId': companyId,
+        'employeeId': employeeId,
+        'month': mStr,
+        'entries': payload,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!snap.exists) data['createdAt'] = FieldValue.serverTimestamp();
+      await ref
+          .set(data, SetOptions(mergeFields: data.keys.toList()))
           .timeout(const Duration(seconds: 10));
 
       return Result(success: true, data: true);
@@ -315,6 +321,9 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
     final monthStr = DateFormat('yyyy-MM').format(dayDate);
 
     final out = <String, ExpectedShiftModel?>{};
+    // Empleados con override explícito ese día (libre/vacaciones/etc. también):
+    // el override manda sobre las reglas recurrentes.
+    final overridden = <String>{};
 
     try {
       // 0) init
@@ -347,6 +356,7 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
           if (raw == null) continue;
 
           final entry = DayEntry.fromJson(Map<String, dynamic>.from(raw as Map));
+          overridden.add(empId);
           // Solo si es work con horas
           if (entry.type == DayType.work && entry.start != null && entry.end != null) {
             out[empId] = _shiftFromDayEntry(entry, dayDate);
@@ -357,7 +367,7 @@ class EmployeeScheduleRepositoryImpl implements EmployeeScheduleRepository {
       }
 
       // 2) Reglas: para los que siguen null, query por whereIn (10 max)
-      final pending = out.entries.where((e) => e.value == null).map((e) => e.key).toList();
+      final pending = out.entries.where((e) => e.value == null && !overridden.contains(e.key)).map((e) => e.key).toList();
 
       for (int i = 0; i < pending.length; i += kBatch) {
         final slice = pending.sublist(

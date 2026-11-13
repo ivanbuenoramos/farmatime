@@ -5,13 +5,15 @@
     <uses-permission android:name="com.android.vending.BILLING" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <meta-data android:name="com.google.android.geo.API_KEY"
-               android:value="AIzaSyC00CKKmwNiEfs0uUDGCrfcYbz51HbuUuE"/>
-
     <application
         android:label="Farmatime"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
+        <!-- La API key de Google Maps DEBE ir dentro de <application>: fuera
+             de él el SDK no la encuentra y el mapa del modal del día cerraba
+             la app en Android. -->
+        <meta-data android:name="com.google.android.geo.API_KEY"
+                   android:value="AIzaSyC00CKKmwNiEfs0uUDGCrfcYbz51HbuUuE"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

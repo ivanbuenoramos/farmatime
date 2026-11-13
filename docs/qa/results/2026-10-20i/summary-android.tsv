@@ -1,0 +1,6 @@
+archivo	resultado	duracion_s	log
+smoke_test	FAIL	483	docs/qa/results/2026-10-20i/android-smoke_test.log
+auth_employee_test	FAIL	110	docs/qa/results/2026-10-20i/android-auth_employee_test.log
+chat_test	FAIL	55	docs/qa/results/2026-10-20i/android-chat_test.log
+schedule_test	FAIL	30	docs/qa/results/2026-10-20i/android-schedule_test.log
+time_off_test	FAIL	110	docs/qa/results/2026-10-20i/android-time_off_test.log
